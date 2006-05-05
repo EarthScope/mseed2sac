@@ -1,0 +1,51 @@
+.TH MST_INIT 3 2004/11/22 "Libmseed API"
+.SH DESCRIPTION
+Initializing and freeing Trace and TraceGroup structures
+
+.SH SYNOPSIS
+.nf
+.B #include <libmseed.h>
+
+.BI "Trace      *\fBmst_init\fP ( Trace *" mst " );
+
+.BI "void        \fBmst_free\fP ( Trace **" ppmst " ); 
+
+.BI "TraceGroup *\fBmst_initgroup\fP ( TraceGroup *" mstg " );
+
+.BI "void        \fBmst_freegroup\fP ( TraceGroup **" ppmstg " ); 
+.fi
+
+.SH DESCRIPTION
+\fBmst_init\fP will initialize a Trace structure.  If the \fImst\fP
+parameter is NULL a new structure will be allocated.  If the \fImst\fP
+parameter is not NULL the structure will be cleared and any memory
+allocated for the Trace.datasamples and Trace.private members will
+be freed.
+
+\fBmst_free\fP will free all memory associated with a Trace structure
+and set the structure pointer (*\fIppmst\fP) to 0.  This includes any
+memory pointed to by the \fIprivate\fP member of the Trace structure.
+
+\fBmst_initgroup\fP will initialize a TraceGroup structure.  If the
+\fImstg\fP parameter is NULL a new structure will be allocated.  If
+the \fImstg\fP parameter is not NULL the structure will be cleared and
+any all associated Trace structures will be freed.
+
+\fBmst_freegroup\fP will free all memory associated with a TraceGroup
+structure and set the structure pointer (*\fIppmstg\fP) to 0.
+
+.SH RETURN VALUES
+\fBmst_init\fP returns a pointer to the Trace structure initialized on
+success or NULL on error.
+
+\fBmst_initgroup\fP returns a pointer to the TraceGroup structure
+initialized on success or NULL on error.
+
+.SH SEE ALSO
+\fBms_intro(3)\fP.
+
+.SH AUTHOR
+.nf
+Chad Trabant
+IRIS Data Management Center
+.fi

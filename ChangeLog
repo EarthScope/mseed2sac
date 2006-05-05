@@ -1,0 +1,6 @@
+2006.098:
+	- Add SAC output.
+	- Add option to convert to nanometers, default is meters.
+
+2006.072:
+	- Initial version. 

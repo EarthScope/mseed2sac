@@ -1,0 +1,155 @@
+.TH MSR_PACK 3 2005/05/26 "Libmseed API"
+.SH DESCRIPTION
+Packing of Mini-SEED records.
+
+.SH SYNOPSIS
+.nf
+.B #include <libmseed.h>
+
+.BI "MSrecord *\fBmsr_pack\fP ( MSrecord *" msr ",
+.BI "                     void (*" record_handler ") (char *, int),
+.BI "                     int *" packedsamples ", flag " flush ", flag " verbose " );
+
+.BI "int       \fBmsr_pack_header\fP ( MSrecord *" msr ", flag " verbose " );
+.fi
+
+.SH DESCRIPTION
+\fBmsr_pack\fP creates (packs) Mini-SEED data records.  Using the
+record header values in a MSrecord data structure, \fImsr\fP, as a
+template, the common header fields and blockettes are packed into a
+record header.  A Blockette 1000 will be added if one is not present
+in the template.  The data samples at MSrecord.datasamples are packed
+in the encoding format indicated by the MSrecord.encoding field.  The
+MSrecord.datasamples array and MSrecord.numsamples value will not be
+changed by this routine.  It is the responsibility of the calling
+routine to adjust the data buffer if desired.  This routine will
+modify the start time and sequence number of the MSrecord template as
+it packs records.
+
+The key characteristics of data record indicator, record length,
+encoding format and byte order of packed records are taken from
+MSrecord.drec_indicator, MSrecord.reclen, MSrecord.encoding and
+MSrecord.byteorder respectively.  Default values for these quantities
+will be used when the indicator is 0 or the reclen, encoding or
+byteorder are -1 respectively.  The default values are: drec_indicator
+= 'D', reclen = 4096 bytes, encoding = 11 (Steim2) and byteorder = 1
+(MSBF or big-endian).
+
+MSrecord.drec_indicator should be either 'D', 'R' or 'Q'.
+
+MSrecord.reclen should be set to the desired data record length in
+bytes which must be expressible as 2 raised to the power of X where X
+is between (and including) 8 to 20.
+
+MSrecord.encoding should be set to one of the following supported
+Mini-SEED data encoding formats: ASCII (0), INT16 (1), INT32 (3),
+FLOAT32 (4), FLOAT64 (5), STEIM1 (10) and STEIM2 (11).
+
+MSrecord.sampletype should indicated the sample type as either 'a'
+(ASCII), 'i' (32-bit integers), 'f' (32-bit floats) or 'd' (64-bit
+doubles).
+
+The encoding format must be appropriate for the sample type.  For
+example, Steim compression and integer encoding formats must be used
+with integer samples and float encoding formats require the appropriate
+size floats as input.  As a counter example, float samples cannot be
+packed using Steim compression or integer encoding formats.
+
+MSrecord.byteorder must be either 0 (LSBF or little-endian) or 1 (MBF
+or big-endian).
+
+Each time a complete record is packed it will be passed to the
+\fIrecord_handler()\fP function along with it's length in bytes.  It
+is the responsibility of \fIrecord_handler()\fP to process the record,
+the memory will be re-used or freed when \fIrecord_handler()\fP
+returns.
+
+The integer pointed to by \fIpackedsamples\fP will be set to the total
+number of samples packed.
+
+If the \fIflush\fP flag is not zero all of the data will be packed
+into records, otherwise records will only be packed while there are
+enough data samples to completely fill a record.
+
+The \fIverbose\fP flag controls verbosity, a value of zero will result
+in no diagnostic output.
+
+\fBmsr_pack_header\fP packs header information, fixed section and
+blockettes, in a MSrecord structure into the Mini-SEED record at
+MSrecord.record.  This is useful for re-packing record headers.  The
+\fIverbose\fP flag controls verbosity, a value of zero will result in
+no diagnostic output.
+
+.SH ENVIRONMENT VARIABLES
+The following environment variables effect the packing of Mini-SEED:
+
+.nf
+PACK_HEADER_BYTEORDER
+PACK_DATA_BYTEORDER
+.fi
+
+The PACK_HEADER_BYTEORDER and PACK_DATA_BYTEORDER variables force the
+byte order of the header and data respectively.  They could be set to
+either 0 (little endian) or 1 (big endian).  Normally the byte order
+of the header and data is determined by the byteorder flag of the
+MSrecord, this capability is included to support any combination of
+byte orders in a generalized way.
+
+.SH RETURN VALUES
+\fBmsr_pack\fP returns the number records created on success and -1 on
+error.
+
+\fBmsr_pack_header\fP returns the header length in bytes on success
+and -1 on error.
+
+.SH EXAMPLE
+Skeleton code for creating (packing) Mini-SEED records with
+msr_pack(3):
+
+.nf
+static void record_handler (char *record, int reclen) {
+  if ( fwrite(record, reclen, 1, outfile) != 1 )
+    {
+      fprintf (stderr, "Error writing to output file\n");
+    }
+}
+
+main() {
+  int psamples;
+  int precords;
+  MSrecord *msr;
+
+  msr = msr_init (NULL);
+
+  /* Populate MSrecord values */
+  strcpy (msr->network, "XX");
+  strcpy (msr->station, "TEST");
+  strcpy (msr->channel, "BHE");
+  msr->starttime = ms_seedtimestr2dtime ("2004,350,00:00:00.00");
+  msr->samprate = 40.0;
+  msr->reclen = 4096;         /* 4096 byte record length */
+  msr->encoding = STEIM2;     /* Steim 2 compression */
+  msr->byteorder = 1;         /* big endian byte order */
+
+  msr->datasamples = dataptr; /* pointer to 32-bit integer data samples */  
+  msr->numsamples = 1234;
+  msr->sampletype = 'i';      /* declare type to be 32-bit integers */
+
+  /* Pack the record(s) */
+  precords = msr_pack (msr, &record_handler, &psamples, 1, verbose);
+
+  printf ("Packed %d samples into %d records\n", psamples, precords);
+
+  msr_free (&msr);
+}
+.fi
+
+.SH SEE ALSO
+\fBms_intro(3)\fP, \fBmst_pack(3)\fP, \fBmst_packgroup(3)\fP, and
+\fBmsr_unpack(3)\fP.
+
+.SH AUTHOR
+.nf
+Chad Trabant
+IRIS Data Management Center
+.fi

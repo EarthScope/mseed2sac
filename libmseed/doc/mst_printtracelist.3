@@ -1,0 +1,71 @@
+.TH MST_PRINT 3 2005/05/26 "Libmseed API"
+.SH DESCRIPTION
+Printing of Trace information.
+
+.SH SYNOPSIS
+.nf
+.B #include <libmseed.h>
+
+.BI "void   \fBmst_printtracelist\fP ( TraceGroup *" mstg ", flag " timeformat ",
+.BI "                            flag " details ", flag " gaps " );
+
+.BI "void   \fBmst_printgaplist\fP ( TraceGroup *" msgt ", flag " timeformat ",
+.BI "                          double *" mingap ", double *" maxgap " );
+
+.BI "char  *\fBmst_srcname\fP ( Trace *" mst ", char *" srcname " );"
+.fi
+
+.SH DESCRIPTION
+\fBmst_printtracelist\fP prints a formatted list of the Trace segments
+in the given TraceGroup to stdout.  If the \fIdetails\fP flag is
+greater than 0 the sample rate and sample count are printed for each
+trace.  If the \fIgaps\fP flag is greater than zero the time gap from
+the previous Trace (if the source name matches) is printed.
+
+\fBmst_printgaplist\fP prints a formatted list of the gaps between
+Trace segments in the given TraceGroup to stdout.  If \fImingap\fP or
+\fImaxgap\fP is not NULL their values will be enforced and only
+gaps/overlaps matching their implied criteria will be printed.
+
+The \fItimeformat\fP argument for both \fBmst_printtracelist\fP and
+\fBmst_printgaplist\fP controls the format of the resulting time
+strings.  Possible formats are:
+
+.nf
+0 : SEED time format (2005,146,00:00:00.000000)
+1 : ISO time format (2005-05-26T00:00:00.000000)
+2 : Epoch time, seconds since the epoch (1117065600.00000000)
+.fi
+
+Both \fBmst_printtracelist\fP and \fBmst_printgaplist\fP represent
+time overlaps as negative gaps.
+
+\fBmst_srcname\fP generates a source name string in the
+format: 'NET_STA_LOC_CHAN' and stores it in \fIsrcname\fP.  The memory
+pointed to by \fIsrcname\fP must have enough room for the resulting
+string.
+
+.SH GAP/OVERLAP RULES
+The existence of gaps and overlaps is implicit in the structure of the
+TraceGroup, no special processing is done to detect gaps and overlaps
+in these routines.
+
+The value of a gap is calculated as the difference between the time of
+the last sample before the gap and the time of the first sample after
+the gap.  No sample 'coverage' time is included.
+
+The value of an overlap is calculated as the time between two samples
+which represent the maximum amount of timeseries overlap.
+
+.SH RETURN VALUES
+\fBmst_srcname\fP returns a pointer to the resulting string or NULL on
+error.
+
+.SH SEE ALSO
+\fBms_intro(3)\fP
+
+.SH AUTHOR
+.nf
+Chad Trabant
+IRIS Data Management Center
+.fi

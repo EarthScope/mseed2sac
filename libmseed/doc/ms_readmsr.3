@@ -1,0 +1,116 @@
+.TH MS_READMSR 3 2004/12/17 "Libmseed API"
+.SH DESCRIPTION
+Read Mini-SEED data from files
+
+.SH SYNOPSIS
+.nf
+.B #include <libmseed.h>
+
+.BI "MSrecord   *\fBms_readmsr\fP ( char *" msfile ", int " reclen ", off_t *" fpos ",
+.BI "                         int *" last ", flag " skipnotdata ", flag " dataflag ",
+.BI "                         flag " verbose " );
+
+.BI "TraceGroup *\fBms_readtraces\fP ( char *" msfile ", int " reclen ", 
+.BI "                            double " timetol ", double " sampratetol ",
+.BI "                            flag " skipnotdata ", flag " dataflag ",
+.BI "                            flag " verbose " );"
+.fi
+
+.SH DESCRIPTION
+\fBms_readmsr\fP will open and read, with subsequent calls, all
+Mini-SEED records from a specified file.  Standard input will be
+opened if \fImsfile\fP is "-" (dash).  As each record is read it is
+unpacked using \fBmsr_unpack(3)\fP.
+
+If \fIreclen\fP is 0 the length of the first record is automatically
+detected, all subsequent records are then expected to have the same
+length as the first.  If \fIreclen\fP is negative the length of every
+record is automatically detected.  For auto detection of record length
+records must include Blockette 1000s (i.e. they must be true
+Mini-SEED).  Furthermore, the Blockette 1000s must be fully contained
+within the first 8192 bytes of a record for auto detection to be
+successful.
+
+If the \fIfpos\fP pointer is not NULL the value will be set to the
+file position (offset from the beginning in bytes) from where the
+returned record was read.
+
+If the \fIlast\fP pointer is not NULL the value will be set to 1 when
+the last record in the file is being returned, otherwise it will be 0.
+
+If the \fIskipnotdata\fP flag is true (not 0) any data chunks read
+that do not have valid data record indicators (i.e. D, R, or Q) will
+be skipped.
+
+The \fIdataflag\fP argument is passed directly to \fBmsr_unpack(3)\fP
+and controls whether data samples are unpacked.
+
+After reading all the input records the controlling program should
+call it one last time with \fImsfile\fP set to NULL.  This will close
+the file and cleanup allocated memory.
+
+\fBms_readtraces\fP simply reads all Mini-SEED records from a file
+using \fBms_readmsr\fP and adds each one to a TraceGroup using
+\fBmst_addmsrtogroup(3)\fP.  The \fImsfile\fP, \fIreclen\fP,
+\fIskipnotdata\fP and \fIdataflag\fP arguments are passed directly to
+\fBms_readmsr\fP.  The \fItimetol\fP and \fIsampratetol\fP arguments
+are passed directly to \fBmst_addmsrtogroup(3)\fP.
+
+.SH RETURN VALUES
+\fBms_readmsr\fP returns the next read record or NULL on EOF, error or
+cleanup.
+
+\fBms_readtraces\fP returns a pointer to a TraceGroup on success or
+NULL on error.
+
+.SH CAVEATS
+Neither \fBms_readfile\fP or \fBms_readtraces\fP is thread safe nor
+can they be used to read more than one file at a time as static memory
+is used to keep track of the file read parameters.
+
+.SH EXAMPLE
+Skeleton code for reading a file with \fBms_readmsr(3)\fP:
+
+.nf
+main() {
+  MSrecord *msr;
+
+  while ( (msr = msr_readmsr(filename, 0, NULL, NULL, 1, 0, verbose)) )
+    {
+       /* Do something with the record here, e.g. print */
+       msr_print (msr, verbose);
+    }
+
+  ms_readmsr (NULL, 0, NULL, NULL, 0, 0);
+}
+
+.fi
+For reading a file with \fBms_readtraces(3)\fP:
+.nf
+
+main() {
+  MSrecord *mstg;
+
+  mstg = msr_readtraces (filename, 0, -1.0, -1.0, 1, 0, verbose);
+
+  if ( ! mstg )
+    {
+      fprintf (stderr, "Error reading file\n");
+      return -1;
+    }
+
+  /* Do something with the traces here, e.g. print */
+  mst_print (mstg, verbose, 0);
+
+  mst_freegroup (&mstg);
+}
+.fi
+
+.SH SEE ALSO
+\fBms_intro(3)\fP, \fBmsr_unpack(3)\fP and \fBmst_addmsrtogroup(3)\fP.
+
+.SH AUTHOR
+.nf
+Chad Trabant
+IRIS Data Management Center
+.fi

@@ -1,0 +1,29 @@
+#
+# Nmake file - Windows version
+# Use 'nmake -f Makefile.win'
+#
+# THIS HAS NEVER BEEN TESTED
+# Some modification might be required.
+
+NODEBUG=1
+
+!include <ntwin32.mak>
+
+INCS = /I..\libmseed
+LIBS = ..\libmseed\libmseed.lib
+
+BIN = ..\mseed2sac.exe
+
+cflags = $(cflags) -DWIN32
+
+all: $(BIN)
+
+$(BIN):	mseed2sac.obj
+	link.exe /nologo /out:$(BIN) $(LIBS) mseed2sac.obj
+
+.c.obj:
+   $(cc) /nologo $(cflags) $(cdebug) $(cvarsmt) $(tflags) $(INCS) $<
+
+# Clean-up directives
+clean:
+	-del a.out core *.o *.obj *% *~ $(BIN)
