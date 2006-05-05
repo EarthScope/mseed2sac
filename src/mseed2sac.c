@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.124
+ * modified 2006.125
  ***************************************************************************/
 
 #include <stdio.h>
@@ -13,7 +13,6 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-#include <ctype.h>
 
 #include <libmseed.h>
 
@@ -29,6 +28,11 @@ struct listnode {
 };
 
 static int writesac (MSTrace *mst);
+static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
+			   char *outfile);
+static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
+			  char *outfile);
+static int swapsacheader (struct SACHeader *sh);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
 static int readlistfile (char *listfile);
@@ -39,6 +43,7 @@ static int   verbose     = 0;
 static int   reclen      = -1;
 static int   encoding    = 11;
 static int   indifile    = 0;
+static int   sacformat   = 2;
 static double latitude   = 999.0;
 static double longitude  = 999.0;
 static char *network     = 0;
@@ -76,7 +81,7 @@ main (int argc, char **argv)
       if ( verbose )
         fprintf (stderr, "Reading %s\n", flp->data);
       
-      while ( (msr = ms_readmsr(flp->data, reclen, NULL, NULL, 1, 1, verbose)) )
+      while ( (msr = ms_readmsr(flp->data, reclen, NULL, NULL, 1, 1, verbose-1)) )
 	{
 	  if ( verbose > 1)
 	    msr_print (msr, verbose - 2);
@@ -139,9 +144,12 @@ writesac (MSTrace *mst)
 {
   struct SACHeader sh = NullSACHeader;
   BTime btime;
-
-  char ofilename[1024];
-  FILE *ofp;
+  
+  char outfile[1024];
+  char *sacnetwork;
+  char *sacstation;
+  char *saclocation;
+  char *sacchannel;
   
   float *fdata = 0;
   double *ddata = 0;
@@ -154,20 +162,24 @@ writesac (MSTrace *mst)
   if ( mst->numsamples == 0 || mst->samprate == 0.0 )
     return 0;
   
-  if ( ! network ) network = mst->network;
-  if ( ! station ) station = mst->station;
-  if ( ! location ) location = mst->location;
-  if ( ! channel ) channel = mst->channel;
+  sacnetwork = ( network ) ? network : mst->network;
+  sacstation = ( station ) ? station : mst->station;
+  saclocation = ( location ) ? location : mst->location;
+  sacchannel = ( channel ) ? channel : mst->channel;
   
   /* Set time-series source parameters */
-  if ( network )
-    strncpy (sh.knetwk, network, 8);
-  if ( station )
-    strncpy (sh.kstnm, station, 8);
-  if ( location )
-    strncpy (sh.khole, location, 8);
-  if ( channel )
-    strncpy (sh.kcmpnm, channel, 8);
+  if ( sacnetwork )
+    if ( *sacnetwork != '\0' )
+      strncpy (sh.knetwk, sacnetwork, 8);
+  if ( sacstation )
+    if ( *sacstation != '\0' )
+      strncpy (sh.kstnm, sacstation, 8);
+  if ( saclocation )
+    if ( *saclocation != '\0' )
+      strncpy (sh.khole, saclocation, 8);
+  if ( sacchannel )
+    if ( *sacchannel != '\0' )
+      strncpy (sh.kcmpnm, sacchannel, 8);
   
   /* Set misc. header variables */
   sh.nvhdr = 6;                 /* Header version = 6 */
@@ -219,7 +231,7 @@ writesac (MSTrace *mst)
       ddata = (double *) mst->datasamples;
       
       fdata = (float *) malloc (mst->numsamples * sizeof(float));
-
+      
       if ( fdata == NULL )
 	{
 	  fprintf (stderr, "Error allocating memory\n");
@@ -236,29 +248,85 @@ writesac (MSTrace *mst)
       return -1;
     }
   
-  /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec */
-  sprintf (ofilename, "%s.%s.%s.%s.%c.%d.%d.%d.%d.%d.SAC",
-	   mst->network, mst->station, mst->location, mst->channel,
-	   mst->dataquality, btime.year, btime.day, btime.hour,
-	   btime.min, btime.sec);
+  if ( sacformat >= 2 && sacformat <= 4 )
+    {
+      /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SAC */
+      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%d,%d,%d:%d:%d.SAC",
+		sacnetwork, sacstation, saclocation, sacchannel,
+		mst->dataquality, btime.year, btime.day, btime.hour,
+		btime.min, btime.sec);
+      
+      /* Byte swap the data header and data if needed */
+      if ( (sacformat == 3 && ms_bigendianhost()) ||
+	   (sacformat == 4 && ! ms_bigendianhost()) )
+	{
+	  if ( verbose )
+	    fprintf (stderr, "Byte swapping SAC header and data\n");
+
+	  swapsacheader (&sh);
+	  
+	  for (idx=0; idx < mst->numsamples; idx++)
+	    {
+	      gswap4 (fdata + idx);
+	    }
+	}
+	   
+      if ( writebinarysac (&sh, fdata, mst->numsamples, outfile) )
+	return -1;
+    }
+  else if ( sacformat == 1 )
+    {
+      /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SACA */
+      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%d,%d,%d:%d:%d.SACA",
+		sacnetwork, sacstation, saclocation, sacchannel,
+		mst->dataquality, btime.year, btime.day, btime.hour,
+		btime.min, btime.sec);
+      
+      if ( writealphasac (&sh, fdata, mst->numsamples, outfile) )
+	return -1;
+    }
+  else
+    {
+      fprintf (stderr, "Error, unrecognized format: '%d'\n", sacformat);
+    }
+  
+  if ( fdata && mst->sampletype != 'f' )
+    free (fdata);
+  
+  fprintf (stderr, "Wrote %d samples to %s\n", mst->numsamples, outfile);
+  
+  return mst->numsamples;
+}  /* End of writesac() */
+
+
+/***************************************************************************
+ * writebinarysac:
+ * Write binary SAC file.
+ *
+ * Returns 0 on success, and -1 on failure.
+ ***************************************************************************/
+static int
+writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
+{
+  FILE *ofp;
   
   /* Open output file */
-  if ( (ofp = fopen (ofilename, "wb")) == NULL )
+  if ( (ofp = fopen (outfile, "wb")) == NULL )
     {
       fprintf (stderr, "Cannot open output file: %s (%s)\n",
-	       ofilename, strerror(errno));
+	       outfile, strerror(errno));
       return -1;
     }
   
   /* Write SAC header to output file */
-  if ( fwrite (&sh, sizeof(struct SACHeader), 1, ofp) != 1 )
+  if ( fwrite (sh, sizeof(struct SACHeader), 1, ofp) != 1 )
     {
       fprintf (stderr, "Error writing SAC header to output file\n");
       return -1;
     }
   
   /* Write float data to output file */
-  if ( fwrite (fdata, sizeof(float), mst->numsamples, ofp) != mst->numsamples )
+  if ( fwrite (fdata, sizeof(float), npts, ofp) != npts )
     {
       fprintf (stderr, "Error writing SAC data to output file\n");
       return -1;
@@ -266,13 +334,104 @@ writesac (MSTrace *mst)
   
   fclose (ofp);
   
-  if ( fdata && mst->sampletype != 'f' )
-    free (fdata);
+  return 0;
+}  /* End of writebinarysac() */
+
+
+/***************************************************************************
+ * writealphasac:
+ * Write alphanumeric SAC file.
+ *
+ * Returns 0 on success, and -1 on failure.
+ ***************************************************************************/
+static int
+writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
+{
+  FILE *ofp;
+  int idx, fidx;
   
-  fprintf (stderr, "Wrote %d samples to %s\n", mst->numsamples, ofilename);
+  /* Declare and set up pointers to header variable type sections */
+  float   *fhp = (float *) sh;
+  int32_t *ihp = (int32_t *) sh + (NUMFLOATHDR);
+  char    *shp = (char *) sh + (NUMFLOATHDR * 4 + NUMINTHDR * 4);
   
-  return mst->numsamples;
-}  /* End of writesac() */
+  /* Open output file */
+  if ( (ofp = fopen (outfile, "wb")) == NULL )
+    {
+      fprintf (stderr, "Cannot open output file: %s (%s)\n",
+	       outfile, strerror(errno));
+      return -1;
+    }
+  
+  /* Write SAC header float variables to output file, 5 variables per line */
+  for (idx=0; idx < NUMFLOATHDR; idx += 5)
+    {
+      for (fidx=idx; fidx < (idx+5) && fidx < NUMFLOATHDR; fidx++)
+	fprintf (ofp, "%#15.7g", *(fhp + fidx));
+      
+      fprintf (ofp, "\n");
+    }
+  
+  /* Write SAC header integer variables to output file, 5 variables per line */
+  for (idx=0; idx < NUMINTHDR; idx += 5)
+    {
+      for (fidx=idx; fidx < (idx+5) && fidx < NUMINTHDR; fidx++)
+	fprintf (ofp, "%10d", *(ihp + fidx));
+      
+      fprintf (ofp, "\n");
+    }
+  
+  /* Write SAC header string variables to output file, 3 variables per line */
+  for (idx=0; idx < NUMSTRHDR; idx += 3)
+    {
+      if ( idx == 0 )
+	fprintf (ofp, "%-8.8s%-16.16s", shp, shp + 8);
+      else
+	fprintf (ofp, "%-8.8s%-8.8s%-8.8s", shp+(idx*8), shp+((idx+1)*8), shp+((idx+2)*8));
+      
+      fprintf (ofp, "\n");
+    }
+  
+  /* Write float data to output file, 5 values per line */
+  for (idx=0; idx < npts; idx += 5)
+    {
+      for (fidx=idx; fidx < (idx+5) && fidx < npts && fidx >= 0; fidx++)
+	fprintf (ofp, "%#15.7g", *(fdata + fidx));
+      
+      fprintf (ofp, "\n");
+    }
+  
+  fclose (ofp);
+  
+  return 0;
+}  /* End of writealphasac() */
+
+
+/***************************************************************************
+ * swapsacheader:
+ *
+ * Byte swap all multi-byte quantities (floats and ints) in SAC header
+ * struct.
+ *
+ * Returns 0 on sucess and -1 on failure.
+ ***************************************************************************/
+static int
+swapsacheader (struct SACHeader *sh)
+{
+  int32_t *ip;
+  int idx;
+  
+  if ( ! sh )
+    return -1;
+  
+  for ( idx=0; idx < (NUMFLOATHDR + NUMINTHDR); idx++ )
+    {
+      ip = (int32_t *) sh + idx;
+      gswap4 (ip);
+    }
+  
+  return 0;
+}  /* End of swapsacheader() */
 
 
 /***************************************************************************
@@ -328,13 +487,17 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  encoding = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
 	}
+      else if (strcmp (argvec[optind], "-i") == 0)
+	{
+	  indifile = 1;
+	}
       else if (strcmp (argvec[optind], "-C") == 0)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++);
 	}
-      else if (strcmp (argvec[optind], "-i") == 0)
+      else if (strcmp (argvec[optind], "-f") == 0)
 	{
-	  indifile = 1;
+	  sacformat = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
 	}
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
                strlen (argvec[optind]) > 1 )
@@ -622,13 +785,16 @@ usage (void)
 	   " -V             Report program version\n"
 	   " -h             Show this usage message\n"
 	   " -v             Be more verbose, multiple flags can be used\n"
-	   " -n network     Specify the network code\n"
-	   " -s station     Specify the station code\n"
-	   " -l location    Specify the location code\n"
-	   " -c channel     Specify the channel code\n"
+	   " -n network     Specify the network code, overrides any value in the SEED\n"
+	   " -s station     Specify the station code, overrides any value in the SEED\n"
+	   " -l location    Specify the location code, overrides any value in the SEED\n"
+	   " -c channel     Specify the channel code, overrides any value in the SEED\n"
 	   " -r bytes       Specify SEED record length in bytes, default: 4096\n"
 	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
-	   " -C lat/lon     Specify coordinates as Latitude/Longitude in degrees\n" 
 	   " -i             Process each input file individually instead of merged\n"
+	   " -C lat/lon     Specify coordinates as Latitude/Longitude in degrees\n"
+	   " -f format      Specify SAC file format (default is 2:binary):\n"
+           "                  1=alpha, 2=binary (host byte order),\n"
+           "                  3=binary (little-endian), 4=binary (big-endian)\n"
 	   "\n");
 }  /* End of usage() */
