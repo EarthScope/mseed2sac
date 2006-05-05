@@ -17,123 +17,111 @@
 
 #include <libmseed.h>
 
-#include "tidecalc.h"
 #include "sacformat.h"
 
 #define VERSION "0.1"
 #define PACKAGE "mseed2sac"
 
-static int writesac (double *data, int datacnt);
+struct listnode {
+  char *key;
+  char *data;
+  struct listnode *next;
+};
+
+static int writesac (MSTrace *mst);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
+static int readlistfile (char *listfile);
+static void addnode (struct listnode **listroot, char *key, char *data);
 static void usage (void);
 
 static int   verbose     = 0;
-static int   packreclen  = -1;
+static int   reclen      = -1;
 static int   encoding    = 11;
-static int   byteorder   = -1;
-static int   srateblkt   = 0;
-static int   syear       = 0;
-static int   sday        = 0;
-static int   shour       = 0;
-static int   eyear       = 0;
-static int   eday        = 0;
-static int   ehour       = 0;
-static double interval   = 1.0;
-static double latitude   = 0.0;
-static double longitude  = 0.0;
-static flag  dataformat  = 0; /* 0 = Mini-SEED, 1 = SAC */
-static char *network     = "XX";
-static char *station     = "TEST";
+static int   indifile    = 0;
+static double latitude   = 999.0;
+static double longitude  = 999.0;
+static char *network     = 0;
+static char *station     = 0;
 static char *location    = 0;
-static char *channel     = "TID";
-static char *outputfile  = 0;
-static FILE *ofp         = 0;
-static char  nanometers  = 0;
-static char  difflag     = 0;
-static char  gravflag    = 0;
-static char  revflag     = 0;
-static long long int datascaling = 0;
-static hptime_t starttime  = 0;
+static char *channel     = 0;
+
+/* A list of input files */
+struct listnode *filelist = 0;
 
 int
 main (int argc, char **argv)
 {
-  double *data = 0;
-  int datacnt = 0;
-  int idx;
+  MSTraceGroup *mstg = 0;
+  MSTrace *mst;
+  MSRecord *msr;
+
+  struct listnode *flp;
+
+  int totalrecs = 0;
+  int totalsamps = 0;
+  int totalfiles = 0;
   
   /* Process given parameters (command line and parameter file) */
   if (parameter_proc (argc, argv) < 0)
     return -1;
+
+  /* Init MSTraceGroup */
+  mstg = mst_initgroup (mstg);
   
-  /* Open the output file if specified */
-  if ( outputfile )
+  /* Read input miniSEED files into MSTraceGroup */
+  flp = filelist;
+  while ( flp != 0 )
     {
-      if ( strcmp (outputfile, "-") == 0 )
-        {
-          ofp = stdout;
-        }
-      else if ( (ofp = fopen (outputfile, "wb")) == NULL )
-        {
-          fprintf (stderr, "Cannot open output file: %s (%s)\n",
-                   outputfile, strerror(errno));
-          return -1;
-        }
-    }
-  
-  fprintf (stderr, "Calculating tides from %d,%d,%d to %d,%d,%d at %g hour intervals\n",
-	   syear, sday, shour, eyear, eday, ehour, interval);
-  fprintf (stderr, "For latitude: %g and longitude: %g\n", latitude, longitude);
-  
-  starttime = ms_time2hptime(syear, sday, shour, 0, 0, 0);
-  
-  /* Calculate tides */
-  if ( tidecalc (&data, &datacnt, latitude, longitude,
-		 syear, sday, shour, eyear, eday, ehour,
-		 interval, gravflag, verbose) )
-    {
-      fprintf (stderr, "Error with tidecalc()\n");
-      return -1;
-    }
-  
-  /* Convert sample values to nanometers if requested */
-  if ( nanometers )
-    {
-      fprintf (stderr, "Converting sample values from meters to nanometers\n");
+      if ( verbose )
+        fprintf (stderr, "Reading %s\n", flp->data);
       
-      for (idx=0; idx < datacnt; idx++)
-	data[idx] *= 1e9;
+      while ( (msr = ms_readmsr(flp->data, reclen, NULL, NULL, 1, 1, verbose)) )
+	{
+	  if ( verbose > 1)
+	    msr_print (msr, verbose - 2);
+	  
+	  mst_addmsrtogroup (mstg, msr, 1, -1.0, -1.0);
+	  
+	  totalrecs++;
+	  totalsamps += msr->samplecnt;
+	}
+      
+      /* Make sure everything is cleaned up */
+      ms_readmsr (NULL, 0, NULL, NULL, 0, 0, 0);
+      
+      /* If processing each file individually, write SAC and reset */
+      if ( indifile )
+	{
+	  mst = mstg->traces;
+	  while ( mst )
+	    {
+	      writesac (mst);
+	      mst = mst->next;
+	    }
+	  
+	  mstg = mst_initgroup (mstg);
+	}
+      
+      totalfiles++;
+      flp = flp->next;
     }
   
-  /* Reverse polarity of time-series if requested */
-  if ( revflag )
+  if ( ! indifile )
     {
-      fprintf (stderr, "Reversing polarity of time-series\n");
-      
-      for (idx=0; idx < datacnt; idx++)
-	data[idx] *= -1.0;
+      mst = mstg->traces;
+      while ( mst )
+	{
+	  writesac (mst);
+	  mst = mst->next;
+	}
     }
   
-  /* Differentiate displacement data if requested */
-  if ( difflag )
-    {
-      fprintf (stderr, "Differentiating time-series\n");
-      
-      /* Perform two-point differentiation, step size in seconds */
-      datacnt = differentiate2 (data, datacnt, (interval * 3600.0), data);
-      
-      /* Shift the start time by 1/2 the step size */
-      starttime += (0.5 * interval * 3600.0) * HPTMODULUS;
-    }
+  /* Make sure everything is cleaned up */
+  mst_freegroup (&mstg);
   
-  if ( dataformat == 1 )
-    writesac (data, datacnt);
-  else
-    writemseed (data, datacnt);
-  
-  if ( ofp )
-    fclose (ofp);
+  if ( verbose )
+    printf ("Files: %d, Records: %d, Samples: %d\n", totalfiles, totalrecs, totalsamps);
   
   return 0;
 }  /* End of main() */
@@ -144,16 +132,33 @@ main (int argc, char **argv)
  * 
  * Write data buffer to output file as binary SAC.
  *
- * Returns the number of samples written.
+ * Returns the number of samples written or -1 on error.
  ***************************************************************************/
 static int
-writesac (double *data, int datacnt)
+writesac (MSTrace *mst)
 {
   struct SACHeader sh = NullSACHeader;
   BTime btime;
-  float *fdata = (float *) data;
-  int idx;
 
+  char ofilename[1024];
+  FILE *ofp;
+  
+  float *fdata = 0;
+  double *ddata = 0;
+  int32_t *idata = 0;
+  int idx;
+  
+  if ( ! mst )
+    return -1;
+  
+  if ( mst->numsamples == 0 || mst->samprate == 0.0 )
+    return 0;
+  
+  if ( ! network ) network = mst->network;
+  if ( ! station ) station = mst->station;
+  if ( ! location ) location = mst->location;
+  if ( ! channel ) channel = mst->channel;
+  
   /* Set time-series source parameters */
   if ( network )
     strncpy (sh.knetwk, network, 8);
@@ -169,46 +174,80 @@ writesac (double *data, int datacnt)
   sh.leven = 1;                 /* Evenly spaced data */
   sh.iftype = ITIME;            /* Data is time-series */
   sh.b = 0.0;                   /* First sample, offset time */
-  sh.e = (interval-1) * 3600.0; /* Last sample, offset time */
-  strncpy (sh.kevnm, "Earth tide", 16);
+  sh.e = (mst->numsamples - 1) * (1 / mst->samprate); /* Last sample, offset time */
+  //strncpy (sh.kevnm, "Event name", 16);
   
   /* Set station coordinates */
-  sh.stla = latitude;
-  sh.stlo = longitude;
-  sh.stel = 0.0;
-  sh.stdp = 0.0;
+  if ( latitude < 999.0 ) sh.stla = latitude;
+  if ( longitude < 999.0 ) sh.stlo = longitude;
   
   /* Set start time */
-  ms_hptime2btime (starttime, &btime);
+  ms_hptime2btime (mst->starttime, &btime);
   sh.nzyear = btime.year;
   sh.nzjday = btime.day;
   sh.nzhour = btime.hour;
   sh.nzmin = btime.min;
   sh.nzsec = btime.sec;
   sh.nzmsec = btime.fract / 10;
-
+  
   /* Set sampling interval (seconds), sample count */
-  sh.delta = interval * 3600.0;
-  sh.npts = datacnt;
+  sh.delta = 1 / mst->samprate;
+  sh.npts = mst->numsamples;
   
-  //msr->byteorder = byteorder;
-  
-  /* Convert data buffer to floats, scaling if specified */
-  /* Use the same buffer (floats are smaller than doubles) */
-  if ( datascaling )
+  /* Convert data buffer to floats */
+  if ( mst->sampletype == 'f' )
     {
-      fprintf (stderr, "Scaling data by %lld and converting to float\n",
-	       datascaling);
+      fdata = (float *) mst->datasamples;
+    }
+  else if ( mst->sampletype == 'i' )
+    {
+      idata = (int32_t *) mst->datasamples;
+
+      fdata = (float *) malloc (mst->numsamples * sizeof(float));
+
+      if ( fdata == NULL )
+	{
+	  fprintf (stderr, "Error allocating memory\n");
+	  return -1;
+	}
       
-      for (idx=0; idx < datacnt; idx++)
-	fdata[idx] = data[idx] * datascaling;
+      for (idx=0; idx < mst->numsamples; idx++)
+	fdata[idx] = (float) idata[idx];
+    }
+  else if ( mst->sampletype == 'd' )
+    {
+      ddata = (double *) mst->datasamples;
+      
+      fdata = (float *) malloc (mst->numsamples * sizeof(float));
+
+      if ( fdata == NULL )
+	{
+	  fprintf (stderr, "Error allocating memory\n");
+	  return -1;
+	}
+      
+      for (idx=0; idx < mst->numsamples; idx++)
+	fdata[idx] = (float) ddata[idx];
     }
   else
     {
-      fprintf (stderr, "Converting data to float\n");
-      
-      for (idx=0; idx < datacnt; idx++)
-	fdata[idx] = data[idx];
+      fprintf (stderr, "Error, unrecognized sample type: '%c'\n",
+	       mst->sampletype);
+      return -1;
+    }
+  
+  /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec */
+  sprintf (ofilename, "%s.%s.%s.%s.%c.%d.%d.%d.%d.%d.SAC",
+	   mst->network, mst->station, mst->location, mst->channel,
+	   mst->dataquality, btime.year, btime.day, btime.hour,
+	   btime.min, btime.sec);
+  
+  /* Open output file */
+  if ( (ofp = fopen (ofilename, "wb")) == NULL )
+    {
+      fprintf (stderr, "Cannot open output file: %s (%s)\n",
+	       ofilename, strerror(errno));
+      return -1;
     }
   
   /* Write SAC header to output file */
@@ -219,15 +258,20 @@ writesac (double *data, int datacnt)
     }
   
   /* Write float data to output file */
-  if ( fwrite (fdata, sizeof(float), datacnt, ofp) != datacnt )
+  if ( fwrite (fdata, sizeof(float), mst->numsamples, ofp) != mst->numsamples )
     {
       fprintf (stderr, "Error writing SAC data to output file\n");
       return -1;
     }
   
-  fprintf (stderr, "Wrote %d samples\n", datacnt);
+  fclose (ofp);
   
-  return datacnt;
+  if ( fdata && mst->sampletype != 'f' )
+    free (fdata);
+  
+  fprintf (stderr, "Wrote %d samples to %s\n", mst->numsamples, ofilename);
+  
+  return mst->numsamples;
 }  /* End of writesac() */
 
 
@@ -240,7 +284,6 @@ writesac (double *data, int datacnt)
 static int
 parameter_proc (int argcount, char **argvec)
 {
-  char *timestr = 0;
   char *coorstr = 0;
   int optind;
 
@@ -279,149 +322,92 @@ parameter_proc (int argcount, char **argvec)
 	}
       else if (strcmp (argvec[optind], "-r") == 0)
 	{
-	  packreclen = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
-	}
-      else if (strcmp (argvec[optind], "-S") == 0)
-	{
-	  srateblkt = 1;
+	  reclen = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
 	}
       else if (strcmp (argvec[optind], "-e") == 0)
 	{
 	  encoding = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
 	}
-      else if (strcmp (argvec[optind], "-b") == 0)
-	{
-	  byteorder = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
-	}
-      else if (strcmp (argvec[optind], "-g") == 0)
-	{
-	  datascaling = strtoll (getoptval(argcount, argvec, optind++), NULL, 10);
-	}
-      else if (strcmp (argvec[optind], "-u") == 0)
-	{
-	  gravflag = 1;
-	}
-      else if (strcmp (argvec[optind], "-D") == 0)
-	{
-	  difflag = 1;
-	}
-      else if (strcmp (argvec[optind], "-R") == 0)
-	{
-	  revflag = 1;
-	}
-      else if (strcmp (argvec[optind], "-nm") == 0)
-	{
-	  nanometers = 1;
-	}
-      else if (strcmp (argvec[optind], "-SAC") == 0)
-	{
-	  dataformat = 1;
-	}
-      else if (strcmp (argvec[optind], "-o") == 0)
-	{
-	  outputfile = getoptval(argcount, argvec, optind++);
-	}
-      else if (strcmp (argvec[optind], "-T") == 0)
-	{
-	  timestr = getoptval(argcount, argvec, optind++);
-	}
       else if (strcmp (argvec[optind], "-C") == 0)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++);
 	}
-      else
+      else if (strcmp (argvec[optind], "-i") == 0)
 	{
-	  fprintf(stderr, "Unknown option: %s\n", argvec[optind]);
-	  exit (1);
+	  indifile = 1;
 	}
+      else if (strncmp (argvec[optind], "-", 1) == 0 &&
+               strlen (argvec[optind]) > 1 )
+        {
+          fprintf(stderr, "Unknown option: %s\n", argvec[optind]);
+          exit (1);
+        }
+      else
+        {
+          addnode (&filelist, NULL, argvec[optind]);
+        }
     }
-  
-  /* Make sure a time range was specified */
-  if ( ! timestr )
+
+  /* Make sure an input files were specified */
+  if ( filelist == 0 )
     {
-      fprintf (stderr, "No time range specified with the -T option\n\n");
+      fprintf (stderr, "No input files were specified\n\n");
       fprintf (stderr, "%s version %s\n\n", PACKAGE, VERSION);
       fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
       exit (1);
     }
-  
-  if ( ! outputfile )
-    fprintf (stderr, "Warning: no output file specified\n\n");
-  
-  if ( ! coorstr )
-    fprintf (stderr, "Warning: no coordinates specified, defaulting to 0.0/0.0\n");
-  
+
   /* Report the program version */
   if ( verbose )
     fprintf (stderr, "%s version: %s\n", PACKAGE, VERSION);
   
-  /* Parse time range */
-  if ( timestr )
+  /* Check the input files for any list files, if any are found
+   * remove them from the list and add the contained list */
+  if ( filelist )
     {
-      char *start,*end,*inter;
-      int count;
+      struct listnode *prevln, *ln;
+      char *lfname;
 
-      start = timestr;
-      end = inter = 0;
-      if ( (end = strchr (start, '/')) )
-	{
-	  *end++ = '\0';
-	}
-      else
-	{
-	  fprintf (stderr, "Error parsing time range: '%s'\n", timestr);
-	  fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
-	  return -1;
-	}
-      if ( (inter = strchr (end, '/')) )
-	*inter++ = '\0';
-      
-      if ( start )
-	{
-	  count = sscanf (start, "%d,%d,%d", &syear, &sday, &shour);
-	  if ( count == 1 )
-	    {
-	      sday = 1; shour = 0;
-	    }
-	  else if ( count == 2 )
-	    {
-	      shour = 0;
-	    }
-	  else if ( count != 3 )
-	    {
-	      fprintf (stderr, "Error parsing start time: '%s'\n", start);
-	      return -1;
-	    }
-	}
-      if ( end )
-	{
-	  count = sscanf (end, "%d,%d,%d", &eyear, &eday, &ehour);
-	  if ( count == 1 )
-	    {
-	      eday = 1; ehour = 0;
-	    }
-	  else if ( count == 2 )
-	    {
-	      ehour = 0;
-	    }
-	  else if ( count != 3 )
-	    {
-	      fprintf (stderr, "Error parsing end time: '%s'\n", end);
-	      return -1;
-	    }
-	}
-      if ( inter )
-	if ( (interval = strtod (inter, NULL)) == 0.0 )
-	  {
-	    fprintf (stderr, "Error parsing interval: '%s'\n", inter);
-	  }
+      prevln = ln = filelist;
+      while ( ln != 0 )
+        {
+          lfname = ln->data;
+
+          if ( *lfname == '@' )
+            {
+              /* Remove this node from the list */
+              if ( ln == filelist )
+                filelist = ln->next;
+              else
+                prevln->next = ln->next;
+
+              /* Skip the '@' first character */
+              if ( *lfname == '@' )
+                lfname++;
+
+              /* Read list file */
+              readlistfile (lfname);
+
+              /* Free memory for this node */
+              if ( ln->key )
+                free (ln->key);
+              free (ln->data);
+              free (ln);
+            }
+          else
+            {
+              prevln = ln;
+            }
+	  
+          ln = ln->next;
+        }
     }
 
   /* Parse coordinates */
   if ( coorstr )
     {
       char *lat,*lon;
-
+      
       lat = coorstr;
       lon = 0;
       
@@ -479,6 +465,148 @@ getoptval (int argcount, char **argvec, int argopt)
 }  /* End of getoptval() */
 
 
+
+/***************************************************************************
+ * readlistfile:
+ *
+ * Read a list of files from a file and add them to the filelist for
+ * input data.  The filename is expected to be the last
+ * space-separated field on the line.
+ *
+ * Returns the number of file names parsed from the list or -1 on error.
+ ***************************************************************************/
+static int
+readlistfile (char *listfile)
+{
+  FILE *fp;
+  char  line[1024];
+  char *ptr;
+  int   filecnt = 0;
+
+  char  filename[1024];
+  char *lastfield = 0;
+  int   fields = 0;
+  int   wspace;
+
+  /* Open the list file */
+  if ( (fp = fopen (listfile, "rb")) == NULL )
+    {
+      if (errno == ENOENT)
+        {
+          fprintf (stderr, "Could not find list file %s\n", listfile);
+          return -1;
+        }
+      else
+        {
+          fprintf (stderr, "Error opening list file %s: %s\n",
+                   listfile, strerror (errno));
+          return -1;
+        }
+    }
+  if ( verbose )
+    fprintf (stderr, "Reading list of input files from %s\n", listfile);
+
+  while ( (fgets (line, sizeof(line), fp)) !=  NULL)
+    {
+      /* Truncate line at first \r or \n, count space-separated fields
+       * and track last field */
+      fields = 0;
+      wspace = 0;
+      ptr = line;
+      while ( *ptr )
+        {
+          if ( *ptr == '\r' || *ptr == '\n' || *ptr == '\0' )
+            {
+              *ptr = '\0';
+              break;
+            }
+          else if ( *ptr != ' ' )
+            {
+              if ( wspace || ptr == line )
+                {
+                  fields++; lastfield = ptr;
+                }
+              wspace = 0;
+            }
+          else
+            {
+              wspace = 1;
+            }
+
+          ptr++;
+        }
+
+      /* Skip empty lines */
+      if ( ! lastfield )
+        continue;
+
+      if ( fields >= 1 && fields <= 3 )
+        {
+          fields = sscanf (lastfield, "%s", filename);
+
+          if ( fields != 1 )
+            {
+              fprintf (stderr, "Error parsing file name from: %s\n", line);
+              continue;
+            }
+
+          if ( verbose > 1 )
+            fprintf (stderr, "Adding '%s' to input file list\n", filename);
+
+          addnode (&filelist, NULL, filename);
+          filecnt++;
+
+          continue;
+        }
+    }
+
+  fclose (fp);
+
+  return filecnt;
+}  /* End readlistfile() */
+
+
+/***************************************************************************
+ * addnode:
+ *
+ * Add node to the specified list.
+ ***************************************************************************/
+static void
+addnode (struct listnode **listroot, char *key, char *data)
+{
+  struct listnode *lastlp, *newlp;
+
+  if ( data == NULL )
+    {
+      fprintf (stderr, "addnode(): No file name specified\n");
+      return;
+    }
+
+  lastlp = *listroot;
+  while ( lastlp != 0 )
+    {
+      if ( lastlp->next == 0 )
+        break;
+
+      lastlp = lastlp->next;
+    }
+
+  newlp = (struct listnode *) malloc (sizeof (struct listnode));
+  memset (newlp, 0, sizeof (struct listnode));
+  if ( key ) newlp->key = strdup(key);
+  else newlp->key = key;
+  if ( data) newlp->data = strdup(data);
+  else newlp->data = data;
+  newlp->next = 0;
+
+  if ( lastlp == 0 )
+    *listroot = newlp;
+  else
+    lastlp->next = newlp;
+
+}  /* End of addnode() */
+
+
 /***************************************************************************
  * usage:
  * Print the usage message and exit.
@@ -488,38 +616,19 @@ usage (void)
 {
   fprintf (stderr, "%s version: %s\n\n", PACKAGE, VERSION);
   fprintf (stderr, "Convert Mini-SEED data to SAC\n\n");
-  fprintf (stderr, "Usage: %s [options] -o ouputfile\n\n", PACKAGE);
+  fprintf (stderr, "Usage: %s [options] input1.mseed [input2.mseed ...]\n\n", PACKAGE);
   fprintf (stderr,
 	   " ## Options ##\n"
 	   " -V             Report program version\n"
 	   " -h             Show this usage message\n"
 	   " -v             Be more verbose, multiple flags can be used\n"
-	   " -n network     Specify the network code, default is XX\n"
-	   " -s station     Specify the station code, default is TEST\n"
-	   " -l location    Specify the location code, default is blank\n"
-	   " -c channel     Specify the channel code, default is TID\n"
+	   " -n network     Specify the network code\n"
+	   " -s station     Specify the station code\n"
+	   " -l location    Specify the location code\n"
+	   " -c channel     Specify the channel code\n"
 	   " -r bytes       Specify SEED record length in bytes, default: 4096\n"
 	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
-	   " -S             Include SEED blockette 100 for very irrational sample rates\n"
-	   " -b byteorder   Specify byte order for packing, MSBF: 1 (default), LSBF: 0\n"
-	   " -g factor      Specify scaling factor for sample values, default is none\n"
-	   " -u             Calculate gravity in microgals instead of displacement\n"
-	   " -D             Differentiate to get velocity instead of displacement\n"
-	   " -R             Reverse signal polarity (multiply time-series by -1.0)\n"
-	   " -nm            Output in nanometers instead of meters\n"
-	   " -SAC           Write binary SAC, default is Mini-SEED\n"
-	   " -o outfile     Specify the output file, required\n"
-	   "\n"
-	   " -T start/end[/interval]\n"
-	   "                Specify start time, end time in YYYY,DDD,HH format and\n"
-	   "                 optionally the interval in hours, default inteval is 1 hour\n"
 	   " -C lat/lon     Specify coordinates as Latitude/Longitude in degrees\n" 
-	   "\n"
-	   "Supported Mini-SEED encoding formats:\n"
-           " 3  : 32-bit integers\n"
-           " 4  : 32-bit floats (C float)\n"
-	   " 5  : 64-bit floats (C double)\n"
-           " 10 : Steim 1 compression of 32-bit integers\n"
-           " 11 : Steim 2 compression of 32-bit integers\n"
+	   " -i             Process each input file individually instead of merged\n"
 	   "\n");
 }  /* End of usage() */
