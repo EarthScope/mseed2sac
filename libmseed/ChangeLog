@@ -1,3 +1,84 @@
+2006.124: version 1.6.3
+	- Fix (int *)packedsamples handling for packing routines.
+	- Fix compilation under Open Watcom (Win32).
+
+2006.122: version 1.6.2
+	- More fixes for sampling rate == 0 when calculating the sample
+	period.
+
+2006.121: version 1.6.1
+	- msr_endtime() now checks that the sample count is greater than
+	zero.  If the sampling rate or sample count is less than or equal
+	to zero msr_endtime() returns the starttime.
+
+2006.115: version 1.6
+	- Rename mst_heal() to mst_groupheal().
+	- Change examples for ms_readtraces() in documentation that implied
+	an incorrect return type.
+	- Small changes to error messages for clarity (e.g. add file read
+	offset, print sample types as char not int).
+	- Fix offset determination for packed files and files without
+	blockette 1000s.
+
+2006.107:
+	- Add MS_ISVALIDHEADER macro to fileutils.c, verifies that a
+	specified buffer contains a valid fixed section data header.
+	- ms_find_reclen(): moved to fileutils.c
+	- ms_find_reclen(): More data record verification by checking
+	for valid time values (e.g. 0 <= hour <= 23 ).
+        - ms_find_reclen(): Detect record lengths even when no blockette
+	1000 is found by reading the next 48 bytes from the file and
+	looking for another record header or EOF.  This check is not
+	performed if the specified FILE pointer is NULL.  The original
+	file read position is restored.  This required adding another
+	argument: FILE *fileptr.
+	- Change output of msr_print() to include record length for
+	the lowest detail output (single line per record).
+	- Change example msview program to autodetect each record by
+	default.
+
+2006.082: version 1.5.2
+        - Make msr_pack() emit a warning with the function pointer to
+	the record_handler() is not set instead of bombing out.  The
+	packed record is not accessible any other way.
+	- Make the packedsamples argument to msr_pack() optional, the
+	pointer can be NULL if this information is not needed.
+	- Modify ms_readmsr() to be able to read packed files which are
+	indexed files used internally at the IRIS-DMC and probably no
+	where else.
+	- Add lmp_fseeko() portable function (used in fileutils.c).
+
+2006.079: version 1.5.1
+	- Add file name check in ms_readmsr() to make sure subsequent
+	reads are done on the same file.  If the function is called with a
+	different file name than the file that is currently open the
+	current file will be closed and the new one opened and an error
+	message printed.
+	- Change mst_srcname to include the data quality code in the
+	srcname if it is non-zero.
+	- Remove the data quality code specifics from mst_print* functions
+	as it is now included in the source name.
+	
+2006.076: version 1.5
+	- No changes, just stamp 1.5.
+
+2006.058:
+	- Change structure names:
+	  * Trace -> MSTrace
+	  * TraceGroup -> MSTraceGroup
+	  * MSrecord -> MSRecord
+	A bothersome change, but it will ease inclusion into source
+	base of other libraries, etc.
+	- Change struct fsdh.drec_indicator to fsdh.dataquality.
+	- Change MSRecord.drec_indicator to MSRecord.dataquality.
+	- Add MSTrace.dataquality element.
+	- Add data quality matching flag arguments to ms_readtraces()
+	and mst_addmsrtogroup() to control matching of data qualities.
+	- Add data quality value arguments to mst_findmatch() and
+	mst_findadjacent() to control matching of data qualities.
+	- Modify mst_printtracelist() and mst_printgaplist() to include
+	data quality flags in their output when they have been set.
+	
 2005.336: 1.4.5
 	- Improve the data record verification in ms_find_reclen() to
 	improve the detection of non-data versus data records.  In

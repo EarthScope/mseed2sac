@@ -1,4 +1,4 @@
-.TH MS_READMSR 3 2004/12/17 "Libmseed API"
+.TH MS_READMSR 3 2006/03/23 "Libmseed API"
 .SH DESCRIPTION
 Read Mini-SEED data from files
 
@@ -6,14 +6,14 @@ Read Mini-SEED data from files
 .nf
 .B #include <libmseed.h>
 
-.BI "MSrecord   *\fBms_readmsr\fP ( char *" msfile ", int " reclen ", off_t *" fpos ",
+.BI "MSRecord   *\fBms_readmsr\fP ( char *" msfile ", int " reclen ", off_t *" fpos ",
 .BI "                         int *" last ", flag " skipnotdata ", flag " dataflag ",
 .BI "                         flag " verbose " );
 
-.BI "TraceGroup *\fBms_readtraces\fP ( char *" msfile ", int " reclen ", 
-.BI "                            double " timetol ", double " sampratetol ",
-.BI "                            flag " skipnotdata ", flag " dataflag ",
-.BI "                            flag " verbose " );"
+.BI "MSTraceGroup *\fBms_readtraces\fP ( char *" msfile ", int " reclen ", 
+.BI "                              double " timetol ", double " sampratetol ",
+.BI "                              flag " dataquality ", flag " skipnotdata ",
+.BI "                              flag " dataflag ", flag " verbose " );"
 .fi
 
 .SH DESCRIPTION
@@ -25,11 +25,12 @@ unpacked using \fBmsr_unpack(3)\fP.
 If \fIreclen\fP is 0 the length of the first record is automatically
 detected, all subsequent records are then expected to have the same
 length as the first.  If \fIreclen\fP is negative the length of every
-record is automatically detected.  For auto detection of record length
-records must include Blockette 1000s (i.e. they must be true
-Mini-SEED).  Furthermore, the Blockette 1000s must be fully contained
-within the first 8192 bytes of a record for auto detection to be
-successful.
+record is automatically detected.  For record length auto detection
+records are first searched for a Blockette 1000 and if none is found a
+little more (48 bytes) of data is read from the file and checked for a
+fixed section data header (the existence of the next record implying
+the length of the current record).  This detection search is done for
+each valid record length from 256 up to 8192 bytes in length.
 
 If the \fIfpos\fP pointer is not NULL the value will be set to the
 file position (offset from the beginning in bytes) from where the
@@ -49,31 +50,44 @@ After reading all the input records the controlling program should
 call it one last time with \fImsfile\fP set to NULL.  This will close
 the file and cleanup allocated memory.
 
+If \fBms_readmsr\fP is called with a different file than the one it
+currently has open it will close the currently open file, open the new
+file and print an error message.  Properly coded applications should
+reset the function when the end of file has been reached as described
+above and not rely on this behavior.
+
 \fBms_readtraces\fP simply reads all Mini-SEED records from a file
-using \fBms_readmsr\fP and adds each one to a TraceGroup using
+using \fBms_readmsr\fP and adds each one to a MSTraceGroup using
 \fBmst_addmsrtogroup(3)\fP.  The \fImsfile\fP, \fIreclen\fP,
 \fIskipnotdata\fP and \fIdataflag\fP arguments are passed directly to
-\fBms_readmsr\fP.  The \fItimetol\fP and \fIsampratetol\fP arguments
-are passed directly to \fBmst_addmsrtogroup(3)\fP.
+\fBms_readmsr\fP.  The \fItimetol\fP, \fIsampratetol\fP and
+\fIdataquality\fP arguments are passed directly to
+\fBmst_addmsrtogroup(3)\fP.
 
 .SH RETURN VALUES
 \fBms_readmsr\fP returns the next read record or NULL on EOF, error or
 cleanup.
 
-\fBms_readtraces\fP returns a pointer to a TraceGroup on success or
+\fBms_readtraces\fP returns a pointer to a MSTraceGroup on success or
 NULL on error.
+
+.SH PACKED FILES
+\fBms_readmsr\fP and \fBms_readtraces\fP will read packed Mini-SEED
+files, but only when the record length is being autodetected.  Packed
+Mini-SEED is the indexed archive format used internally at the IRIS
+Data Management Center and probably not used anywhere else.
 
 .SH CAVEATS
 Neither \fBms_readfile\fP or \fBms_readtraces\fP is thread safe nor
 can they be used to read more than one file at a time as static memory
-is used to keep track of the file read parameters.
+is used to keep track of the file reading parameters.
 
 .SH EXAMPLE
 Skeleton code for reading a file with \fBms_readmsr(3)\fP:
 
 .nf
 main() {
-  MSrecord *msr;
+  MSRecord *msr;
 
   while ( (msr = msr_readmsr(filename, 0, NULL, NULL, 1, 0, verbose)) )
     {
@@ -89,9 +103,9 @@ For reading a file with \fBms_readtraces(3)\fP:
 .nf
 
 main() {
-  MSrecord *mstg;
+  MSTraceGroup *mstg;
 
-  mstg = msr_readtraces (filename, 0, -1.0, -1.0, 1, 0, verbose);
+  mstg = msr_readtraces (filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( ! mstg )
     {
@@ -100,7 +114,7 @@ main() {
     }
 
   /* Do something with the traces here, e.g. print */
-  mst_print (mstg, verbose, 0);
+  mst_printtracelist (mstg, 0, verbose, 0);
 
   mst_freegroup (&mstg);
 }

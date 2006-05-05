@@ -17,10 +17,10 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2005.271
+ * modified: 2006.082
  ***************************************************************************/
 
-/* Define _LARGEFILE_SOURCE to get ftello on some systems (Linux) */
+/* Define _LARGEFILE_SOURCE to get ftello/fseeko on some systems (Linux) */
 #define _LARGEFILE_SOURCE 1
 
 #include <errno.h>
@@ -47,3 +47,20 @@ lmp_ftello (FILE *stream)
 }  /* End of lmp_ftello() */
 
 
+/***************************************************************************
+ * lmp_fseeko:
+ *
+ * Seek to a specific file position for the specified descriptor using
+ * the system's closest match to the POSIX fseeko.
+ ***************************************************************************/
+int
+lmp_fseeko (FILE *stream, off_t offset, int whence)
+{
+#if defined(LMP_WIN32)
+  return (int) fseek (stream, (long int) offset, whence);
+  
+#else
+  return (int) fseeko (stream, offset, whence);
+  
+#endif
+}  /* End of lmp_fseeko() */

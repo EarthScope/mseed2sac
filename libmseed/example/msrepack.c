@@ -47,9 +47,9 @@ static void term_handler (int sig);
 int
 main (int argc, char **argv)
 {
-  MSrecord *msr = 0;
-  TraceGroup *mstg = 0;
-  Trace *tp;
+  MSRecord *msr = 0;
+  MSTraceGroup *mstg = 0;
+  MSTrace *tp;
 
   char envvariable[100];
   int totalrecs  = 0;
@@ -92,7 +92,7 @@ main (int argc, char **argv)
 	}
     }
   
-  /* Init TraceGroup */
+  /* Init MSTraceGroup */
   mstg = mst_initgroup (mstg);
   
   /* Loop over the input file */
@@ -151,10 +151,10 @@ main (int argc, char **argv)
 	  iseqnum = msr->sequence_number;
 	}
       
-      /* Pack records from a TraceGroup */
+      /* Pack records from a MSTraceGroup */
       else if ( outfile && tracepack )
 	{
-	  mst_addmsrtogroup (mstg, msr, -1.0, -1.0);
+	  mst_addmsrtogroup (mstg, msr, 0, -1.0, -1.0);
 	  
 	  packedrecords = 0;
 	  
@@ -188,7 +188,7 @@ main (int argc, char **argv)
 	      printf ("Packed %d records\n", packedrecords);
 	    }
 
-	  /* Reset sequence numbers in Trace holder from template */
+	  /* Reset sequence numbers in MSTrace holder from template */
 	  tp = mstg->traces;
 	  while ( tp )
 	    {

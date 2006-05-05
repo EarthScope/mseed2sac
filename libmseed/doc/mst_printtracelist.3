@@ -1,29 +1,29 @@
-.TH MST_PRINT 3 2005/05/26 "Libmseed API"
+.TH MST_PRINT 3 2006/03/20 "Libmseed API"
 .SH DESCRIPTION
-Printing of Trace information.
+Printing of MSTrace information.
 
 .SH SYNOPSIS
 .nf
 .B #include <libmseed.h>
 
-.BI "void   \fBmst_printtracelist\fP ( TraceGroup *" mstg ", flag " timeformat ",
+.BI "void   \fBmst_printtracelist\fP ( MSTraceGroup *" mstg ", flag " timeformat ",
 .BI "                            flag " details ", flag " gaps " );
 
-.BI "void   \fBmst_printgaplist\fP ( TraceGroup *" msgt ", flag " timeformat ",
+.BI "void   \fBmst_printgaplist\fP ( MSTraceGroup *" msgt ", flag " timeformat ",
 .BI "                          double *" mingap ", double *" maxgap " );
 
-.BI "char  *\fBmst_srcname\fP ( Trace *" mst ", char *" srcname " );"
+.BI "char  *\fBmst_srcname\fP ( MSTrace *" mst ", char *" srcname " );"
 .fi
 
 .SH DESCRIPTION
-\fBmst_printtracelist\fP prints a formatted list of the Trace segments
-in the given TraceGroup to stdout.  If the \fIdetails\fP flag is
+\fBmst_printtracelist\fP prints a formatted list of the MSTrace segments
+in the given MSTraceGroup to stdout.  If the \fIdetails\fP flag is
 greater than 0 the sample rate and sample count are printed for each
 trace.  If the \fIgaps\fP flag is greater than zero the time gap from
-the previous Trace (if the source name matches) is printed.
+the previous MSTrace (if the source name matches) is printed.
 
 \fBmst_printgaplist\fP prints a formatted list of the gaps between
-Trace segments in the given TraceGroup to stdout.  If \fImingap\fP or
+MSTrace segments in the given MSTraceGroup to stdout.  If \fImingap\fP or
 \fImaxgap\fP is not NULL their values will be enforced and only
 gaps/overlaps matching their implied criteria will be printed.
 
@@ -41,13 +41,15 @@ Both \fBmst_printtracelist\fP and \fBmst_printgaplist\fP represent
 time overlaps as negative gaps.
 
 \fBmst_srcname\fP generates a source name string in the
-format: 'NET_STA_LOC_CHAN' and stores it in \fIsrcname\fP.  The memory
-pointed to by \fIsrcname\fP must have enough room for the resulting
-string.
+format: 'NET_STA_LOC_CHAN[_QUAL]' and stores it in \fIsrcname\fP.  The
+single character quality code is only appended when mst->dataquality
+is not zero (implying the entire MSTrace is of that quality).  The
+memory pointed to by \fIsrcname\fP must have enough room for the
+resulting string.
 
 .SH GAP/OVERLAP RULES
 The existence of gaps and overlaps is implicit in the structure of the
-TraceGroup, no special processing is done to detect gaps and overlaps
+MSTraceGroup, no special processing is done to detect gaps and overlaps
 in these routines.
 
 The value of a gap is calculated as the difference between the time of

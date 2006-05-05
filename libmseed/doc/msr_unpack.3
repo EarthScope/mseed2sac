@@ -1,4 +1,4 @@
-.TH MSR_UNPACK 3 2005/09/26 "Libmseed API"
+.TH MSR_UNPACK 3 2006/02/27 "Libmseed API"
 .SH DESCRIPTION
 Unpacking of Mini-SEED records.
 
@@ -6,39 +6,39 @@ Unpacking of Mini-SEED records.
 .nf
 .B #include <libmseed.h>
 
-.BI "MSrecord *\fBmsr_unpack\fP ( char *" record ", int " reclen ", MSrecord **" ppmsr ",
+.BI "MSRecord *\fBmsr_unpack\fP ( char *" record ", int " reclen ", MSRecord **" ppmsr ",
 .BI "                       flag " dataflag ", flag " verbose " );
 .fi
 
 .SH DESCRIPTION
 \fBmsr_unpack\fP will unpack a Mini-SEED data record and populate a
-MSrecord data structure, optionally unpacking data samples.  All
+MSRecord data structure, optionally unpacking data samples.  All
 multi-byte quantities will be byte-swapped to the host byte order.
-The MSrecord data structure is described in \fBms_intro(3)\fP.
+The MSRecord data structure is described in \fBms_intro(3)\fP.
 
 The \fIreclen\fP parameter specifies the length of the data record
 pointed to by \fIrecord\fP in bytes.
 
-If the pointer pointed to by \fIppmsr\fP is NULL a new MSrecord will
-be allocated, if not the existing MSrecord will be reinitialized and
+If the pointer pointed to by \fIppmsr\fP is NULL a new MSRecord will
+be allocated, if not the existing MSRecord will be reinitialized and
 reused destroying any previous contents.  The \fIppmsr\fP pointer
 itself must not be NULL.
 
 If the \fIdataflag\fP flag is not zero any data samples in the record
 will be unpacked/decompressed.  The following data encoding formats
 are supported: ASCII, INT16, INT32, FLOAT32, FLOAT64, STEIM1 and
-STEIM2.  The MSrecord.datasamples pointer will be set appropriately
+STEIM2.  The MSRecord.datasamples pointer will be set appropriately
 and the samples will be either ASCII, 32-bit integers, 32-bit floats
 or 64-bit floats with the same byte order as the host machine.
-MSrecord.numsamples will be set to the actual number of samples
-unpacked/decompressed.  MSrecord.sampletype will indicated the sample
+MSRecord.numsamples will be set to the actual number of samples
+unpacked/decompressed.  MSRecord.sampletype will indicated the sample
 type as either 'a' (ASCII), 'i' (32-bit integers), 'f' (32-bit floats)
 or 'd' (64-bit doubles).  The size of each sample type in bytes is
-returned by the get_samplesize(3) lookup routine.  MSrecord.unpackerr
+returned by the get_samplesize(3) lookup routine.  MSRecord.unpackerr
 will be set to indicate any errors encountered during
 unpacking/decompression (MS_NOERROR if no errors, value of 0).
 
-MSrecord.unpackerr can be set to the following:
+MSRecord.unpackerr can be set to the following:
 .nf
 MS_GENERROR: Generic unspecified error
 MS_NOBLKT1000: No Blockette 1000 in record (required for Mini-SEED)
@@ -49,7 +49,7 @@ MS_STBADLASTMATCH: Steim, last sample != reverse integration constant
 MS_STBADCOMPFLAG: Steim, invalid compression flag(s)
 .fi
 
-It is left to the caller to test MSrecord.unpackerr and decide if the
+It is left to the caller to test MSRecord.unpackerr and decide if the
 error can be ignored.
 
 The \fIverbose\fP flag controls verbosity, a value of zero will result
@@ -84,7 +84,7 @@ a 1000 blockette it is not Mini-SEED, the capability to read these
 records is included only to support legacy data.
 
 .SH RETURN VALUE
-Returns a pointer to the MSrecord struct populated on success or NULL
+Returns a pointer to the MSRecord struct populated on success or NULL
 on error.
 
 .SH EXAMPLE
@@ -92,7 +92,7 @@ Skeleton code for unpacking a Mini-SEED record with msr_unpack(3):
 
 .nf
 main() {
-  MSrecord *msr = NULL;
+  MSRecord *msr = NULL;
   char *record;
   int reclen;
 

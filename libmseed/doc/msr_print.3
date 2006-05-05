@@ -1,4 +1,4 @@
-.TH MSR_PRINT 3 2004/11/22 "Libmseed API"
+.TH MSR_PRINT 3 2006/02/27 "Libmseed API"
 .SH DESCRIPTION
 Printing of Mini-SEED record header values.
 
@@ -6,9 +6,9 @@ Printing of Mini-SEED record header values.
 .nf
 .B #include <libmseed.h>
 
-.BI "void   \fBmsr_print\fP ( MSrecord *" msr ", flag " details " );
+.BI "void   \fBmsr_print\fP ( MSRecord *" msr ", flag " details " );
 
-.BI "char  *\fBmsr_srcname\fP ( MSrecord *" msr ", char *" srcname " );
+.BI "char  *\fBmsr_srcname\fP ( MSRecord *" msr ", char *" srcname " );
 .fi
 
 .SH DESCRIPTION
@@ -21,9 +21,9 @@ record header, i.e. fixed section and blockettes, to stdout.  The
 2+ : all header details
 .fi
 
-If no fixed section header information is available at MSrecord.fsdh
+If no fixed section header information is available at MSRecord.fsdh
 then a single line is printed from the other information in the
-MSrecord structure.
+MSRecord structure.
 
 \fBmsr_srcname\fP generates a source name string in the
 format: 'NET_STA_LOC_CHAN' and stores it in \fIsrcname\fP.  The memory

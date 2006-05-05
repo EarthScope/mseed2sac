@@ -13,7 +13,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2005.269
+ * modified: 2006.107
  ***************************************************************************/
 
 #include <stdio.h>
@@ -25,7 +25,7 @@
 #include "unpackdata.h"
 
 /* Function(s) internal to this file */
-static int msr_unpack_data (MSrecord * msr, int swapflag, int verbose);
+static int msr_unpack_data (MSRecord * msr, int swapflag, int verbose);
 static int check_environment (int verbose);
 
 /* Header and data byte order flags controlled by environment variables */
@@ -41,18 +41,18 @@ static int encodingfallback = -2;
 /***************************************************************************
  * msr_unpack:
  *
- * Unpack a SEED data record header/blockettes and populate a MSrecord
+ * Unpack a SEED data record header/blockettes and populate a MSRecord
  * struct. All approriate fields are byteswapped, if needed, and
  * pointers to structured data are setup in addition to setting the
  * common header fields.
  *
  * If 'dataflag' is true the data samples are unpacked/decompressed
- * and the MSrecord->datasamples pointer is set appropriately.  The
+ * and the MSRecord->datasamples pointer is set appropriately.  The
  * data samples will be either 32-bit integers, 32-bit floats or
  * 64-bit floats with the same byte order as the host machine.  The
- * MSrecord->numsamples will be set to the actual number of samples
- * unpacked/decompressed, MSrecord->sampletype will indicated the
- * sample type and MSrecord->unpackerr will be set to indicate any
+ * MSRecord->numsamples will be set to the actual number of samples
+ * unpacked/decompressed, MSRecord->sampletype will indicated the
+ * sample type and MSRecord->unpackerr will be set to indicate any
  * errors encountered during unpacking/decompression (MS_NOERROR if no
  * errors).
  *
@@ -64,17 +64,17 @@ static int encodingfallback = -2;
  *
  * If the msr struct is NULL it will be allocated.
  * 
- * Returns a pointer to the MSrecord struct populated on success or
+ * Returns a pointer to the MSRecord struct populated on success or
  * NULL on error.
  ***************************************************************************/
-MSrecord *
-msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
+MSRecord *
+msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	     flag dataflag, flag verbose )
 {
   flag headerswapflag = 0;
   flag dataswapflag = 0;
   
-  MSrecord *msr = NULL;
+  MSRecord *msr = NULL;
   char sequence_number[7];
   
   /* For blockette parsing */
@@ -92,11 +92,11 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
   
   if ( reclen < MINRECLEN || reclen > MAXRECLEN )
     {
-      fprintf (stderr, "msr_pack(): record length is out of range: %d\n", reclen);
+      fprintf (stderr, "msr_unpack(): record length is out of range: %d\n", reclen);
       return NULL;
     }
   
-  /* Initialize the MSrecord */
+  /* Initialize the MSRecord */
   msr = *ppmsr;
 
   if ( ! (msr = msr_init (msr)) )
@@ -107,7 +107,7 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
   
   msr->record = record;
   
-  msr->drec_indicator = *(record+6);
+  msr->dataquality = *(record+6);
   
   msr->reclen = reclen;
 
@@ -120,15 +120,15 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
       return NULL;
   
   /* Verify record indicator, allocate and populate fixed section of header */
-  if ( MS_ISDATAINDICATOR(msr->drec_indicator) )
+  if ( MS_ISDATAINDICATOR(msr->dataquality) )
     {
       msr->fsdh = realloc (msr->fsdh, sizeof (struct fsdh_s));
       memcpy (msr->fsdh, record, sizeof (struct fsdh_s));
     }
   else
     {
-      fprintf (stderr, "Record header indicator unrecognized: '%c'\n",
-	       msr->drec_indicator);
+      fprintf (stderr, "Record header & quality indicator unrecognized: '%c'\n",
+	       msr->dataquality);
       fprintf (stderr, "This is not a valid Mini-SEED record\n");
       
       msr_free(&msr);
@@ -580,7 +580,7 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
     {
       msr->unpackerr = MS_NOBLKT1000;
       
-      if ( verbose > 0 )
+      if ( verbose > 1 )
 	{
 	  fprintf (stderr, "No Blockette 1000 found: %s_%s_%s_%s\n",
 		   msr->network, msr->station, msr->location, msr->channel);
@@ -591,7 +591,7 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
   msr->starttime = msr_starttime (msr);
   msr->samprate = msr_samprate (msr);
   
-  /* Set MSrecord->byteorder if data byte order is forced */
+  /* Set MSRecord->byteorder if data byte order is forced */
   if ( databyteorder >= 0 )
     {
       msr->byteorder = databyteorder;
@@ -663,16 +663,16 @@ msr_unpack ( char *record, int reclen, MSrecord **ppmsr,
 /************************************************************************
  *  msr_unpack_data:
  *
- *  Unpack Mini-SEED data samples for a given MSrecord.  The packed
- *  data is accessed in the record indicated by MSrecord->record and
- *  the unpacked samples are placed in MSrecord->datasamples.  The
+ *  Unpack Mini-SEED data samples for a given MSRecord.  The packed
+ *  data is accessed in the record indicated by MSRecord->record and
+ *  the unpacked samples are placed in MSRecord->datasamples.  The
  *  resulting data samples are either 32-bit integers, 32-bit floats
  *  or 64-bit floats in host byte order.
  *
  *  Return number of samples unpacked or -1 on error.
  ************************************************************************/
 static int
-msr_unpack_data ( MSrecord *msr, int swapflag, int verbose )
+msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
 {
   int     datasize;             /* byte size of data samples in record 	*/
   int     nsamples;		/* number of samples unpacked		*/

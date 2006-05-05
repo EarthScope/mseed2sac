@@ -7,107 +7,18 @@
  * ORFEUS/EC-Project MEREDIAN
  * IRIS Data Management Center
  *
- * modified: 2005.336
+ * modified: 2006.107
  ***************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <ctype.h>
 
 #include "libmseed.h"
 
 static hptime_t ms_time2hptime_int (int year, int day, int hour,
 				    int min, int sec, int usec);
-
-/*********************************************************************
- * ms_find_reclen:
- *
- * Perform simple SEED data record verification and search for a 1000
- * blockette up to maxheaderlen bytes and return the record size if
- * found.
- *
- * Returns:
- * -1 : data record not detected or error
- *  0 : data record detected but no 1000 blockette found
- * >0 : size of the record in bytes
- *********************************************************************/
-int
-ms_find_reclen ( const char *msrecord, int maxheaderlen )
-{
-  uint16_t blkt_offset;    /* Byte offset for next blockette */
-  uint8_t swapflag  = 0;   /* Byte swapping flag */
-  uint8_t found1000 = 0;   /* Found 1000 blockette flag */
-  int32_t reclen = -1;     /* Size of record in bytes */
-  
-  uint16_t blkt_type;
-  uint16_t next_blkt;
-  
-  struct fsdh_s *fsdh;
-  struct blkt_1000_s *blkt_1000;
-  
-  /* Simple verification of a data record:
-   * 1) first 6 characters are digits (sequence number)
-   * 2) 7th character is a valid data record indicator
-   * 3) 8th character is an ASCII space or NULL [not valid SEED]
-   */
-  if ( ! isdigit ((unsigned char) *(msrecord)) ||
-       ! isdigit ((unsigned char) *(msrecord+1)) ||
-       ! isdigit ((unsigned char) *(msrecord+2)) ||
-       ! isdigit ((unsigned char) *(msrecord+3)) ||
-       ! isdigit ((unsigned char) *(msrecord+4)) ||
-       ! isdigit ((unsigned char) *(msrecord+5)) ||
-       ! MS_ISDATAINDICATOR(*(msrecord+6)) ||
-       ! (*(msrecord+7) == ' ' || *(msrecord+7) == '\0') )
-    return -1;
-  
-  fsdh = (struct fsdh_s *) msrecord;
-  
-  /* Check to see if byte swapping is needed (bogus year makes good test) */
-  if ( (fsdh->start_time.year < 1900) ||
-       (fsdh->start_time.year > 2050) )
-    swapflag = 1;
-  
-  blkt_offset = fsdh->blockette_offset;
-  
-  /* Swap order of blkt_offset if needed */
-  if ( swapflag ) gswap2 (&blkt_offset);
-  
-  /* loop through blockettes as long as number is non-zero and viable */
-  while ((blkt_offset != 0) &&
-         (blkt_offset <= maxheaderlen))
-    {
-      memcpy (&blkt_type, msrecord + blkt_offset, 2);
-      memcpy (&next_blkt, msrecord + blkt_offset + 2, 2);
-      
-      if ( swapflag )
-	{
-	  gswap2 (&blkt_type);
-	  gswap2 (&next_blkt);
-	}
-      
-      if (blkt_type == 1000)  /* Found the 1000 blockette */
-        {
-          blkt_1000 = (struct blkt_1000_s *) (msrecord + blkt_offset + 4);
-	  
-          found1000 = 1;
-	  
-          /* Calculate record size in bytes as 2^(blkt_1000->reclen) */
-	  reclen = (unsigned int) 1 << blkt_1000->reclen;
-
-	  break;
-        }
-      
-      blkt_offset = next_blkt;
-    }
-  
-  if ( !found1000 )
-    return 0;
-  else
-    return reclen;
-}  /* End of ms_find_reclen() */
-
 
 /***************************************************************************
  * ms_strncpclean:
@@ -362,11 +273,6 @@ ms_btime2hptime (BTime *btime)
   hptime = (hptime_t ) (60 * (60 * (24 * days + btime->hour) + btime->min) + btime->sec) * HPTMODULUS
     + (btime->fract * (HPTMODULUS / 10000));
     
-  /*
-  printf ("DB: y: %d, d: %d, h: %d, m: %d, s:%d, f:%d\nhptime: %lld\n",
-	  btime->year, btime->day, btime->hour, btime->min, btime->sec, btime->fract, hptime);
-  */
-
   return hptime;
 }  /* End of ms_btime2hptime() */
 

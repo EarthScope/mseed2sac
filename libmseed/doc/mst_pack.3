@@ -1,36 +1,36 @@
-.TH MST_PACK 3 2004/12/17 "Libmseed API"
+.TH MST_PACK 3 2006/02/27 "Libmseed API"
 .SH DESCRIPTION
-Packing of Mini-SEED records from Trace segments.
+Packing of Mini-SEED records from MSTrace segments.
 
 .SH SYNOPSIS
 .nf
 .B #include <libmseed.h>
 
-.BI "int  \fBmst_pack\fP ( Trace *" mst ", void (*" record_handler ") (char *, int),
+.BI "int  \fBmst_pack\fP ( MSTrace *" mst ", void (*" record_handler ") (char *, int),
 .BI "                int " reclen ", flag " encoding ", flag " byteorder ",
 .BI "                int *" packedsamples ", flag " flush ", flag " verbose ",
-.BI "                MSrecord *" mstemplate " );
+.BI "                MSRecord *" mstemplate " );
 
-.BI "int  \fBmsr_packgroup\fP ( TraceGroup *" mstg ",
+.BI "int  \fBmsr_packgroup\fP ( MSTraceGroup *" mstg ",
 .BI "                     void (*" record_handler ") (char *, int),
 .BI "                     int " reclen ", flag " encoding ", flag " byteorder ",
 .BI "                     int *" packedsamples ", flag " flush ", flag " verbose ",
-.BI "                     MSrecord *" mstemplate " );"
+.BI "                     MSRecord *" mstemplate " );"
 .fi
 
 .SH DESCRIPTION
-\fBmst_pack\fP creates (packs) Mini-SEED data records from a Trace
+\fBmst_pack\fP creates (packs) Mini-SEED data records from a MSTrace
 segment using the specified record length (\fIreclen\fP), Mini-SEED
 \fIencoding\fP and \fIbyteorder\fP.  Using \fImstemplate\fP as a
 template, the common header fields and blockettes are packed into a
 record header.  If no template will be used \fImstemplate\fP should be
 set to NULL.  A Blockette 1000 will be added if one is not present in
-the template.  The Trace.datasamples array and Trace.numsamples value
+the template.  The MSTrace.datasamples array and MSTrace.numsamples value
 will be adjusted (reduced) as samples are packed into data records.
 This routine will modify the record length, encoding format, byte
-order and sequence number of the MSrecord template.  The start time,
+order and sequence number of the MSRecord template.  The start time,
 sample rate, data array, number of samples and sample type of the
-MSrecord template are preserved.
+MSRecord template are preserved.
 
 Default values will be used for any of the key characteristics of
 record length, encoding format and byte order that are -1.  The
@@ -44,12 +44,12 @@ between (and including) 8 to 20.
 \fIencoding\fP should be set to one of the following supported
 Mini-SEED data encoding formats: ASCII (0), INT16 (1), INT32 (3),
 FLOAT32 (4), FLOAT64 (5), STEIM1 (10) and STEIM2 (11).
-Trace.sampletype should indicated the sample type as either 'a'
+MSTrace.sampletype should indicated the sample type as either 'a'
 (ASCII), 'i' (32-bit integers), 'f' (32-bit floats) or 'd' (64-bit
 doubles).
 
 The encoding format must be appropriate for the sample type of the
-Trace samples.  For example, Steim compression and integer encoding
+MSTrace samples.  For example, Steim compression and integer encoding
 formats must be used with integer samples and float encoding formats
 require the appropriate size floats as input.  As a counter example,
 float samples cannot be packed using Steim compression or integer
@@ -74,23 +74,23 @@ enough data samples to completely fill a record.
 The \fIverbose\fP flag controls verbosity, a value of zero will result
 in no diagnostic output.
 
-\fBmst_packgroup\fP simply calls \fBmst_pack\fP for each Trace in the
-specified TraceGroup.  The integer pointed to by \fIpackedsamples\fP
+\fBmst_packgroup\fP simply calls \fBmst_pack\fP for each MSTrace in the
+specified MSTraceGroup.  The integer pointed to by \fIpackedsamples\fP
 will be set to the total number of samples packed.
 
 .SH RETURN VALUES
 \fBmst_pack\fP returns the number records created on success and -1 on
 error.
 
-\fBmsr_packgroup\fP returns the total (for all Traces) number of
+\fBmsr_packgroup\fP returns the total (for all MSTraces) number of
 record created on success and -1 on error.
 
 .SH CAVEATS
-When using a MSrecord template (\fImstemplate\fP) the drec_indicator
+When using a MSRecord template (\fImstemplate\fP) the dataquality
 element must be set to a valid value.  It is also advisable to set the
 network, station, location and channel indicators to appropriate
 values.  Unless these source indicators need to change they can simply
-be copied from the matching Trace elements.
+be copied from the matching MSTrace elements.
 
 .SH EXAMPLE
 Skeleton code for creating (packing) Mini-SEED records with
@@ -107,11 +107,11 @@ static void record_handler (char *record, int reclen) {
 main() {
   int psamples;
   int precords;
-  Trace *mst;
+  MSTrace *mst;
 
   mst = mst_init (NULL);
 
-  /* Populate Trace values */
+  /* Populate MSTrace values */
   strcpy (mst->network, "XX");
   strcpy (mst->station, "TEST");
   strcpy (mst->channel, "BHE");

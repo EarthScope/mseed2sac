@@ -8,7 +8,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified 2005.201
+ * modified 2006.107
  ***************************************************************************/
 
 #include <stdio.h>
@@ -30,7 +30,7 @@
 static short int verbose   = 0;
 static short int ppackets  = 0;
 static short int basicsum  = 0;
-static int   reclen        = 0;
+static int   reclen        = -1;
 static char *inputfile     = 0;
 
 static int parameter_proc (int argcount, char **argvec);
@@ -40,7 +40,7 @@ static void term_handler (int sig);
 int
 main (int argc, char **argv)
 {
-  MSrecord *msr = 0;
+  MSRecord *msr = 0;
 
   int dataflag   = 0;
   int totalrecs  = 0;

@@ -1,35 +1,40 @@
-.TH MS_FIND_RECLEN 3 2005/12/01 "Libmseed API"
+.TH MS_FIND_RECLEN 3 2006/04/20 "Libmseed API"
 .SH DESCRIPTION
-Perform simple SEED data record verification, search for a
-Blockette 1000 and return the record size.
+Determine SEED record data length
 
 .SH SYNOPSIS
 .nf
 .B #include <libmseed.h>
 
-.BI "int  \fBms_find_reclen\fP ( const char *" msrecord ", int " maxheaderlen " );"
+.BI "int  \fBms_find_reclen\fP ( const char *" recbuf ", int " recbuflen ",
+.BI "                            FILE " *fileptr " );
 .fi
 
 .SH DESCRIPTION
-\fBms_find_reclen\fP verifies the specified \fImsrecord\fP buffer
-contains a SEED data record, searches the record up to
-\fImaxheaderlen\fP bytes for a Blockette 1000 and determines the
-record length.
+\fBms_find_reclen\fP verifies that the specified \fIrecbuf\fP buffer
+contains a SEED data record by looking for data record signatures in
+the fixed section data header and determines the data record length by
+1) searching the buffer up to \fIrecbuflen\fP bytes for a Blockette
+1000 and 2) if \fIfileptr\fP is not NULL reading the next 48 bytes
+from the file and looking for a data record signature (with detection
+of the next data record implying the length of the current record).
+If data is read from \fIfileptr\fP the read position is returned to
+it's position prior to this function call.
 
 To verify that the buffer contains a SEED data record the routine
 checks that it starts with 6 ASCII characters (the sequence
 number) followed by a valid data record indicator (D, R or Q) followed
 by a space character.
 
-A Mini-SEED record is, by definition, a data record that includes a
-Blockette 1000.  This routine will not be able to determine the record
-length of a plain SEED data record that does not include a Blockette
-1000.
-
 .SH RETURN VALUES
 \fBms_find_reclen\fP returns the length of the Mini-SEED record in
-bytes or 0 if a data record was detected but no Blockette 1000 was
-found or -1 when no data record was detected.
+bytes or 0 if a data record was detected but the length could not be
+determined or -1 when no data record was detected.
+
+If a data record is found but no record length could be determined
+(return of 0) this means that no Blockette 1000 was found in the
+buffer and, if \fIfileptr\fP is not NULL, no data record header was
+found in the next 48 bytes of the file.
 
 .SH SEE ALSO
 \fBms_readmsr(3)\fP, \fBms_readtraces(3)\fP and \fBmsr_unpack(3)\fP.

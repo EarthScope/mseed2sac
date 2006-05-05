@@ -1,24 +1,24 @@
-.TH MSR_ADDBLOCKETTE 3 2005/07/22 "Libmseed API"
+.TH MSR_ADDBLOCKETTE 3 2006/02/27 "Libmseed API"
 .SH DESCRIPTION
-Add a blockette to the blockette chain of an MSrecord structure
+Add a blockette to the blockette chain of an MSRecord structure
 
 .SH SYNOPSIS
 .nf
 .B #include <libmseed.h>
 
-.BI "BlktLink  *\fBmsr_addblockette\fP ( MSrecord *" msr ", char *" blktdata ",
-.BI "                              int " length ", int " blkttype ", int " chainpos ");
+.BI "BlktLink  *\fBmsr_addblockette\fP ( MSRecord *" msr ", char *" blktdata ",
+.BI "                              int " length ", int " blkttype ", int " chainpos " );
 .fi
 
 .SH DESCRIPTION
 \fBmsr_addblockette\fP adds a blockette to a blockette chain of an
-MSrecord structure.  The \fIchainpos\fP value controls which end of
+MSRecord structure.  The \fIchainpos\fP value controls which end of
 the chain the blockette is added to.  If \fIchainpos\fP is 0 the
 blockette will be added to the end of the chain (last blockette),
 other wise it will be added to the beginning of the chain (first
 blockette). A blockette chain is composed of linked BlktLink
-structures.  A blockette chain for a given MSrecord structure begins
-at MSrecord.blkts.
+structures.  A blockette chain for a given MSRecord structure begins
+at MSRecord.blkts.
 
 \fIblktdata\fP should be the blockette body (no blockette type and
 next header) of \fIlength\fP bytes and type \fIblkttype\fP.

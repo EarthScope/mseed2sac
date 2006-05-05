@@ -1,28 +1,28 @@
-.TH MST_GROUPSORT 3 2005/11/21 "Libmseed API"
+.TH MST_GROUPSORT 3 2006/04/21 "Libmseed API"
 .SH DESCRIPTION
-Manipulate Trace segments in a TraceGroup
+Manipulate MSTrace segments in a MSTraceGroup
 
 .SH SYNOPSIS
 .nf
 .B #include <libmseed.h>
 
-.BI "Trace  *\fBmst_groupsort\fP ( TraceGroup *" mstg " );
+.BI "MSTrace  *\fBmst_groupsort\fP ( MSTraceGroup *" mstg " );
 
-.BI "Trace  *\fBmst_heal\fP ( TraceGroup *" mstg ", double " timetol ",
-.BI "                   double " sampratetol " );"
+.BI "MSTrace  *\fBmst_groupheal\fP ( MSTraceGroup *" mstg ", double " timetol ",
+.BI "                          double " sampratetol " );"
 .fi
 
 .SH DESCRIPTION
-\fBmst_groupsort\fP will sort the Trace segments in a TraceGroup first
+\fBmst_groupsort\fP will sort the MSTrace segments in a MSTraceGroup first
 on the source name (as returned by \fBmst_srcname\fP), then on sample
 rate, then on start time and finally on descending end time.
 
-\fBmst_heal\fP will attempt to heal Trace segments in a TraceGroup if
+\fBmst_groupheal\fP will attempt to heal MSTrace segments in a MSTraceGroup if
 they fit within the specified time and sample rate tolerance
 (\fItimetol\fP and \fIsampratetol\fP respectively).  This is useful when,
-for whatever reason, the TraceGroup has separate Trace segments which
+for whatever reason, the MSTraceGroup has separate MSTrace segments which
 belong together.  This usually only happens when data is added to a
-TraceGroup in random data time order.
+MSTraceGroup in random data time order.
 
 If \fIsampratetol\fP is -1.0 the default tolerance of abs(1-sr1/sr2)
 is used.  If \fItimetol\fP is -1.0 the default time tolerance of 1/2
@@ -31,17 +31,15 @@ the sample period will be used.
 .SH RETURN VALUES
 \fBmst_groupsort\fP returns 0 on success and -1 on error.
 
-\fBmst_heal\fP returns the number of Trace segments merged on success
+\fBmst_groupheal\fP returns the number of MSTrace segments merged on success
 and -1 on error.
 
 .SH CAVEAT
-In certain cases when the Trace segments are in a really jumbled order
-in the TraceGroup and have random overlaps \fBmst_heal\fP will not
+In certain cases when the MSTrace segments are in a really jumbled order
+in the MSTraceGroup and have random overlaps \fBmst_groupheal\fP will not
 heal all possible segments.  This is due to a simple group traversing
-algorithm.  As \fBmst_heal\fP is not expected to be very important
-this issue will not be addressed anytime soon.  Sorting the TraceGroup
-with \fBmst_groupsort\fP first or a second call to \fBmst_heal\fP will
-probably help.
+algorithm.  Sorting the MSTraceGroup with \fBmst_groupsort\fP first or a
+second call to \fBmst_groupheal\fP will probably help.
 
 .SH SEE ALSO
 \fBms_intro(3)\fP and \fBmst_srcname(3)\fP.

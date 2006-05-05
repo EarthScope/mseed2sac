@@ -18,7 +18,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2005.315
+ * modified: 2006.082
  ***************************************************************************/
 
 #ifndef LMPLATFORM_H
@@ -114,8 +114,9 @@ extern "C" {
 
 #endif
 
-extern const char *lmp_strerror(void);
-extern off_t lmp_ftello(FILE *stream);
+extern const char *lmp_strerror (void);
+extern off_t lmp_ftello (FILE *stream);
+extern int lmp_fseeko (FILE *stream, off_t offset, int whence);
 
 #ifdef __cplusplus
 }

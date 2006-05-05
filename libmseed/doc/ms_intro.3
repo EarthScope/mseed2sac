@@ -1,4 +1,4 @@
-.TH MS_INTRO 3 2005/09/23
+.TH MS_INTRO 3 2006/04/20
 .SH NAME
 Introduction to libmseed
 
@@ -55,10 +55,10 @@ strings, the start time is available as a high precision epoch time
 (see ms_time(3)) and the sample rate is available as a double
 precision floating point value.
 
-The MSrecord data structure:
+The MSRecord data structure:
 
 .nf
-typedef struct MSrecord_s {
+typedef struct MSRecord_s {
   char           *record;            /* Mini-SEED record */
   int32_t         reclen;            /* Length of Mini-SEED record */
   
@@ -71,7 +71,7 @@ typedef struct MSrecord_s {
   
   /* Common header fields in accessible form */
   int32_t         sequence_number;   /* SEED record sequence number */
-  char            drec_indicator;    /* Data record indicator */
+  char            dataquality;       /* Data quality indicator */
   char            network[11];       /* Network designation */
   char            station[11];       /* Station designation */
   char            location[11];      /* Location designation */
@@ -88,13 +88,13 @@ typedef struct MSrecord_s {
   char            sampletype;        /* Sample type code: a, i, f, d */
   int8_t          unpackerr;         /* Unpacking error flag */
 }
-MSrecord;
+MSRecord;
 .fi
 
 .SS Explanation of fields
 
 .IP record:
-Pointer to the Mini-SEED record which was unpacked into the MSrecord.
+Pointer to the Mini-SEED record which was unpacked into the MSRecord.
 
 .IP reclen:
 When unpacking this is the record length in bytes of the record
@@ -123,8 +123,8 @@ in the chain this pointer will point to the last one.
 .IP sequence_number:
 SEED record sequence number, should be between 0 and 999999.
 
-.IP drec_indicator:
-Data record indicator, should be 'D', 'R' or 'Q'.
+.IP dataquality:
+Data record and quality indicator, should be 'D', 'R' or 'Q'.
 
 .IP network:
 .IP station:
@@ -194,29 +194,30 @@ MS_STBADCOMPFLAG: Steim, invalid compression flag(s)
 .SH TRACES
 
 In order to manage continuous trace segments the library defines a
-Trace data structure and a TraceGroup data structure in which Trace
-structures can be grouped.  While a Trace structure is normally used
+MSTrace data structure and a MSTraceGroup data structure in which MSTrace
+structures can be grouped.  While a MSTrace structure is normally used
 to hold trace information and associated data samples it can also be
 used without data samples as a means to keep trace of data coverage
 without actual samples.
 
-Numerous routines are provided for basic management of Trace
-structures, including the creation of new Trace structures, adding
-data from Mini-SEED data structures to Trace structures, printing
+Numerous routines are provided for basic management of MSTrace
+structures, including the creation of new MSTrace structures, adding
+data from Mini-SEED data structures to MSTrace structures, printing
 trace information, etc.
 
-The TraceGroup data structure acts as a very simple place to begin a
-chain of Trace structures and keep track of the number of traces.
+The MSTraceGroup data structure acts as a very simple place to begin a
+chain of MSTrace structures and keep track of the number of traces.
 
-The Trace and TraceGroup data structures:
+The MSTrace and MSTraceGroup data structures:
 
 .nf
-typedef struct Trace_s {
+typedef struct MSTrace_s {
+  char            dataquality;     /* Data quality indicator */
   char            network[11];     /* Network designation */
   char            station[11];     /* Station designation */
   char            location[11];    /* Location designation */
   char            channel[11];     /* Channel designation */
-  char            type;            /* Trace type code */
+  char            type;            /* MSTrace type code */
   hptime_t        starttime;       /* Time of first sample */
   hptime_t        endtime;         /* Time of last sample */
   double          samprate;        /* Nominal sample rate (Hz) */
@@ -225,24 +226,29 @@ typedef struct Trace_s {
   int32_t         numsamples;      /* Num. samples in datasamples */
   char            sampletype;      /* Sample type code: a, i, f, d */
   void           *private          /* Private pointer for general use */
-  struct Trace_s *next;            /* Pointer to next trace */
+  struct MSTrace_s *next;            /* Pointer to next trace */
 }
-Trace;
+MSTrace;
 
-typedef struct TraceGroup_s {
-  int32_t         numtraces;       /* Number of Traces in trace chain */
-  struct Trace_s *traces;          /* Root of the trace chain */
+typedef struct MSTraceGroup_s {
+  int32_t         numtraces;       /* Number of MSTraces in trace chain */
+  struct MSTrace_s *traces;          /* Root of the trace chain */
 }
-TraceGroup;
+MSTraceGroup;
 .fi
 
 .SS Explanation of fields
+
+.IP dataquality:
+
+SEED data quality indicator, either 'Q', 'D' or 'R'.  This value will
+will be (binary) 0 when the quality is unknown or mixed.
 
 .IP network:
 .IP station:
 .IP location:
 .IP channel:
-Trace identifiers as a NULL terminated strings.
+MSTrace identifiers as a NULL terminated strings.
 
 .IP type:
 A single character trace type indicator.  This field is not used by
@@ -250,13 +256,13 @@ libmseed but could be used for application specific trace
 identification.
 
 .IP starttime:
-Trace start time, the time of the first sample, as a high precision
+MSTrace start time, the time of the first sample, as a high precision
 epoch time (see ms_time(3)).  This time can be converted using the
 ms_hptime2isotimestr(3), ms_hptime2seedtimestr(3) and
 ms_hptime2btime(3) functions.
 
 .IP endtime:
-Trace end time, the time of the last sample, as a high precision epoch
+MSTrace end time, the time of the last sample, as a high precision epoch
 time (see ms_time(3)).  This time can be converted using the
 ms_hptime2isotimestr(3), ms_hptime2seedtimestr(3) and
 ms_hptime2btime(3) functions.
@@ -287,8 +293,8 @@ A private pointer for general use.  This pointer is not used by
 libmseed and can safely be used by the calling program.
 
 .IP next:
-A pointer to the next Trace structure.  The value will be 0 for the
-last link in a chain of Trace structures.
+A pointer to the next MSTrace structure.  The value will be 0 for the
+last link in a chain of MSTrace structures.
 
 .SH WAVEFORM DATA
 
@@ -372,10 +378,10 @@ One of the most common tasks is to read a file of Mini-SEED records
 and either perform some action based on the header values or apply
 some process to the data samples.  This task is greatly simplified by
 using the library functions ms_readmsr(3) and ms_readtraces(3).  The
-ms_readmsr(3) routine will open a specified file and return MSrecord
+ms_readmsr(3) routine will open a specified file and return MSRecord
 structures for each Mini-SEED record it reads from the file.  The
 ms_readtraces(3) routine will do the same except add all the data read
-to a TraceGroup, this is ideal for quickly reading data for
+to a MSTraceGroup, this is ideal for quickly reading data for
 processing.  Both of these routines are able to automatically detect
 record length.
 
@@ -383,15 +389,15 @@ Skeleton code for reading a file with ms_readmsr(3):
 
 .nf
 main() {
-  MSrecord *msr;
+  MSRecord *msr;
 
-  while ( (msr = msr_readmsr(filename, 0, NULL, NULL, 0, verbose)) )
+  while ( (msr = ms_readmsr(filename, 0, NULL, NULL, 1, 0, verbose)) )
     {
        /* Do something with the record here, e.g. print */
        msr_print (msr, verbose);
     }
 
-  ms_readmsr (NULL, 0, NULL, NULL, 0, 0);
+  ms_readmsr (NULL, 0, NULL, NULL, 1, 0, 0);
 }
 
 .fi
@@ -399,9 +405,9 @@ For reading a file with ms_readtraces(3):
 .nf
 
 main() {
-  MSrecord *mstg;
+  MSTraceGroup *mstg;
 
-  mstg = msr_readtraces (filename, 0, 0, -1.0, -1.0, verbose);
+  mstg = ms_readtraces (filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( ! mstg )
     {
@@ -417,15 +423,15 @@ main() {
 .fi
 
 Another common task is to create (pack) Mini-SEED records. The library
-supports packing of Mini-SEED either from MSrecord structures, Trace
-structures or TraceGroup collections using, respectively, msr_pack(3),
+supports packing of Mini-SEED either from MSRecord structures, MSTrace
+structures or MSTraceGroup collections using, respectively, msr_pack(3),
 mst_pack(3) or mst_packgroup(3).  In each case the appropriate data
 structure and parameters are provided to the routine along with a
 function pointer to a routine that will be called each time a record
 is complete and should be disposed of.
 
 When packing Mini-SEED records the concept of a record header template
-is used, the template is always in the form of a MSrecord structure.
+is used, the template is always in the form of a MSRecord structure.
 This allows the calling program to dictate the contents, with a few
 exceptions, of the header in the final data records.
 
@@ -443,11 +449,11 @@ static void record_handler (char *record, int reclen) {
 main() {
   int psamples;
   int precords;
-  Trace *mst;
+  MSTrace *mst;
 
   mst = mst_init (NULL);
 
-  /* Populate Trace values */
+  /* Populate MSTrace values */
   strcpy (mst->network, "XX");
   strcpy (mst->station, "TEST");
   strcpy (mst->channel, "BHE");
