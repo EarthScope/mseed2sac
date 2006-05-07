@@ -20,7 +20,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.1"
+#define VERSION "0.2"
 #define PACKAGE "mseed2sac"
 
 #define DUNDEF -999.0

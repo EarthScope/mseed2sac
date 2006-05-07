@@ -1,2 +1,6 @@
-2006.125:
+2006.127: 0.2
+	- Add -E option to specify event information that will be inserted
+	into the SAC header event variables.
+
+2006.125: 0.1
 	- Initial version. 
