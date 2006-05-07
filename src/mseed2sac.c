@@ -5,8 +5,10 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.125
+ * modified 2006.127
  ***************************************************************************/
+
+// Add -C option for station coordinate list file
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +22,8 @@
 
 #define VERSION "0.1"
 #define PACKAGE "mseed2sac"
+
+#define DUNDEF -999.0
 
 struct listnode {
   char *key;
@@ -39,20 +43,28 @@ static int readlistfile (char *listfile);
 static void addnode (struct listnode **listroot, char *key, char *data);
 static void usage (void);
 
-static int   verbose     = 0;
-static int   reclen      = -1;
-static int   encoding    = 11;
-static int   indifile    = 0;
-static int   sacformat   = 2;
-static double latitude   = 999.0;
-static double longitude  = 999.0;
-static char *network     = 0;
-static char *station     = 0;
-static char *location    = 0;
-static char *channel     = 0;
+static int   verbose      = 0;
+static int   reclen       = -1;
+static int   encoding     = 11;
+static int   indifile     = 0;
+static int   sacformat    = 2;
+static double latitude    = DUNDEF;
+static double longitude   = DUNDEF;
+static char *network      = 0;
+static char *station      = 0;
+static char *location     = 0;
+static char *channel      = 0;
+
+static hptime_t eventtime = 0;
+static double eventlat    = DUNDEF;
+static double eventlon    = DUNDEF;
+static double eventdepth  = DUNDEF;
 
 /* A list of input files */
 struct listnode *filelist = 0;
+
+/* A list of station and coordinates */
+struct listnode *stationcoords;
 
 int
 main (int argc, char **argv)
@@ -190,8 +202,19 @@ writesac (MSTrace *mst)
   //strncpy (sh.kevnm, "Event name", 16);
   
   /* Set station coordinates */
-  if ( latitude < 999.0 ) sh.stla = latitude;
-  if ( longitude < 999.0 ) sh.stlo = longitude;
+  if ( latitude != DUNDEF ) sh.stla = latitude;
+  if ( longitude != DUNDEF ) sh.stlo = longitude;
+  
+  /* Set event parameters */
+  if ( eventtime )
+    sh.o = (float) ( MS_HPTIME2EPOCH(eventtime) - 
+		     MS_HPTIME2EPOCH(mst->starttime) );
+  if ( eventlat != DUNDEF )
+    sh.evla = (float) eventlat;
+  if ( eventlon != DUNDEF )
+    sh.evlo = (float) eventlon;
+  if ( eventdepth != DUNDEF )
+    sh.evdp = (float) eventdepth;
   
   /* Set start time */
   ms_hptime2btime (mst->starttime, &btime);
@@ -444,8 +467,9 @@ static int
 parameter_proc (int argcount, char **argvec)
 {
   char *coorstr = 0;
+  char *eventstr = 0;
   int optind;
-
+  
   /* Process all command line arguments */
   for (optind = 1; optind < argcount; optind++)
     {
@@ -491,9 +515,13 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  indifile = 1;
 	}
-      else if (strcmp (argvec[optind], "-C") == 0)
+      else if (strcmp (argvec[optind], "-k") == 0)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++);
+	}
+      else if (strcmp (argvec[optind], "-E") == 0)
+	{
+	  eventstr = getoptval(argcount, argvec, optind++);
 	}
       else if (strcmp (argvec[optind], "-f") == 0)
 	{
@@ -570,6 +598,7 @@ parameter_proc (int argcount, char **argvec)
   if ( coorstr )
     {
       char *lat,*lon;
+      char *endptr = 0;
       
       lat = coorstr;
       lon = 0;
@@ -585,8 +614,78 @@ parameter_proc (int argcount, char **argvec)
 	  return -1;
 	}
       
-      latitude = strtod (lat, NULL);
-      longitude = strtod (lon, NULL);
+      if ( lat )
+	if ( *lat )
+	  if ( (latitude = strtod (lat, &endptr)) == 0.0 && endptr == lat )
+	    {
+	      fprintf (stderr, "Error parsing station latitude: '%s'\n", lat);
+	      return -1;
+	    }
+      if ( lon )
+	if ( *lon )
+	  if ( (longitude = strtod (lon, &endptr)) == 0.0 && endptr == lon )
+	    {
+	      fprintf (stderr, "Error parsing station longitude: '%s'\n", lon);
+	      return -1;
+	    }
+    }
+  
+  /* Parse event information */
+  if ( eventstr )
+    {
+      char *etime,*elat,*elon,*edepth;
+      char *endptr = 0;
+      
+      etime = eventstr;
+      elat = elon = edepth = 0;
+      
+      if ( (elat = strchr (etime, '/')) )
+	{
+	  *elat++ = '\0';
+	  
+	  if ( (elon = strchr (elat, '/')) )
+	    {
+	      *elon++ = '\0';
+	      
+	      if ( (edepth = strchr (elon, '/')) )
+		{
+		  *edepth++ = '\0';
+		}
+	    }
+	}
+      
+      eventtime = ms_seedtimestr2hptime (etime);
+      
+      fprintf (stderr, "DB: event time '%lld'\n", (long long) eventtime);
+
+      if ( eventtime == HPTERROR )
+	{
+	  fprintf (stderr, "Error parsing event time: '%s'\n", etime);
+	  fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
+	  return -1;
+	}
+      
+      if ( elat )
+	if ( *elat )
+	  if ( (eventlat = strtod (elat, &endptr)) == 0.0 && endptr == elat )
+	    {
+	      fprintf (stderr, "Error parsing event latitude: '%s'\n", elat);
+	      return -1;
+	    }
+      if ( elon )
+	if ( *elon )
+	  if ( (eventlon = strtod (elon, &endptr)) == 0.0 && endptr == elon )
+	    {
+	      fprintf (stderr, "Error parsing event longitude: '%s'\n", elon);
+	      return -1;
+	    }
+      if ( edepth )
+	if ( *edepth )
+	  if ( (eventdepth = strtod (edepth, &endptr))== 0.0 && endptr == edepth )
+	    {
+	      fprintf (stderr, "Error parsing event depth: '%s'\n", edepth);
+	      return -1;
+	    }
     }
   
   return 0;
@@ -792,7 +891,10 @@ usage (void)
 	   " -r bytes       Specify SEED record length in bytes, default: 4096\n"
 	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
 	   " -i             Process each input file individually instead of merged\n"
-	   " -C lat/lon     Specify coordinates as Latitude/Longitude in degrees\n"
+	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
+	   " -C coordfile   File containing station coordinates\n"
+	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth]'\n"
+	   "                  e.g. '2006,123,15:26:35.19/-20.035/-174.227/5000'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
            "                  3=binary (little-endian), 4=binary (big-endian)\n"
