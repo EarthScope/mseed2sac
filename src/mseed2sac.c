@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.127
+ * modified 2006.128
  ***************************************************************************/
 
 // Add -C option for station coordinate list file
@@ -20,7 +20,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.2"
+#define VERSION "0.2dev"
 #define PACKAGE "mseed2sac"
 
 #define DUNDEF -999.0
@@ -59,6 +59,7 @@ static hptime_t eventtime = 0;
 static double eventlat    = DUNDEF;
 static double eventlon    = DUNDEF;
 static double eventdepth  = DUNDEF;
+static char  *eventname   = 0;
 
 /* A list of input files */
 struct listnode *filelist = 0;
@@ -199,7 +200,6 @@ writesac (MSTrace *mst)
   sh.iftype = ITIME;            /* Data is time-series */
   sh.b = 0.0;                   /* First sample, offset time */
   sh.e = (mst->numsamples - 1) * (1 / mst->samprate); /* Last sample, offset time */
-  //strncpy (sh.kevnm, "Event name", 16);
   
   /* Set station coordinates */
   if ( latitude != DUNDEF ) sh.stla = latitude;
@@ -215,6 +215,8 @@ writesac (MSTrace *mst)
     sh.evlo = (float) eventlon;
   if ( eventdepth != DUNDEF )
     sh.evdp = (float) eventdepth;
+  if ( eventname )
+    strncpy (sh.kevnm, eventname, 16);
   
   /* Set start time */
   ms_hptime2btime (mst->starttime, &btime);
@@ -633,11 +635,11 @@ parameter_proc (int argcount, char **argvec)
   /* Parse event information */
   if ( eventstr )
     {
-      char *etime,*elat,*elon,*edepth;
+      char *etime,*elat,*elon,*edepth, *ename;
       char *endptr = 0;
       
       etime = eventstr;
-      elat = elon = edepth = 0;
+      elat = elon = edepth = ename = 0;
       
       if ( (elat = strchr (etime, '/')) )
 	{
@@ -650,14 +652,18 @@ parameter_proc (int argcount, char **argvec)
 	      if ( (edepth = strchr (elon, '/')) )
 		{
 		  *edepth++ = '\0';
+		  
+		  if ( (ename = strchr (edepth, '/')) )
+		    {
+		      *ename++ = '\0';
+		    }
 		}
 	    }
 	}
       
+      /* Parse event time */
       eventtime = ms_seedtimestr2hptime (etime);
       
-      fprintf (stderr, "DB: event time '%lld'\n", (long long) eventtime);
-
       if ( eventtime == HPTERROR )
 	{
 	  fprintf (stderr, "Error parsing event time: '%s'\n", etime);
@@ -665,6 +671,7 @@ parameter_proc (int argcount, char **argvec)
 	  return -1;
 	}
       
+      /* Process remaining event information */
       if ( elat )
 	if ( *elat )
 	  if ( (eventlat = strtod (elat, &endptr)) == 0.0 && endptr == elat )
@@ -686,6 +693,9 @@ parameter_proc (int argcount, char **argvec)
 	      fprintf (stderr, "Error parsing event depth: '%s'\n", edepth);
 	      return -1;
 	    }
+      if ( ename )
+	if ( *ename )
+	  eventname = ename;
     }
   
   return 0;
@@ -893,8 +903,8 @@ usage (void)
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
 	   " -C coordfile   File containing station coordinates\n"
-	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth]'\n"
-	   "                  e.g. '2006,123,15:26:35.19/-20.035/-174.227/5000'\n"
+	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
+	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
            "                  3=binary (little-endian), 4=binary (big-endian)\n"
