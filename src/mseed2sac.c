@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <math.h>
 
 #include <libmseed.h>
 
@@ -37,8 +38,12 @@ static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
 static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
 			  char *outfile);
 static int swapsacheader (struct SACHeader *sh);
-static int delaz (double stalat, double stalon, double evlat, double evlon,
-		  double *az, double *baz, double *dist, double *gcarc);
+static int delaz (double sta1, double lon1, double lat2, double lon2,
+		  double *delta, double *dist,
+		  double *azimuth, double *backazimuth);
+static int delaz2 (double sta1, double lon1, double lat2, double lon2,
+		   double *delta, double *dist,
+		   double *azimuth, double *backazimuth);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
 static int readlistfile (char *listfile);
@@ -476,9 +481,106 @@ swapsacheader (struct SACHeader *sh)
  *
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
-static void
+static int
 delaz (double lat1, double lon1, double lat2, double lon2,
        double *delta, double *dist, double *azimuth, double *backazimuth)
+{
+  double clat1,clon1,clar,clor,stho,ctho,clat2,clon2;
+  double ctlar,ctlor,sth,cth,dph,sdph,cdph,delr;
+  double azr,bazr;
+  double pi,rd;
+  double denom;
+  
+  const double geofac = 0.993305621334896;
+  
+  pi = acos(-1.0);
+  rd = 180.0/pi;
+  
+  /* Sanity check coordinates */
+  if (lat1 < -90.0 || lat1 > 90.0) return -1;
+  if (lon1 < -180.0)
+    return -1;
+  else if (lon1 > 180.0)
+    {
+      lon1 -= 360.0;
+      if (lon1 > 180.0) return -1;
+    }
+  if (lat2 < -90.0 || lat2 > 90.0) return -1;
+  if (lon2 < -180.0)
+    return -1;
+  else if (lon2 > 180.0)
+    {
+      lon2 -= 360.0;
+      if (lon2 > 180.0) return -1;
+    }
+  
+  /* 1) coordinates to geocentric radians */
+  clat1 = 90.0 - lat1;
+  clon1 = lon1;
+  if (clon1 < 0.0) clon1 += 360.0;
+  
+  denom = sin(clat1/rd);
+  if ( denom < 1.0e-30 ) denom = 1.0e-30;
+  clar = (pi/2.0-atan(geofac*cos(clat1/rd)/denom));  
+  
+  clor = clon1/rd;
+  stho = sin(clar);
+  ctho = cos(clar);
+  
+  /* 2) coordinates to geocentric radians */
+  clat2 = 90.0 - lat2;
+  clon2 = lon2;
+  if (clon2 < 0.0) clon2 += 360.0;
+
+  denom = sin(clat2/rd);
+  if ( denom < 1.0e-30 ) denom = 1.0e-30;
+  ctlar = (pi/2.0-atan(geofac*cos(clat2/rd)/denom));
+  
+  ctlor = clon2/rd;
+  sth = sin(ctlar);
+  cth = cos(ctlar);
+
+  /* Calculate distance */
+  dph = ctlor - clor;
+  sdph = sin(dph);
+  cdph = cos(dph);
+  delr = acos(stho * sth * cdph + ctho * cth);
+  *delta = (delr*rd);
+  
+  /* Calculate azimuth */
+  if (sth == 0.0) azr = 0.0;
+  else azr = atan2(sdph,stho*cth/sth-ctho*cdph);
+  if (azr < 0.0) azr += (pi*2.0);
+  *azimuth = (azr*rd);
+  
+  /* Calculate back azimuth */
+  if (stho == 0.0) bazr = 0.0;
+  else bazr = atan2(-sdph,sth*ctho/stho-cth*cdph);
+  if (bazr < 0.0) bazr += (pi*2.0);
+  *backazimuth = (bazr*rd);
+  
+  return 0;
+}  /* End of delaz() */
+
+
+/***************************************************************************
+ * delaz2:
+ *
+ * Calculate the angular distance (and approximately equivalent
+ * kilometers), azimuth and back azimuth for specified coordinates.
+ * Latitudes are converted to geocentric latitudes using the WGS84
+ * spheriod to correct for ellipticity.
+ *
+ * delta : angular distance (degrees)
+ * dist  : distance (kilometers)
+ * az    : 1-2 azimuth
+ * baz   : 2-1 aziumth (back)
+ *
+ * Returns 0 on sucess and -1 on failure.
+ ***************************************************************************/
+static int
+delaz2 (double lat1, double lon1, double lat2, double lon2,
+	double *delta, double *dist, double *azimuth, double *backazimuth)
 {
   /* Major and minor axies for WGS84 spheriod */
   const double semimajor = 6378137.0;
@@ -513,8 +615,9 @@ delaz (double lat1, double lon1, double lat2, double lon2,
   
   /* 111.19 km/deg */
   *dist = *delta * 111.19;
-  
-}  /* End of delaz() */
+
+  return 0;
+}  /* End of delaz2() */
 
 
 /***************************************************************************
