@@ -37,6 +37,8 @@ static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
 static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
 			  char *outfile);
 static int swapsacheader (struct SACHeader *sh);
+static int delaz (double stalat, double stalon, double evlat, double evlon,
+		  double *az, double *baz, double *dist, double *gcarc);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
 static int readlistfile (char *listfile);
@@ -457,6 +459,62 @@ swapsacheader (struct SACHeader *sh)
   
   return 0;
 }  /* End of swapsacheader() */
+
+
+/***************************************************************************
+ * delaz:
+ *
+ * Calculate the angular distance (and approximately equivalent
+ * kilometers), azimuth and back azimuth for specified coordinates.
+ * Latitudes are converted to geocentric latitudes using the WGS84
+ * spheriod to correct for ellipticity.
+ *
+ * delta : angular distance (degrees)
+ * dist  : distance (kilometers)
+ * az    : 1-2 azimuth
+ * baz   : 2-1 aziumth (back)
+ *
+ * Returns 0 on sucess and -1 on failure.
+ ***************************************************************************/
+static void
+delaz (double lat1, double lon1, double lat2, double lon2,
+       double *delta, double *dist, double *azimuth, double *backazimuth)
+{
+  /* Major and minor axies for WGS84 spheriod */
+  const double semimajor = 6378137.0;
+  const double semiminor = 6356752.3142;
+  
+  double ratio2, pirad, halfpi, nlat1, nlat2, gamma, a, b, sita;
+  
+  ratio2 = ((semiminor * semiminor) / (semimajor * semimajor));
+  
+  pirad  = acos(-1.0) / 180.0;
+  halfpi = acos(-1.0) / 2.0;
+  
+  /* Convert latitude to geocentric coordinates */
+  nlat1 = atan (ratio2 * tan (lat1 * pirad));
+  nlat2 = atan (ratio2 * tan (lat2 * pirad));
+  
+  /* Great circle calculation for delta and azimuth */
+  gamma = (lon2 - lon1) * pirad;
+  a = (halfpi - nlat2);
+  b = (halfpi - nlat1);
+  
+  if ( nlat2 != 0.0 )
+    sita = sin(b) / tan(a);
+  else
+    sita = 0.0;
+  
+  *azimuth = atan2 (sin(gamma), sita - cos(gamma) * cos(b)) / pirad;
+  
+  *backazimuth = ( *azimuth > 180.0 ) ? (*azimuth - 180) : (*azimuth + 180);
+  
+  *delta = acos (cos(a) * cos(b) + sin(a) * sin(b) * cos(gamma)) / pirad;
+  
+  /* 111.19 km/deg */
+  *dist = *delta * 111.19;
+  
+}  /* End of delaz() */
 
 
 /***************************************************************************
