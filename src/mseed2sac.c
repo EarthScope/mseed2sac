@@ -704,7 +704,7 @@ parameter_proc (int argcount, char **argvec)
 	}
       else
 	{
-	  fprintf (stderr, "Error parsing coordinates: '%s'\n", coorstr);
+	  fprintf (stderr, "Error parsing coordinates (LAT/LON): '%s'\n", coorstr);
 	  fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
 	  return -1;
 	}
