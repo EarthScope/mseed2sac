@@ -200,6 +200,10 @@ writesac (MSTrace *mst)
     if ( *sacchannel != '\0' )
       strncpy (sh.kcmpnm, sacchannel, 8);
   
+  if ( verbose )
+    fprintf (stderr, "Writing SAC for %.8s.%.8s.%.8s.%.8s\n",
+	     sh.knetwk, sh.kstnm, sh.khole, sh.kcmpnm);
+
   /* Set misc. header variables */
   sh.nvhdr = 6;                 /* Header version = 6 */
   sh.leven = 1;                 /* Evenly spaced data */
@@ -236,6 +240,10 @@ writesac (MSTrace *mst)
 	  sh.baz = (float) backazimuth;
 	  sh.gcarc = (float) delta;
 	  sh.dist = (float) dist;
+
+	  if ( verbose )
+	    fprintf (stderr, "Inserting variables: AZ: %g, BAZ: %g, GCARC: %g, DIST: %g\n",
+		     sh.az, sh.baz, sh.gcarc, sh.dist);
 	}
     }
   
@@ -317,6 +325,9 @@ writesac (MSTrace *mst)
 	    }
 	}
 	   
+      if ( verbose > 1 )
+	fprintf (stderr, "Writing binary SAC file\n");
+
       if ( writebinarysac (&sh, fdata, mst->numsamples, outfile) )
 	return -1;
     }
@@ -327,6 +338,9 @@ writesac (MSTrace *mst)
 		sacnetwork, sacstation, saclocation, sacchannel,
 		mst->dataquality, btime.year, btime.day, btime.hour,
 		btime.min, btime.sec);
+
+      if ( verbose > 1 )
+	fprintf (stderr, "Writing binary SAC file\n");
       
       if ( writealphasac (&sh, fdata, mst->numsamples, outfile) )
 	return -1;
