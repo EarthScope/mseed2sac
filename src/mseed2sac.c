@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.128
+ * modified 2006.129
  ***************************************************************************/
 
 // Add -C option for station coordinate list file
@@ -26,6 +26,9 @@
 
 #define DUNDEF -999.0
 
+/* Macro to test floating point number equality withing 10 decimal places */
+#define FLTEQUAL(F1,F2) (fabs(F1-F2) < 1.0E-10 * (fabs(F1) + fabs(F2) + 1.0))
+
 struct listnode {
   char *key;
   char *data;
@@ -38,12 +41,8 @@ static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
 static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
 			  char *outfile);
 static int swapsacheader (struct SACHeader *sh);
-static int delaz (double sta1, double lon1, double lat2, double lon2,
-		  double *delta, double *dist,
-		  double *azimuth, double *backazimuth);
-static int delaz2 (double sta1, double lon1, double lat2, double lon2,
-		   double *delta, double *dist,
-		   double *azimuth, double *backazimuth);
+static int delaz (double lat1, double lon1, double lat2, double lon2,
+		  double *delta, double *dist, double *azimuth, double *backazimuth);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
 static int readlistfile (char *listfile);
@@ -224,6 +223,21 @@ writesac (MSTrace *mst)
     sh.evdp = (float) eventdepth;
   if ( eventname )
     strncpy (sh.kevnm, eventname, 16);
+  
+  /* Calculate delta, distance and azimuths if both event and station coordiantes are known */
+  if ( eventlat != DUNDEF && eventlon != DUNDEF &&
+       latitude != DUNDEF && longitude != DUNDEF )
+    {
+      double delta, dist, azimuth, backazimuth;
+      
+      if ( ! delaz (eventlat, eventlon, latitude, longitude, &delta, &dist, &azimuth, &backazimuth) )
+	{
+	  sh.az = (float) azimuth;
+	  sh.baz = (float) backazimuth;
+	  sh.gcarc = (float) delta;
+	  sh.dist = (float) dist;
+	}
+    }
   
   /* Set start time */
   ms_hptime2btime (mst->starttime, &btime);
@@ -474,10 +488,10 @@ swapsacheader (struct SACHeader *sh)
  * Latitudes are converted to geocentric latitudes using the WGS84
  * spheriod to correct for ellipticity.
  *
- * delta : angular distance (degrees)
- * dist  : distance (kilometers)
- * az    : 1-2 azimuth
- * baz   : 2-1 aziumth (back)
+ * delta       : angular distance (degrees)
+ * dist        : distance (kilometers, 111.19 km/deg)
+ * azimuth     : azimuth from 1 to 2 (degrees)
+ * backazimuth : azimuth from 2 to 1 (degrees)
  *
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
@@ -586,7 +600,7 @@ delaz2 (double lat1, double lon1, double lat2, double lon2,
   const double semimajor = 6378137.0;
   const double semiminor = 6356752.3142;
   
-  double ratio2, pirad, halfpi, nlat1, nlat2, gamma, a, b, sita;
+  double ratio2, pirad, halfpi, nlat1, nlat2, gamma, a, b, sita, bsita;
   
   ratio2 = ((semiminor * semiminor) / (semimajor * semimajor));
   
@@ -602,22 +616,43 @@ delaz2 (double lat1, double lon1, double lat2, double lon2,
   a = (halfpi - nlat2);
   b = (halfpi - nlat1);
   
-  if ( nlat2 != 0.0 )
-    sita = sin(b) / tan(a);
-  else
+  if ( a == 0.0 )
+    sita = 1.0;
+  else if ( nlat2 == 0.0 )
     sita = 0.0;
-  
-  *azimuth = atan2 (sin(gamma), sita - cos(gamma) * cos(b)) / pirad;
-  
-  *backazimuth = ( *azimuth > 180.0 ) ? (*azimuth - 180) : (*azimuth + 180);
+  else
+    sita = sin(b) / tan(a);
+
+  if ( b == 0.0 )
+    bsita = 1.0;
+  else if ( nlat1 == 0.0 )
+    bsita = 0.0;
+  else
+    bsita = sin(a) / tan(b);
   
   *delta = acos (cos(a) * cos(b) + sin(a) * sin(b) * cos(gamma)) / pirad;
+  if ( FLTEQUAL(*delta,0.0) ) *delta = 0.0;
   
   /* 111.19 km/deg */
   *dist = *delta * 111.19;
+<<<<<<< mseed2sac.c
+  if ( FLTEQUAL(*dist,0.0) ) *dist = 0.0;
+  
+  *azimuth = atan2 (sin(gamma), sita - cos(gamma) * cos(b)) / pirad;
+  if ( FLTEQUAL(*azimuth,0.0) ) *azimuth = 0.0;
+  if ( *azimuth < 0.0 ) *azimuth += 360;
+  
+  *backazimuth = atan2 (-sin(gamma), bsita - cos(gamma) * cos(a)) / pirad;
+  if ( FLTEQUAL(*backazimuth,0.0) ) *backazimuth = 0.0;
+  if ( *backazimuth < 0.0 ) *backazimuth += 360;
+  
+  return 0;
+}  /* End of delaz() */
+=======
 
   return 0;
 }  /* End of delaz2() */
+>>>>>>> 1.8
 
 
 /***************************************************************************
