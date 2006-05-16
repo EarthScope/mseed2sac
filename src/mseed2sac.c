@@ -5,10 +5,10 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.129
+ * modified 2006.136
  ***************************************************************************/
 
-// Add -C option for station coordinate list file
+// Complete -M option for station metadata list file
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -576,6 +576,7 @@ static int
 parameter_proc (int argcount, char **argvec)
 {
   char *coorstr = 0;
+  char *metafile = 0;
   char *eventstr = 0;
   int optind;
   
@@ -627,6 +628,10 @@ parameter_proc (int argcount, char **argvec)
       else if (strcmp (argvec[optind], "-k") == 0)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++);
+	}
+      else if (strcmp (argvec[optind], "-M") == 0)
+	{
+	  metafile = getoptval(argcount, argvec, optind++);
 	}
       else if (strcmp (argvec[optind], "-E") == 0)
 	{
@@ -1009,7 +1014,7 @@ usage (void)
 	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
-	   " -C coordfile   File containing station coordinates\n"
+	   " -M file        File containing station metadata (coordinates, etc.)\n"
 	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
