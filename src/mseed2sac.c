@@ -10,6 +10,19 @@
 
 // Complete -M option for station metadata list file
 
+// M lines include: 
+//  net (knetwk)
+//  sta (kstnm)
+//  loc (khole)
+//  chan (kcmpnm)
+//  lat (stla)
+//  lon (stlo)
+//  evel (stel) [not currently used]
+//  depth (stdp) [not currently used]
+//  comp. az. (cmpaz), Component azimuth (degrees clockwise from north)
+//  comp. inc. (cmpinc), Component incident angle (degrees from vertical).
+//  instrument name (kinst)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
