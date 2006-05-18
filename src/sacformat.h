@@ -1,7 +1,7 @@
 #ifndef SAC_FORMAT_H
 #define SAC_FORMAT_H
 
-/* Version: 2006.125 */
+/* Version: 2006.137 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,7 +15,7 @@ extern "C" {
 #define NUMSTRHDR 23      /* Number of string header variables, 22x8 bytes + 1x16 bytes */
 
 /* Undefined values for float, integer and string header variables */
-#define FUNDEF -12345.0,
+#define FUNDEF -12345.0
 #define IUNDEF -12345
 #define SUNDEF "-12345  "
 
