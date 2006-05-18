@@ -5,23 +5,10 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.136
+ * modified 2006.138
  ***************************************************************************/
 
-// Complete -M option for station metadata list file
-
-// M lines include: 
-//  net (knetwk)
-//  sta (kstnm)
-//  loc (khole)
-//  chan (kcmpnm)
-//  lat (stla)
-//  lon (stlo)
-//  evel (stel) [not currently used]
-//  depth (stdp) [not currently used]
-//  comp. az. (cmpaz), Component azimuth (degrees clockwise from north)
-//  comp. inc. (cmpinc), Component incident angle (degrees from vertical).
-//  instrument name (kinst)
+// Complete -m option for station metadata list file
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,10 +21,14 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.2dev"
+#define VERSION "0.3dev"
 #define PACKAGE "mseed2sac"
 
+/* An undefined value for double values */
 #define DUNDEF -999.0
+
+/* Maximum number of metadata fields per line */
+#define MAXMETAFIELDS 12
 
 /* Macro to test floating point number equality withing 10 decimal places */
 #define FLTEQUAL(F1,F2) (fabs(F1-F2) < 1.0E-10 * (fabs(F1) + fabs(F2) + 1.0))
@@ -54,12 +45,15 @@ static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
 static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
 			  char *outfile);
 static int swapsacheader (struct SACHeader *sh);
+static int insertmetadata (struct SACHeader *sh);
 static int delaz (double lat1, double lon1, double lat2, double lon2,
 		  double *delta, double *dist, double *azimuth, double *backazimuth);
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt);
 static int readlistfile (char *listfile);
-static void addnode (struct listnode **listroot, char *key, char *data);
+static int readmetadata (char *metafile);
+static struct listnode *addnode (struct listnode **listroot, void *key, int keylen,
+				 void *data, int datalen);
 static void usage (void);
 
 static int   verbose      = 0;
@@ -84,7 +78,7 @@ static char  *eventname   = 0;
 struct listnode *filelist = 0;
 
 /* A list of station and coordinates */
-struct listnode *stationcoords;
+struct listnode *metadata = 0;
 
 int
 main (int argc, char **argv)
@@ -102,7 +96,7 @@ main (int argc, char **argv)
   /* Process given parameters (command line and parameter file) */
   if (parameter_proc (argc, argv) < 0)
     return -1;
-
+  
   /* Init MSTraceGroup */
   mstg = mst_initgroup (mstg);
   
@@ -215,8 +209,8 @@ writesac (MSTrace *mst)
   
   if ( verbose )
     fprintf (stderr, "Writing SAC for %.8s.%.8s.%.8s.%.8s\n",
-	     sh.knetwk, sh.kstnm, sh.khole, sh.kcmpnm);
-
+	     sacnetwork, sacstation, saclocation, sacchannel);
+  
   /* Set misc. header variables */
   sh.nvhdr = 6;                 /* Header version = 6 */
   sh.leven = 1;                 /* Evenly spaced data */
@@ -224,7 +218,11 @@ writesac (MSTrace *mst)
   sh.b = 0.0;                   /* First sample, offset time */
   sh.e = (mst->numsamples - 1) * (1 / mst->samprate); /* Last sample, offset time */
   
-  /* Set station coordinates */
+  /* Insert metadata */
+  if ( metadata )
+    insertmetadata (&sh);
+  
+  /* Set station coordinates specified on command line */
   if ( latitude != DUNDEF ) sh.stla = latitude;
   if ( longitude != DUNDEF ) sh.stlo = longitude;
   
@@ -508,6 +506,98 @@ swapsacheader (struct SACHeader *sh)
 
 
 /***************************************************************************
+ * insertmetadata:
+ *
+ * Search the metadata list for the first matching source and insert
+ * the metadata into the SAC header if found.  The source names (net,
+ * sta, loc, chan) are used to find a match.  If metadata list entries
+ * include a '*' they will match everything, for example if the
+ * channel field is '*' all channels for the specified network,
+ * station and location will match the list entry.
+ *
+ * The metadata list should be populated with an array of pointers to:
+ *  0:  Network (knetwk)
+ *  1:  Station (kstnm)
+ *  2:  Location (khole)
+ *  3:  Channel (kcmpnm)
+ *  4:  Scale Factor (scale)
+ *  5:  Latitude (stla)
+ *  6:  Longitude (stlo)
+ *  7:  Elevation (stel) [not currently used by SAC]
+ *  8:  Depth (stdp) [not currently used by SAC]
+ *  9:  Component Azimuth (cmpaz), degrees clockwise from north
+ *  10: Component Incident Angle (cmpinc), degrees from vertical
+ *  11: Instrument Name (kinst)
+ *
+ * Returns 0 on sucess and -1 on failure.
+ ***************************************************************************/
+static int
+insertmetadata (struct SACHeader *sh)
+{
+  struct listnode *mlp = metadata;
+  char *metafields[MAXMETAFIELDS];
+  char *endptr;
+  
+  char *sacnetwork, *sacstation, *saclocation, *sacchannel;
+  
+  if ( ! mlp || ! sh )
+    return -1;
+
+  if ( strncmp (sh->knetwk, SUNDEF, 8) ) sacnetwork = sh->knetwk;
+  else sacnetwork = NULL;
+  if ( strncmp (sh->kstnm, SUNDEF, 8) ) sacstation = sh->kstnm;
+  else sacstation = NULL;
+  if ( strncmp (sh->khole, SUNDEF, 8) ) saclocation = sh->khole;
+  else saclocation = NULL;
+  if ( strncmp (sh->kcmpnm, SUNDEF,8 ) ) sacchannel = sh->kcmpnm;
+  else sacchannel = NULL;
+  
+  fprintf (stderr, "Searching N: '%s', S: '%s', L: '%s', C: '%s'\n",
+	   sacnetwork, sacstation, saclocation, sacchannel);
+  
+  while ( mlp ) 
+    {
+      memcpy (metafields, mlp->data, sizeof(metafields));
+      
+      fprintf (stderr, "Testing N: '%s', S: '%s', L: '%s', C: '%s'\n",
+	       metafields[0], metafields[1], metafields[2], metafields[3]);
+
+      /* Test if network, station, location and channel match; also handle wildcards */
+      /*
+      if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
+	   ( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
+	   ( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
+	   ( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
+      */
+      fprintf (stderr, "SACLOC: '%s', MF2: '%s'\n", saclocation, metafields[2]);
+
+      if ( ! strncmp (metafields[2], saclocation, 8) )
+	{
+	  fprintf (stderr, "TEST1\n");
+	  
+	  if ( verbose )
+	    fprintf (stderr, "Inserting metadata for N: %s, S: %s, L: %s, C: %s\n",
+		     sacnetwork, sacstation, saclocation, sacchannel);
+	  
+	  /* Insert metadata into SAC header */
+	  if ( *(metafields[4]) ) sh->scale = (float) strtod (metafields[4], &endptr);
+	  if ( *(metafields[5]) ) sh->stla = (float) strtod (metafields[5], &endptr);
+	  if ( *(metafields[6]) ) sh->stlo = (float) strtod (metafields[6], &endptr);
+	  if ( *(metafields[7]) ) sh->stel = (float) strtod (metafields[7], &endptr);
+	  if ( *(metafields[8]) ) sh->stdp = (float) strtod (metafields[8], &endptr);
+	  if ( *(metafields[9]) ) sh->cmpaz = (float) strtod (metafields[9], &endptr);
+	  if ( *(metafields[10]) ) sh->cmpinc = (float) strtod (metafields[10], &endptr);
+	  if ( *(metafields[11]) ) strncpy (sh->kinst, metafields[11], 8);
+	}
+      
+      mlp = mlp->next;
+    }
+  
+  return 0;
+}  /* End of swapsacheader() */
+
+
+/***************************************************************************
  * delaz:
  *
  * Calculate the angular distance (and approximately equivalent
@@ -642,7 +732,7 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++);
 	}
-      else if (strcmp (argvec[optind], "-M") == 0)
+      else if (strcmp (argvec[optind], "-m") == 0)
 	{
 	  metafile = getoptval(argcount, argvec, optind++);
 	}
@@ -662,10 +752,14 @@ parameter_proc (int argcount, char **argvec)
         }
       else
         {
-          addnode (&filelist, NULL, argvec[optind]);
+	  /* Add the file name to the intput file list */
+          if ( ! addnode (&filelist, NULL, 0, argvec[optind], strlen(argvec[optind])+1) )
+	    {
+	      fprintf (stderr, "Error adding file name to list\n");
+	    }
         }
     }
-
+  
   /* Make sure an input files were specified */
   if ( filelist == 0 )
     {
@@ -674,7 +768,7 @@ parameter_proc (int argcount, char **argvec)
       fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
       exit (1);
     }
-
+  
   /* Report the program version */
   if ( verbose )
     fprintf (stderr, "%s version: %s\n", PACKAGE, VERSION);
@@ -822,7 +916,17 @@ parameter_proc (int argcount, char **argvec)
 	if ( *ename )
 	  eventname = ename;
     }
-  
+
+  /* Read metadata file if specified */
+  if ( metafile )
+    {
+      if ( readmetadata (metafile) )
+	{
+	  fprintf (stderr, "Error reading metadata file\n");
+	  return -1;
+	}
+    }
+
   return 0;
 }  /* End of parameter_proc() */
 
@@ -860,7 +964,6 @@ getoptval (int argcount, char **argvec, int argopt)
   exit (1);
   return 0;
 }  /* End of getoptval() */
-
 
 
 /***************************************************************************
@@ -950,7 +1053,12 @@ readlistfile (char *listfile)
           if ( verbose > 1 )
             fprintf (stderr, "Adding '%s' to input file list\n", filename);
 
-          addnode (&filelist, NULL, filename);
+	  /* Add file name to the intput file list */
+	  if ( ! addnode (&filelist, NULL, 0, filename, strlen(filename)+1) )
+	    {
+	      fprintf (stderr, "Error adding file name to list\n");
+	    }
+	  
           filecnt++;
 
           continue;
@@ -964,21 +1072,104 @@ readlistfile (char *listfile)
 
 
 /***************************************************************************
+ * readmetadata:
+ *
+ * Read a file of metadata into a structured list, each line should
+ * contain the following fields comma-separated in this order:
+ *
+ *  0:  Network (knetwk)
+ *  1:  Station (kstnm)
+ *  2:  Location (khole)
+ *  3:  Channel (kcmpnm)
+ *  4:  Scale Factor (scale)
+ *  5:  Latitude (stla)
+ *  6:  Longitude (stlo)
+ *  7:  Elevation (stel) [not currently used by SAC]
+ *  8:  Depth (stdp) [not currently used by SAC]
+ *  9:  Component Azimuth (cmpaz), degrees clockwise from north
+ *  10: Component Incident Angle (cmpinc), degrees from vertical
+ *  11: Instrument Name (kinst)
+ *
+ * Returns 0 on sucess and -1 on failure.
+ ***************************************************************************/
+static int
+readmetadata (char *metafile)
+{
+  FILE *mfp;
+  char line[1024];
+  char *lineptr;
+  char *metafields[MAXMETAFIELDS];
+  char *fp;
+  int idx;
+  
+  if ( ! metafile )
+    return -1;
+  
+  if ( (mfp = fopen (metafile, "rb")) == NULL )
+    {
+      fprintf (stderr, "Cannot open metadata output file: %s (%s)\n",
+	       metafile, strerror(errno));
+      return -1;
+    }
+
+  if ( verbose )
+    fprintf (stderr, "Reading station/channel metadata from %s\n", metafile);
+  
+  while ( fgets (line, sizeof(line), mfp) )
+    {
+      /* Truncate at line return if any */
+      if ( (fp = strchr (line, '\n')) )
+	*fp = '\0';
+      
+      /* Create a copy of the line */
+      lineptr = (char *) malloc (strlen(line)+1);
+      strcpy (lineptr, line);
+      
+      metafields[0] = fp = lineptr;
+      
+      for (idx = 1; idx < MAXMETAFIELDS; idx++)
+	{
+	  if ( (fp = strchr (fp, ',')) )
+	    {
+	      *fp++ = '\0';
+	      metafields[idx] = fp;
+	    }
+	  else
+	    metafields[idx] = NULL;
+	}
+      
+      /* Add the metafields array to the metadata list */
+      if ( ! addnode (&metadata, NULL, 0, metafields, sizeof(metafields)) )
+	{
+	  fprintf (stderr, "Error adding metadata fields to list\n");
+	}
+    }
+  
+  fclose (mfp);
+  
+  return 0;
+}  /* End of readmetadata() */
+
+
+/***************************************************************************
  * addnode:
  *
  * Add node to the specified list.
+ *
+ * Return a pointer to the added node on success and NULL on error.
  ***************************************************************************/
-static void
-addnode (struct listnode **listroot, char *key, char *data)
+static struct listnode *
+addnode (struct listnode **listroot, void *key, int keylen,
+	 void *data, int datalen)
 {
   struct listnode *lastlp, *newlp;
-
+  
   if ( data == NULL )
     {
-      fprintf (stderr, "addnode(): No file name specified\n");
-      return;
+      fprintf (stderr, "addnode(): No data specified\n");
+      return NULL;
     }
-
+  
   lastlp = *listroot;
   while ( lastlp != 0 )
     {
@@ -988,19 +1179,30 @@ addnode (struct listnode **listroot, char *key, char *data)
       lastlp = lastlp->next;
     }
 
+  /* Create new listnode */
   newlp = (struct listnode *) malloc (sizeof (struct listnode));
   memset (newlp, 0, sizeof (struct listnode));
-  if ( key ) newlp->key = strdup(key);
-  else newlp->key = key;
-  if ( data) newlp->data = strdup(data);
-  else newlp->data = data;
+  
+  if ( key )
+    {
+      newlp->key = malloc (keylen);
+      memcpy (newlp->key, key, keylen);
+    }
+  
+  if ( data)
+    {
+      newlp->data = malloc (datalen);
+      memcpy (newlp->data, data, datalen);
+    }
+  
   newlp->next = 0;
-
+  
   if ( lastlp == 0 )
     *listroot = newlp;
   else
     lastlp->next = newlp;
-
+  
+  return newlp;
 }  /* End of addnode() */
 
 
@@ -1027,7 +1229,7 @@ usage (void)
 	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
-	   " -M file        File containing station metadata (coordinates, etc.)\n"
+	   " -m metafile    File containing station metadata (coordinates, etc.)\n"
 	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
