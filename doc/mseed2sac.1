@@ -1,24 +1,36 @@
-.TH SAC2MSEED 1 2006/02/20
+.TH MSEED2SAC 1 2006/05/18
 .SH NAME
-SAC to Mini-SEED converter
+Mini-SEED to SAC converter
 
 .SH SYNOPSIS
 .nf
-sac2mseed [options] file1 [file2 file3 ...]
+mseed2sac [options] file1 [file2 file3 ...]
 
 .fi
 .SH DESCRIPTION
-\fBsac2mseed\fP converts SAC waveform data to Mini-SEED format.  By
-default the format of the input files is automatically detected: alpha
-or binary (byte order autodetected).  The format can also be forced
-with the \fI-f\fP option.  If an input file name is prefixed with an '@'
-character the file is assumed to contain a list of input data files,
-see \fILIST FILES\fP below.
+\fBmseed2sac\fP converts Mini-SEED waveform data to SAC format.  The
+output SAC file can be either ASCII or binary (either byte-order), the
+default is binary with the same byte-order as the host computer.  By
+default all aspects of the input files are automatically detected.  If
+an input file name is prefixed with an '@' character the file is
+assumed to contain a list of input data files, see \fILIST FILES\fP
+below.
 
-If the input file name ends in ".sac" (not case sensitive) the default
-output file name will be the same with the extension replace with
-".mseed".  The output data may be re-directed to a single file or
-stdout using the -o option.
+Output file names are of the form:
+
+.nf
+'Net.Sta.Loc.Chan.Qual.YYYY,DDD,HH:MM:SS.SAC'
+
+For example:
+'TA.ELFS..LHZ.R.2006,123,15:36:19.SAC'
+.fi
+
+If the input file name is "-" input Mini-SEED records will be read
+from standard input.
+
+The SAC header variable KHOLE is used synonymously with the SEED
+location code.  Any location codes found in the input Mini-SEED or
+metadata file are put into the KHOLE variable.
 
 .SH OPTIONS
 
@@ -32,66 +44,89 @@ Print program usage and exit.
 Be more verbose.  This flag can be used multiple times ("-v -v" or
 "-vv") for more verbosity.
 
-.IP "-S         "
-Include SEED blockette 100 in each output record with the sample rate
-in floating point format.  The basic format for storing sample rates
-in SEED data records is a rational approximation
-(numerator/denominator).  Precision will be lost if a given sample
-rate cannot be well approximated.  This option should be used in those
-cases.
-
 .IP "-n \fInetcode\fP"
-Specify the SEED network code to use, if not specified the network
-code will be blank.  It is highly recommended to specify a network
-code.
+Specify the network code to use, overriding any network code in the
+input Mini-SEED.
 
-.IP "-l \fIloccode\fP"
-Specify the SEED location code to use, if not specified the location
-code will be blank.
+.IP "-s \fIstation\fP"
+Specify the station code to use, overriding any station code in the
+input Mini-SEED.
+
+.IP "-l \fIlocation\fP"
+Specify the location code to use, overriding any location code in the
+input Mini-SEED.
+
+.IP "-c \fIchannel\fP"
+Specify the channel code to use, overriding any channel code in the
+input Mini-SEED.
 
 .IP "-r \fIbytes\fP"
-Specify the Mini-SEED record length in \fIbytes\fP, default is 4096.
+Specify the Mini-SEED record length in \fIbytes\fP, by default this is
+autodetected.
 
-.IP "-e \fIencoding\fP"
-Specify the Mini-SEED data encoding format, default is 11 (Steim-2
-compression).  Other supported encoding formats include 10 (Steim-1
-compression), 1 (16-bit integers) and 3 (32-bit integers).  The 16-bit
-integers encoding should only be used if all data samples can be
-represented in 16 bits.
+.IP "-i         "
+Process each input file individually.  By default all input files are
+read and all data is buffered in memory before SAC files are written.
+This allows time-series spanning mutilple input files to be merged and
+written in a single SAC file.  The intention is to use this option
+when processing large amounts of data in order to keep memory usage
+within reasonable limits.
 
-.IP "-b \fIbyteorder\fP"
-Specify the Mini-SEED byte order, default is 1 (big-endian or most
-significant byte first).  The other option is 0 (little-endian or
-least significant byte first).  It is highly recommended to always
-create big-endian SEED.
+.IP "-k \fIlat/lon\fP"
+Specify coordinates to put into the resulting SAC file(s).  The
+argument format is "Latitude/Longitude" e.g. "47.66/-122.31".  Any
+coordinates specified with this option override any coordinates found
+in the metadata file.
 
-.IP "-o \fIoutfile\fP"
-Write all Mini-SEED records to \fIoutfile\fP, if \fIoutfile\fP is a
-single dash (-) then all Mini-SEED output will go to stdout.  All
-diagnostic output from the program is written to stderr and should
-never get mixed with data going to stdout.
+.IP "-m \fImetafile\fP"
+Specify a file containing metadata such as scaling factor,
+coordinates, elevation, component orientation, etc.  For each
+time-series written any matching metadata will be added to the SAC
+file.  see \fIMETADATA FILES\fP below.
 
-.IP "-s \fIfactor\fP"
-When writing data to an integer (Mini-SEED) encoding format apply this
-scaling \fIfactor\fP to each input floating point data sample before
-truncating to an integer.  By default autoscaling is used and a
-scaling factor is determined that will scale the maximum sample value
-to a minimum of 6 digits.  If none of the input sample values include
-fractional components the scaling factor will be 1 and the floating
-point data will simply be truncated to their integer components.
-
-.IP "-f \fIformat\fP"
-By default the format of each input file is autodetected, either alpha
-or binary (little or big endian byte order autodetected as well).
-This option forces the format for every input file:
+.IP "-E \fevent\fP"
+Specify event parameters to add to the SAC file in the following
+format:
 
 .nf
-0 : Autodetect SAC format (default)
+'Time[/Lat][/Lon][/Depth][/Name]'
+
+For example:
+'2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'
+.fi
+
+The parameters later in the string are optional.
+
+.IP "-f \fIformat\fP"
+The default output format is binary SAC with the same byte order as
+the home computer.  This option forces the format for every output
+file:
+
+.nf
 1 : Alphanumeric SAC format
-2 : Binary SAC format, autodetect byte order
+2 : Binary SAC format, host byte order (default)
 3 : Binary SAC format, little-endian
 4 : Binary SAC format, big-endian
 .fi
+
+.SH METADATA FILES
+A metadata file contains a list of important station parameters that
+can be stored in SAC but not in Mini-SEED.  Each line in a metadata
+file
+
+ *  0:  Network (knetwk)
+ *  1:  Station (kstnm)
+ *  2:  Location (khole)
+ *  3:  Channel (kcmpnm)
+ *  4:  Scale Factor (scale)
+ *  5:  Latitude (stla)
+ *  6:  Longitude (stlo)
+ *  7:  Elevation (stel) [not currently used by SAC]
+ *  8:  Depth (stdp) [not currently used by SAC]
+ *  9:  Component Azimuth (cmpaz), degrees clockwise from north
+ *  10: Component Incident Angle (cmpinc), degrees from vertical
+ *  11: Instrument Name (kinst)
+
 
 .SH LIST FILES
 If an input file is prefixed with an '@' character the file is assumed
@@ -103,8 +138,9 @@ be read.
 An example of a simple text list:
 
 .nf
-2003-06-20-0643-41S.EDI___003
-2005-07-23-1452-04S.CER___030
+TA.ELFS..LHE.R.mseed
+TA.ELFS..LHN.R.mseed
+TA.ELFS..LHZ.R.mseed
 .fi
 
 .SH ABOUT SAC

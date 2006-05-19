@@ -1212,7 +1212,7 @@ usage (void)
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
 	   " -m metafile    File containing station metadata (coordinates, etc.)\n"
-	   " -E hypo        Specify event hypocenter as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
+	   " -E event       Specify event parameters as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
