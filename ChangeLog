@@ -1,3 +1,7 @@
+2006.138: 0.3
+	- Add metadata file option to specify a file containing
+	coordinates, scaling, orientation, etc.
+
 2006.129:
 	- Add delta, dist, azimuth and back azimuth calculation when
 	both event and station coordinates are known.  Values are inserted

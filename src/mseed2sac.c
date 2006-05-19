@@ -8,8 +8,6 @@
  * modified 2006.138
  ***************************************************************************/
 
-// Complete -m option for station metadata list file
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.3dev"
+#define VERSION "0.3"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -58,7 +56,6 @@ static void usage (void);
 
 static int   verbose      = 0;
 static int   reclen       = -1;
-static int   encoding     = 11;
 static int   indifile     = 0;
 static int   sacformat    = 2;
 static double latitude    = DUNDEF;
@@ -538,45 +535,35 @@ insertmetadata (struct SACHeader *sh)
   char *metafields[MAXMETAFIELDS];
   char *endptr;
   
-  char *sacnetwork, *sacstation, *saclocation, *sacchannel;
+  char sacnetwork[9];
+  char sacstation[9];
+  char saclocation[9];
+  char sacchannel[9];
   
   if ( ! mlp || ! sh )
     return -1;
-
-  if ( strncmp (sh->knetwk, SUNDEF, 8) ) sacnetwork = sh->knetwk;
-  else sacnetwork = NULL;
-  if ( strncmp (sh->kstnm, SUNDEF, 8) ) sacstation = sh->kstnm;
-  else sacstation = NULL;
-  if ( strncmp (sh->khole, SUNDEF, 8) ) saclocation = sh->khole;
-  else saclocation = NULL;
-  if ( strncmp (sh->kcmpnm, SUNDEF,8 ) ) sacchannel = sh->kcmpnm;
-  else sacchannel = NULL;
   
-  fprintf (stderr, "Searching N: '%s', S: '%s', L: '%s', C: '%s'\n",
-	   sacnetwork, sacstation, saclocation, sacchannel);
+  if ( strncmp (sh->knetwk, SUNDEF, 8) ) ms_strncpclean (sacnetwork, sh->knetwk, 8);
+  else sacnetwork[0] = '\0';
+  if ( strncmp (sh->kstnm, SUNDEF, 8) ) ms_strncpclean (sacstation, sh->kstnm, 8);
+  else sacstation[0] = '\0';
+  if ( strncmp (sh->khole, SUNDEF, 8) ) ms_strncpclean (saclocation, sh->khole, 8);
+  else saclocation[0] = '\0';
+  if ( strncmp (sh->kcmpnm, SUNDEF, 8) ) ms_strncpclean (sacchannel, sh->kcmpnm, 8);
+  else sacchannel[0] = '\0';
   
   while ( mlp ) 
     {
       memcpy (metafields, mlp->data, sizeof(metafields));
       
-      fprintf (stderr, "Testing N: '%s', S: '%s', L: '%s', C: '%s'\n",
-	       metafields[0], metafields[1], metafields[2], metafields[3]);
-
-      /* Test if network, station, location and channel match; also handle wildcards */
-      /*
+      /* Test if network, station, location and channel match; also handle simple wildcards */
       if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
 	   ( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
 	   ( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
 	   ( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
-      */
-      fprintf (stderr, "SACLOC: '%s', MF2: '%s'\n", saclocation, metafields[2]);
-
-      if ( ! strncmp (metafields[2], saclocation, 8) )
 	{
-	  fprintf (stderr, "TEST1\n");
-	  
 	  if ( verbose )
-	    fprintf (stderr, "Inserting metadata for N: %s, S: %s, L: %s, C: %s\n",
+	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s'\n",
 		     sacnetwork, sacstation, saclocation, sacchannel);
 	  
 	  /* Insert metadata into SAC header */
@@ -719,10 +706,6 @@ parameter_proc (int argcount, char **argvec)
       else if (strcmp (argvec[optind], "-r") == 0)
 	{
 	  reclen = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
-	}
-      else if (strcmp (argvec[optind], "-e") == 0)
-	{
-	  encoding = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
 	}
       else if (strcmp (argvec[optind], "-i") == 0)
 	{
@@ -1226,7 +1209,6 @@ usage (void)
 	   " -l location    Specify the location code, overrides any value in the SEED\n"
 	   " -c channel     Specify the channel code, overrides any value in the SEED\n"
 	   " -r bytes       Specify SEED record length in bytes, default: 4096\n"
-	   " -e encoding    Specify SEED encoding format for packing, default: 11 (Steim2)\n"
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
 	   " -m metafile    File containing station metadata (coordinates, etc.)\n"
