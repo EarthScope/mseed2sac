@@ -1,3 +1,7 @@
+2006.148: 0.4
+	- Fix -k option to accept a negative latitudes (previously
+	recognized as other command line options).
+
 2006.138: 0.3
 	- Add metadata file option to specify a file containing
 	coordinates, scaling, orientation, etc.

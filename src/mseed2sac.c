@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.138
+ * modified 2006.148
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.3"
+#define VERSION "0.4"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -47,7 +47,7 @@ static int insertmetadata (struct SACHeader *sh);
 static int delaz (double lat1, double lon1, double lat2, double lon2,
 		  double *delta, double *dist, double *azimuth, double *backazimuth);
 static int parameter_proc (int argcount, char **argvec);
-static char *getoptval (int argcount, char **argvec, int argopt);
+static char *getoptval (int argcount, char **argvec, int argopt, int dasharg);
 static int readlistfile (char *listfile);
 static int readmetadata (char *metafile);
 static struct listnode *addnode (struct listnode **listroot, void *key, int keylen,
@@ -689,23 +689,23 @@ parameter_proc (int argcount, char **argvec)
 	}
       else if (strcmp (argvec[optind], "-n") == 0)
 	{
-	  network = getoptval(argcount, argvec, optind++);
+	  network = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-s") == 0)
 	{
-	  station = getoptval(argcount, argvec, optind++);
+	  station = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-l") == 0)
 	{
-	  location = getoptval(argcount, argvec, optind++);
+	  location = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-c") == 0)
 	{
-	  channel = getoptval(argcount, argvec, optind++);
+	  channel = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-r") == 0)
 	{
-	  reclen = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
+	  reclen = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
 	}
       else if (strcmp (argvec[optind], "-i") == 0)
 	{
@@ -713,19 +713,19 @@ parameter_proc (int argcount, char **argvec)
 	}
       else if (strcmp (argvec[optind], "-k") == 0)
 	{
-	  coorstr = getoptval(argcount, argvec, optind++);
+	  coorstr = getoptval(argcount, argvec, optind++, 1);
 	}
       else if (strcmp (argvec[optind], "-m") == 0)
 	{
-	  metafile = getoptval(argcount, argvec, optind++);
+	  metafile = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-E") == 0)
 	{
-	  eventstr = getoptval(argcount, argvec, optind++);
+	  eventstr = getoptval(argcount, argvec, optind++, 0);
 	}
       else if (strcmp (argvec[optind], "-f") == 0)
 	{
-	  sacformat = strtoul (getoptval(argcount, argvec, optind++), NULL, 10);
+	  sacformat = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
 	}
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
                strlen (argvec[optind]) > 1 )
@@ -927,7 +927,7 @@ parameter_proc (int argcount, char **argvec)
  * Returns value on success and exits with error message on failure
  ***************************************************************************/
 static char *
-getoptval (int argcount, char **argvec, int argopt)
+getoptval (int argcount, char **argvec, int argopt, int dasharg)
 {
   if ( argvec == NULL || argvec[argopt] == NULL ) {
     fprintf (stderr, "getoptval(): NULL option requested\n");
@@ -935,11 +935,11 @@ getoptval (int argcount, char **argvec, int argopt)
     return 0;
   }
   
-  /* Special case of '-o -' usage */
-  if ( (argopt+1) < argcount && strcmp (argvec[argopt], "-o") == 0 )
-    if ( strcmp (argvec[argopt+1], "-") == 0 )
-      return argvec[argopt+1];
+  /* When the value potentially starts with a dash (-) */
+  if ( (argopt+1) < argcount && dasharg )
+    return argvec[argopt+1];
   
+  /* Otherwise check that the value is not another option */
   if ( (argopt+1) < argcount && *argvec[argopt+1] != '-' )
     return argvec[argopt+1];
   
