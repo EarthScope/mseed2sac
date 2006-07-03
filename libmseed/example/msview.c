@@ -8,7 +8,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified 2006.107
+ * modified 2006.173
  ***************************************************************************/
 
 #include <stdio.h>
@@ -45,6 +45,7 @@ main (int argc, char **argv)
   int dataflag   = 0;
   int totalrecs  = 0;
   int totalsamps = 0;
+  int retcode;
 
 #ifndef WIN32
   /* Signal handling, use POSIX calls with standardized semantics */
@@ -52,32 +53,36 @@ main (int argc, char **argv)
 
   sa.sa_flags = SA_RESTART;
   sigemptyset (&sa.sa_mask);
-
+  
   sa.sa_handler = term_handler;
   sigaction (SIGINT, &sa, NULL);
   sigaction (SIGQUIT, &sa, NULL);
   sigaction (SIGTERM, &sa, NULL);
-
+  
   sa.sa_handler = SIG_IGN;
   sigaction (SIGHUP, &sa, NULL);
   sigaction (SIGPIPE, &sa, NULL);
 #endif
-
+  
   /* Process given parameters (command line and parameter file) */
   if (parameter_proc (argc, argv) < 0)
     return -1;
-      
+  
   /* Loop over the input file */
-  while ( (msr = ms_readmsr (inputfile, reclen, NULL, NULL, 1, dataflag, verbose)) )
-    {      
+  while ( (retcode = ms_readmsr (&msr, inputfile, reclen, NULL, NULL, 1,
+				 dataflag, verbose)) == MS_NOERROR )
+    {
       totalrecs++;
       totalsamps += msr->samplecnt;
       
       msr_print (msr, ppackets);
     }
   
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading file (%d): %s\n", retcode, inputfile);
+  
   /* Make sure everything is cleaned up */
-  ms_readmsr (NULL, 0, NULL, NULL, 0, 0, 0);
+  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
   
   if ( basicsum )
     printf ("Records: %d, Samples: %d\n", totalrecs, totalsamps);

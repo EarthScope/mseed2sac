@@ -86,7 +86,6 @@ typedef struct MSRecord_s {
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
-  int8_t          unpackerr;         /* Unpacking error flag */
 }
 MSRecord;
 
@@ -174,20 +173,6 @@ sampletype:
   Supported types are 'a' (ASCII), 'i' (integer), 'f' (float) and
   'd' (double).  The size of each sample type in bytes is returned
   by the get_samplesize(3) lookup routine.
-
-unpackerr:
-  An unpacking error flag.  When no errors occurred during data
-  unpacking (or when data was not unpacked) this will be set to
-  MS_NOERROR (a value of 0), otherwise it will be set to one of the
-  following:
-  MS_GENERROR: Generic unspecified error
-  MS_NOBLKT1000: No Blockette 1000 in record (required for Mini-SEED)
-  MS_UNKNOWNFORMAT: Unknown data encoding format
-  MS_SAMPMISMATCH: Number of samples in header does not match unpacked
-  MS_BADSAMPCOUNT: Requested number of samples is bad, negative?
-  MS_STBADLASTMATCH: Steim, last sample does not match
-  MS_STBADCOMPFLAG: Steim, invalid compression flag(s)
-
 
  -- Traces --
 
@@ -331,27 +316,41 @@ record length.
 Skeleton code for reading a file with ms_readmsr(3):
 
 main() {
-  MSRecord *msr;
+  MSRecord *msr = NULL;
+  int retcode;
 
-  while ( (msr = ms_readmsr(filename, 0, NULL, NULL, 1, 0, verbose)) )
+  while ( (retcode = msr_readmsr (&msr, filename, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR )
     {
        /* Do something with the record here, e.g. print */
        msr_print (msr, verbose);
     }
 
-  ms_readmsr (NULL, 0, NULL, NULL, 0, 0);
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename);
+
+  /* Cleanup memory and close file */
+  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0);
 }
 
-For reading a file with ms_readtraces(3):
+For reading two files with ms_readtraces(3):
 
 main() {
-  MSTraceGroup *mstg;
+  MSTraceGroup *mstg = NULL;
+  int retcode;
 
-  mstg = ms_readtraces (filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = msr_readtraces (&mstg, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename);
+
+  retcode = msr_readtraces (&mstg, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
+
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename2);
 
   if ( ! mstg )
     {
-      fprintf (stderr, "Error reading file\n");
+      fprintf (stderr, "Error reading file\\n");
       return -1;
     }
 
@@ -360,7 +359,6 @@ main() {
 
   mst_freegroup (&mstg);
 }
-
 
 Another common task is to create (pack) Mini-SEED records. The library
 supports packing of Mini-SEED either from MSRecord structures, MSTrace

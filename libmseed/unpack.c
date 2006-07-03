@@ -13,7 +13,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2006.107
+ * modified: 2006.182
  ***************************************************************************/
 
 #include <stdio.h>
@@ -49,12 +49,10 @@ static int encodingfallback = -2;
  * If 'dataflag' is true the data samples are unpacked/decompressed
  * and the MSRecord->datasamples pointer is set appropriately.  The
  * data samples will be either 32-bit integers, 32-bit floats or
- * 64-bit floats with the same byte order as the host machine.  The
- * MSRecord->numsamples will be set to the actual number of samples
- * unpacked/decompressed, MSRecord->sampletype will indicated the
- * sample type and MSRecord->unpackerr will be set to indicate any
- * errors encountered during unpacking/decompression (MS_NOERROR if no
- * errors).
+ * 64-bit floats (doubles) with the same byte order as the host
+ * machine.  The MSRecord->numsamples will be set to the actual number
+ * of samples unpacked/decompressed and MSRecord->sampletype will
+ * indicated the sample type.
  *
  * All appropriate values will be byte-swapped to the host order,
  * including the data samples.
@@ -64,15 +62,17 @@ static int encodingfallback = -2;
  *
  * If the msr struct is NULL it will be allocated.
  * 
- * Returns a pointer to the MSRecord struct populated on success or
- * NULL on error.
+ * Returns MS_NOERROR and populates the MSRecord struct at *ppmsr on
+ * success, otherwise returns a libmseed error code (listed in
+ * libmseed.h).
  ***************************************************************************/
-MSRecord *
+int
 msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	     flag dataflag, flag verbose )
 {
   flag headerswapflag = 0;
   flag dataswapflag = 0;
+  int retval;
   
   MSRecord *msr = NULL;
   char sequence_number[7];
@@ -87,37 +87,35 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   if ( ! ppmsr )
     {
       fprintf (stderr, "msr_unpack(): ppmsr argument cannot be NULL\n");
-      return NULL;
+      return MS_GENERROR;
     }
   
   if ( reclen < MINRECLEN || reclen > MAXRECLEN )
     {
       fprintf (stderr, "msr_unpack(): record length is out of range: %d\n", reclen);
-      return NULL;
+      return MS_OUTOFRANGE;
     }
   
-  /* Initialize the MSRecord */
+  /* Initialize the MSRecord */  
+  if ( ! (*ppmsr = msr_init (*ppmsr)) )
+    return MS_GENERROR;
+  
+  /* Shortcut pointer, historical */
   msr = *ppmsr;
-
-  if ( ! (msr = msr_init (msr)) )
-    {
-      *ppmsr = NULL;
-      return NULL;
-    }
   
   msr->record = record;
   
   msr->dataquality = *(record+6);
   
   msr->reclen = reclen;
-
+  
   /* Check environment variables if necessary */
   if ( headerbyteorder == -2 ||
        databyteorder == -2 ||
        encodingformat == -2 ||
        encodingfallback == -2 )
     if ( check_environment(verbose) )
-      return NULL;
+      return MS_GENERROR;
   
   /* Verify record indicator, allocate and populate fixed section of header */
   if ( MS_ISDATAINDICATOR(msr->dataquality) )
@@ -131,9 +129,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	       msr->dataquality);
       fprintf (stderr, "This is not a valid Mini-SEED record\n");
       
-      msr_free(&msr);
-      *ppmsr = NULL;
-      return NULL;
+      return MS_NOTSEED;
     }
   
   /* Check to see if byte swapping is needed by testing the year */
@@ -487,12 +483,10 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  msr->reclen = (unsigned int) 1 << blkt_1000->reclen;
 	  
 	  /* Compare against the specified length */
-	  if ( msr->reclen != reclen )
+	  if ( msr->reclen != reclen && verbose )
 	    {
 	      fprintf (stderr, "Record length in Blockette 1000 (%d) != specified length (%d)\n",
 		       msr->reclen, reclen);
-	      
-	      msr->reclen = reclen;
 	    }
 	  
 	  msr->encoding = blkt_1000->encoding;
@@ -578,11 +572,9 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   
   if ( msr->Blkt1000 == 0 )
     {
-      msr->unpackerr = MS_NOBLKT1000;
-      
       if ( verbose > 1 )
 	{
-	  fprintf (stderr, "No Blockette 1000 found: %s_%s_%s_%s\n",
+	  fprintf (stderr, "Warning: No Blockette 1000 found: %s_%s_%s_%s\n",
 		   msr->network, msr->station, msr->location, msr->channel);
 	}
     }
@@ -643,7 +635,12 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
       else if ( verbose > 2 )
 	fprintf (stderr, "Byte swapping NOT needed for unpacking of data samples \n");
       
-      msr->numsamples = msr_unpack_data (msr, dswapflag, verbose);
+      retval = msr_unpack_data (msr, dswapflag, verbose);
+      
+      if ( retval < 0 )
+	return retval;
+      else
+	msr->numsamples = retval;
     }
   else
     {
@@ -654,9 +651,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
       msr->numsamples = 0;
     }
   
-  /* Re-direct the original pointer and return the new */
-  *ppmsr = msr;
-  return msr;  
+  return MS_NOERROR;
 } /* End of msr_unpack() */
 
 
@@ -669,7 +664,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
  *  resulting data samples are either 32-bit integers, 32-bit floats
  *  or 64-bit floats in host byte order.
  *
- *  Return number of samples unpacked or -1 on error.
+ *  Return number of samples unpacked or negative libmseed error code.
  ************************************************************************/
 static int
 msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
@@ -682,45 +677,49 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
   int32_t    *diffbuff;
   int32_t     x0, xn;
   
-  /* Reset the error flag */
-  msr->unpackerr = MS_NOERROR;
-  
-  /* Sanity check the encoding and record length */
-  if ( msr->encoding == -1 )
-    {
-      fprintf (stderr, "msr_unpack_data(): Encoding format unknown\n");
-      return -1;
-    }
+  /* Sanity record length */
   if ( msr->reclen == -1 )
     {
       fprintf (stderr, "msr_unpack_data(): Record size unknown\n");
-      return -1;
+      return MS_NOTSEED;
     }
   
   switch (msr->encoding)
     {
     case ASCII:
-      samplesize = 1;
+      samplesize = 1; break;
     case INT16:
     case INT32:
     case FLOAT32:
     case STEIM1:
     case STEIM2:
-      samplesize = 4;
+      samplesize = 4; break;
     case FLOAT64:
-      samplesize = 8;
+      samplesize = 8; break;
+    default:
+      samplesize = 0; break;
     }
   
   /* Calculate buffer size needed for unpacked samples */
   unpacksize = msr->samplecnt * samplesize;
   
   /* (Re)Allocate space for the unpacked data */
-  msr->datasamples = realloc (msr->datasamples, unpacksize);
+  if ( unpacksize != 0 )
+    {
+      msr->datasamples = realloc (msr->datasamples, unpacksize);
+    }
+  else
+    {
+      if ( msr->datasamples )
+	free (msr->datasamples);
+      msr->datasamples = 0;
+      msr->numsamples = 0;
+    }
   
   if ( msr->datasamples == NULL )
     {
       fprintf (stderr, "msr_unpack_data(): Error (re)allocating memory\n");
-      return -1;
+      return MS_GENERROR;
     }
   
   datasize = msr->reclen - msr->fsdh->data_offset;
@@ -748,7 +747,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       
       nsamples = msr_unpack_int_16 ((int16_t *)dbuf, msr->samplecnt,
 				    msr->samplecnt, msr->datasamples,
-				    &msr->unpackerr, swapflag);
+				    swapflag);
       msr->sampletype = 'i';
       break;
       
@@ -758,7 +757,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
 
       nsamples = msr_unpack_int_32 ((int32_t *)dbuf, msr->samplecnt,
 				    msr->samplecnt, msr->datasamples,
-				    &msr->unpackerr, swapflag);
+				    swapflag);
       msr->sampletype = 'i';
       break;
       
@@ -768,7 +767,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       
       nsamples = msr_unpack_float_32 ((float *)dbuf, msr->samplecnt,
 				      msr->samplecnt, msr->datasamples,
-				      &msr->unpackerr, swapflag);
+				      swapflag);
       msr->sampletype = 'f';
       break;
       
@@ -778,7 +777,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       
       nsamples = msr_unpack_float_64 ((double *)dbuf, msr->samplecnt,
 				      msr->samplecnt, msr->datasamples,
-				      &msr->unpackerr, swapflag);
+				      swapflag);
       msr->sampletype = 'd';
       break;
       
@@ -787,7 +786,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       if ( diffbuff == NULL )
 	{
 	  fprintf (stderr, "unable to malloc diff buffer in msr_unpack_data()\n");
-	  return -1;
+	  return MS_GENERROR;
 	}
       
       if ( verbose > 1 )
@@ -795,7 +794,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       
       nsamples = msr_unpack_steim1 ((FRAME *)dbuf, datasize, msr->samplecnt,
 				    msr->samplecnt, msr->datasamples, diffbuff, 
-				    &x0, &xn, &msr->unpackerr, swapflag, verbose);
+				    &x0, &xn, swapflag, verbose);
       msr->sampletype = 'i';
       free (diffbuff);
       break;
@@ -805,7 +804,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       if ( diffbuff == NULL )
 	{
 	  fprintf (stderr, "unable to malloc diff buffer in msr_unpack_data()\n");
-	  return -1;
+	  return MS_GENERROR;
 	}
       
       if ( verbose > 1 )
@@ -813,7 +812,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
 
       nsamples = msr_unpack_steim2 ((FRAME *)dbuf, datasize, msr->samplecnt,
 				    msr->samplecnt, msr->datasamples, diffbuff,
-				    &x0, &xn, &msr->unpackerr, swapflag, verbose);
+				    &x0, &xn, swapflag, verbose);
       msr->sampletype = 'i';
       free (diffbuff);
       break;
@@ -824,8 +823,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
 	       msr->network, msr->station,
 	       msr->location, msr->channel);
       
-      msr->unpackerr = MS_UNKNOWNFORMAT;
-      return -1;
+      return MS_UNKNOWNFORMAT;
     }
   
   return nsamples;

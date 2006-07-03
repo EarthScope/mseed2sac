@@ -1,4 +1,4 @@
-.TH MS_READMSR 3 2006/03/23 "Libmseed API"
+.TH MS_READMSR 3 2006/06/21 "Libmseed API"
 .SH DESCRIPTION
 Read Mini-SEED data from files
 
@@ -6,31 +6,34 @@ Read Mini-SEED data from files
 .nf
 .B #include <libmseed.h>
 
-.BI "MSRecord   *\fBms_readmsr\fP ( char *" msfile ", int " reclen ", off_t *" fpos ",
-.BI "                         int *" last ", flag " skipnotdata ", flag " dataflag ",
-.BI "                         flag " verbose " );
+.BI "int \fBms_readmsr\fP ( MSRecord **ppmsr, char *" msfile ", int " reclen ",
+.BI "                 off_t *" fpos ", int *" last ", flag " skipnotdata ",
+.BI "                 flag " dataflag ",flag " verbose " );
 
-.BI "MSTraceGroup *\fBms_readtraces\fP ( char *" msfile ", int " reclen ", 
-.BI "                              double " timetol ", double " sampratetol ",
-.BI "                              flag " dataquality ", flag " skipnotdata ",
-.BI "                              flag " dataflag ", flag " verbose " );"
+.BI "int \fBms_readtraces\fP ( MSTraceGroup **ppmstg, char *" msfile ", int " reclen ", 
+.BI "                    double " timetol ", double " sampratetol ",
+.BI "                    flag " dataquality ", flag " skipnotdata ",
+.BI "                    flag " dataflag ", flag " verbose " );"
 .fi
 
 .SH DESCRIPTION
 \fBms_readmsr\fP will open and read, with subsequent calls, all
 Mini-SEED records from a specified file.  Standard input will be
 opened if \fImsfile\fP is "-" (dash).  As each record is read it is
-unpacked using \fBmsr_unpack(3)\fP.
+unpacked using \fBmsr_unpack(3)\fP.  If the MSRecord struct at
+\fI*ppmsr\fP has not been initialized it must be set to NULL and it
+will be initialize it automatically.
 
 If \fIreclen\fP is 0 the length of the first record is automatically
 detected, all subsequent records are then expected to have the same
 length as the first.  If \fIreclen\fP is negative the length of every
 record is automatically detected.  For record length auto detection
 records are first searched for a Blockette 1000 and if none is found a
-little more (48 bytes) of data is read from the file and checked for a
-fixed section data header (the existence of the next record implying
-the length of the current record).  This detection search is done for
-each valid record length from 256 up to 8192 bytes in length.
+read-ahead method is used: a little more (48 bytes) of data is read
+from the file and checked for a fixed section data header (the
+existence of the next record or end-of-file implying the length of the
+current record).  This read-ahead detection method is done for each
+valid record length from 256 up to 8192 bytes in length.
 
 If the \fIfpos\fP pointer is not NULL the value will be set to the
 file position (offset from the beginning in bytes) from where the
@@ -62,14 +65,24 @@ using \fBms_readmsr\fP and adds each one to a MSTraceGroup using
 \fIskipnotdata\fP and \fIdataflag\fP arguments are passed directly to
 \fBms_readmsr\fP.  The \fItimetol\fP, \fIsampratetol\fP and
 \fIdataquality\fP arguments are passed directly to
-\fBmst_addmsrtogroup(3)\fP.
+\fBmst_addmsrtogroup(3)\fP.  If the MSTraceGroup struct at
+\fI*ppmstg\fP has not been initialized it must be set to NULL and it
+will be initialize it automatically.  The MSTraceGroup struct at
+\fI*ppmstg\fP may already contain entries before \fBms_readtraces\fP
+is called, in this case the MSTraceGroup is extended.
 
 .SH RETURN VALUES
-\fBms_readmsr\fP returns the next read record or NULL on EOF, error or
-cleanup.
+On the sucessful read and parsing of a record \fBms_readmsr\fP returns
+MS_NOERROR and populates the MSRecord struct at \fI*ppmsr\fP.  Upon
+reaching the end of the input file \fBms_readmsr\fP returns
+MS_ENDOFFILE.  On error \fBms_readmsr\fP returns a libmseed error code
+(defined in libmseed.h)
 
-\fBms_readtraces\fP returns a pointer to a MSTraceGroup on success or
-NULL on error.
+On the sucessful read and parsing of a file \fBms_readtraces\fP
+returns MS_NOERROR and populates the MSTraceGroup struct at
+\fI*ppmstg\fP.  Upon reaching the end of the input file
+\fBms_readmstg\fP returns MS_ENDOFFILE.  On error \fBms_readmsr\fP
+returns a libmseed error code (defined in libmseed.h)
 
 .SH PACKED FILES
 \fBms_readmsr\fP and \fBms_readtraces\fP will read packed Mini-SEED
@@ -87,15 +100,20 @@ Skeleton code for reading a file with \fBms_readmsr(3)\fP:
 
 .nf
 main() {
-  MSRecord *msr;
+  MSRecord *msr = NULL;
+  int retcode;
 
-  while ( (msr = msr_readmsr(filename, 0, NULL, NULL, 1, 0, verbose)) )
+  while ( (retcode = msr_readmsr (&msr, filename, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR )
     {
        /* Do something with the record here, e.g. print */
        msr_print (msr, verbose);
     }
 
-  ms_readmsr (NULL, 0, NULL, NULL, 0, 0);
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename);
+
+  /* Cleanup memory and close file */
+  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0);
 }
 
 .fi
@@ -103,13 +121,22 @@ For reading a file with \fBms_readtraces(3)\fP:
 .nf
 
 main() {
-  MSTraceGroup *mstg;
+  MSTraceGroup *mstg = NULL;
+  int retcode;
 
-  mstg = msr_readtraces (filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = msr_readtraces (&mstg, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename);
+
+  retcode = msr_readtraces (&mstg, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
+
+  if ( retcode != MS_ENDOFFILE )
+    fprintf (stderr, "Error reading input file %s\\n", filename2);
 
   if ( ! mstg )
     {
-      fprintf (stderr, "Error reading file\n");
+      fprintf (stderr, "Error reading file\\n");
       return -1;
     }
 

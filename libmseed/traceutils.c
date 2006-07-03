@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2006.122
+ * modified: 2006.182
  ***************************************************************************/
 
 #include <stdio.h>
@@ -830,17 +830,18 @@ mst_groupsort ( MSTraceGroup *mstg )
 	  }
 	else if ( strcmpval == 0 )
 	  {
-	    if ( mst->samprate > mst->next->samprate )
+	    if ( ! MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) &&
+		 mst->samprate > mst->next->samprate )
 	      {
 		swap = 1;
 	      }
-	    else if ( mst->samprate == mst->next->samprate )
+	    else if ( MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) )
 	      {
 		if ( mst->starttime > mst->next->starttime )
 		  {
 		    swap = 1;
 		  }
-		else if (  mst->starttime == mst->next->starttime )
+		else if ( mst->starttime == mst->next->starttime )
 		  {
 		    if ( mst->endtime < mst->next->endtime )
 		      {

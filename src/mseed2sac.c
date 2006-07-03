@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.148
+ * modified 2006.184
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "0.4"
+#define VERSION "1.0"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -82,10 +82,11 @@ main (int argc, char **argv)
 {
   MSTraceGroup *mstg = 0;
   MSTrace *mst;
-  MSRecord *msr;
+  MSRecord *msr = 0;
 
   struct listnode *flp;
 
+  int retcode;
   int totalrecs = 0;
   int totalsamps = 0;
   int totalfiles = 0;
@@ -104,7 +105,8 @@ main (int argc, char **argv)
       if ( verbose )
         fprintf (stderr, "Reading %s\n", flp->data);
       
-      while ( (msr = ms_readmsr(flp->data, reclen, NULL, NULL, 1, 1, verbose-1)) )
+      while ( (retcode = ms_readmsr(&msr, flp->data, reclen, NULL, NULL,
+				    1, 1, verbose-1)) == MS_NOERROR )
 	{
 	  if ( verbose > 1)
 	    msr_print (msr, verbose - 2);
@@ -115,8 +117,11 @@ main (int argc, char **argv)
 	  totalsamps += msr->samplecnt;
 	}
       
+      if ( retcode != MS_ENDOFFILE )
+	fprintf (stderr, "Error reading file (%d): %s\n", retcode, flp->data);
+      
       /* Make sure everything is cleaned up */
-      ms_readmsr (NULL, 0, NULL, NULL, 0, 0, 0);
+      ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
       
       /* If processing each file individually, write SAC and reset */
       if ( indifile )

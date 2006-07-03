@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2006.122
+ * modified: 2006.172
  ***************************************************************************/
 
 #include <stdio.h>
@@ -63,7 +63,6 @@ msr_init ( MSRecord *msr )
   msr->samplecnt = -1;
   msr->byteorder = -1;
   msr->encoding = -1;
-  msr->unpackerr = MS_NOERROR;
   
   return msr;
 } /* End of msr_init() */

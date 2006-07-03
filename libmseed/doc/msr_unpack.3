@@ -1,4 +1,4 @@
-.TH MSR_UNPACK 3 2006/02/27 "Libmseed API"
+.TH MSR_UNPACK 3 2006/06/21 "Libmseed API"
 .SH DESCRIPTION
 Unpacking of Mini-SEED records.
 
@@ -6,8 +6,8 @@ Unpacking of Mini-SEED records.
 .nf
 .B #include <libmseed.h>
 
-.BI "MSRecord *\fBmsr_unpack\fP ( char *" record ", int " reclen ", MSRecord **" ppmsr ",
-.BI "                       flag " dataflag ", flag " verbose " );
+.BI "int \fBmsr_unpack\fP ( char *" record ", int " reclen ", MSRecord **" ppmsr ",
+.BI "                 flag " dataflag ", flag " verbose " );
 .fi
 
 .SH DESCRIPTION
@@ -19,10 +19,10 @@ The MSRecord data structure is described in \fBms_intro(3)\fP.
 The \fIreclen\fP parameter specifies the length of the data record
 pointed to by \fIrecord\fP in bytes.
 
-If the pointer pointed to by \fIppmsr\fP is NULL a new MSRecord will
-be allocated, if not the existing MSRecord will be reinitialized and
-reused destroying any previous contents.  The \fIppmsr\fP pointer
-itself must not be NULL.
+If the \f*Ippmsr\fP pointer is NULL a new MSRecord will be allocated,
+if not the existing MSRecord will be reinitialized and reused
+destroying any previous contents.  The \fIppmsr\fP pointer itself must
+not be NULL.
 
 If the \fIdataflag\fP flag is not zero any data samples in the record
 will be unpacked/decompressed.  The following data encoding formats
@@ -34,23 +34,7 @@ MSRecord.numsamples will be set to the actual number of samples
 unpacked/decompressed.  MSRecord.sampletype will indicated the sample
 type as either 'a' (ASCII), 'i' (32-bit integers), 'f' (32-bit floats)
 or 'd' (64-bit doubles).  The size of each sample type in bytes is
-returned by the get_samplesize(3) lookup routine.  MSRecord.unpackerr
-will be set to indicate any errors encountered during
-unpacking/decompression (MS_NOERROR if no errors, value of 0).
-
-MSRecord.unpackerr can be set to the following:
-.nf
-MS_GENERROR: Generic unspecified error
-MS_NOBLKT1000: No Blockette 1000 in record (required for Mini-SEED)
-MS_UNKNOWNFORMAT: Unknown data encoding format
-MS_SAMPMISMATCH: Number of samples in header does not match unpacked
-MS_BADSAMPCOUNT: Requested number of samples is bad, negative?
-MS_STBADLASTMATCH: Steim, last sample != reverse integration constant
-MS_STBADCOMPFLAG: Steim, invalid compression flag(s)
-.fi
-
-It is left to the caller to test MSRecord.unpackerr and decide if the
-error can be ignored.
+returned by the get_samplesize(3) lookup routine.
 
 The \fIverbose\fP flag controls verbosity, a value of zero will result
 in no diagnostic output.
@@ -84,8 +68,10 @@ a 1000 blockette it is not Mini-SEED, the capability to read these
 records is included only to support legacy data.
 
 .SH RETURN VALUE
-Returns a pointer to the MSRecord struct populated on success or NULL
-on error.
+
+On the sucessful parsing of a record \fBmsr_unpack\fP returns
+MS_NOERROR and populates the MSRecord struct at *ppmsr.  On error
+\fBmsr_unpack\fP returns a libmseed error code (defined in libmseed.h)
 
 .SH EXAMPLE
 Skeleton code for unpacking a Mini-SEED record with msr_unpack(3):
@@ -95,14 +81,18 @@ main() {
   MSRecord *msr = NULL;
   char *record;
   int reclen;
+  int retcode;
 
   record = recordptr;   /* pointer to Mini-SEED record */
   reclen = 4096;        /* 4096 byte record length */
 
   /* Unpack record header and data samples */
-  msr = msr_unpack (record, reclen, &msr, 1, verbose);
+  retcode = msr_unpack (record, reclen, &msr, 1, verbose);
 
-  printf ("Unpacked %d samples\n", msr->numsamples);
+  if ( retcode != MS_NOERROR )
+    fprintf (stderr, "Error parsing record\\n");
+  else
+    printf ("Unpacked %d samples\n", msr->numsamples);
 
   /* Print record information */
   msr_print (msr, verbose);

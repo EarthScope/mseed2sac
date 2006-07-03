@@ -30,8 +30,8 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "1.6.3"
-#define LIBMSEED_RELEASE "2006.124"
+#define LIBMSEED_VERSION "1.7"
+#define LIBMSEED_RELEASE "2006.182"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
@@ -45,15 +45,15 @@ extern "C" {
 #define STEIM1     10
 #define STEIM2     11
 
-/* Library error code values, error values should always be negative */
+/* Library return and error code values, error values should always be negative */
+#define MS_ENDOFFILE        1        /* End of file reached return value */
 #define MS_NOERROR          0        /* No error */
 #define MS_GENERROR        -1        /* Generic unspecified error */
-#define MS_NOBLKT1000      -2        /* No Blockette 1000 */
-#define MS_UNKNOWNFORMAT   -3        /* Unknown data encoding format */
-#define MS_SAMPMISMATCH    -4        /* Num. samples in header is not the number unpacked */
-#define MS_BADSAMPCOUNT    -5        /* Sample count is bad, negative? */
-#define MS_STBADLASTMATCH  -6        /* Steim, last sample != reverse integration constant */
-#define MS_STBADCOMPFLAG   -7        /* Steim, invalid compression flag(s) */
+#define MS_NOTSEED         -2        /* Data not SEED */
+#define MS_WRONGLENGTH     -3        /* Length of data read was not correct */
+#define MS_OUTOFRANGE      -4        /* SEED record length out of range */
+#define MS_UNKNOWNFORMAT   -5        /* Unknown data encoding format */
+#define MS_STBADCOMPFLAG   -6        /* Steim, invalid compression flag(s) */
 
 /* Define the high precision time tick interval as 1/modulus seconds */
 #define HPTMODULUS 1000000
@@ -314,7 +314,6 @@ typedef struct MSRecord_s {
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
-  int8_t          unpackerr;         /* Unpacking error flag */
 }
 MSRecord;
 
@@ -346,7 +345,7 @@ typedef struct MSTraceGroup_s {
 MSTraceGroup;
 
 /* Mini-SEED record related functions */
-extern MSRecord*    msr_unpack (char *record, int reclen, MSRecord **ppmsr,
+extern int          msr_unpack (char *record, int reclen, MSRecord **ppmsr,
 				flag dataflag, flag verbose);
 
 extern int          msr_pack (MSRecord *msr, void (*record_handler) (char *, int),
@@ -405,9 +404,9 @@ extern int          mst_packgroup (MSTraceGroup *mstg, void (*record_handler) (c
 
 
 /* Reading Mini-SEED records from files */
-extern MSRecord*    ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
+extern int          ms_readmsr (MSRecord **ppmsr, char *msfile, int reclen, off_t *fpos, int *last,
 				flag skipnotdata, flag dataflag, flag verbose);
-extern MSTraceGroup*  ms_readtraces (char *msfile, int reclen, double timetol, double sampratetol,
+extern int          ms_readtraces (MSTraceGroup **ppmstg, char *msfile, int reclen, double timetol, double sampratetol,
 				     flag dataquality, flag skipnotdata, flag dataflag, flag verbose);
 extern int            ms_find_reclen (const char *recbuf, int recbuflen, FILE *fileptr);
 

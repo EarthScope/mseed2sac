@@ -4,7 +4,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2006.124
+ * modified: 2006.172
  ***************************************************************************/
 
 #include <stdio.h>
@@ -16,6 +16,7 @@
 
 #include "libmseed.h"
 
+/* Byte stream length for read-ahead header fingerprinting */
 #define NEXTHDRLEN 48
 
 static int readpackinfo (int chksumlen, int hdrlen, int sizelen, FILE *stream);
@@ -49,7 +50,7 @@ static int ateof (FILE *stream);
 			     (int)(*(X+26)) >= 0 && (int)(*(X+26)) <= 60)
 
 
-/***************************************************************************
+/**********************************************************************
  * ms_readmsr:
  *
  * This routine will open and read, with subsequent calls, all
@@ -79,17 +80,19 @@ static int ateof (FILE *stream);
  *
  * dataflag will be passed directly to msr_unpack().
  *
- * After reading all the records in a file the controlling program can
- * call it one last time with msfile set to NULL.  This will close the
- * file and free allocated memory.
+ * After reading all the records in a file the controlling program
+ * should call it one last time with msfile set to NULL.  This will
+ * close the file and free allocated memory.
  *
- * Returns the next read record or NULL on EOF, error or cleanup.
- ***************************************************************************/
-MSRecord *
-ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
-	    flag skipnotdata, flag dataflag, flag verbose)
+ * Returns MS_NOERROR and populates an MSRecord struct at *ppmsr on
+ * successful read, returns MS_ENDOFFILE on EOF, otherwise returns a
+ * libmseed error code (listed in libmseed.h) and *ppmsr is set to
+ * NULL.
+ *********************************************************************/
+int
+ms_readmsr (MSRecord **ppmsr, char *msfile, int reclen, off_t *fpos,
+	    int *last, flag skipnotdata, flag dataflag, flag verbose)
 {
-  static MSRecord *msr = NULL;
   static FILE *fp = NULL;
   static char *rawrec = NULL;
   static char filename[512];
@@ -103,11 +106,15 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
   int autodetexp = 8;
   int prevreadlen;
   int detsize;
+  int retcode = MS_NOERROR;
+  
+  if ( ! ppmsr )
+    return MS_GENERROR;
   
   /* When cleanup is requested */
   if ( msfile == NULL )
     {
-      msr_free (&msr);
+      msr_free (ppmsr);
       
       if ( fp != NULL )
 	fclose (fp);
@@ -124,7 +131,7 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
       filepos = 0;
       recordcount = 0;
       
-      return NULL;
+      return MS_NOERROR;
     }
   
   /* Sanity check: track if we are reading the same file */
@@ -160,9 +167,9 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  fprintf (stderr, "Error opening file: %s (%s)\n",
 		   msfile, strerror (errno));
 	  
-	  msr_free (&msr);
+	  msr_free (ppmsr);
 	  
-	  return NULL;
+	  return MS_GENERROR;
 	}
     }
   
@@ -196,13 +203,17 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  /* Read packed file info */
 	  if ( packinfolen && filepos == packinfooffset )
 	    {
-	      if ( (packdatasize = readpackinfo (8, packinfolen, 8, fp)) == 0 )
+	      if ( (packdatasize = readpackinfo (8, packinfolen, 8, fp)) <= 0 )
 		{
 		  if ( fp )
 		    { fclose (fp); fp = NULL; }
-		  msr_free (&msr);
+		  msr_free (ppmsr);
 		  free (rawrec); rawrec = NULL;
-		  return NULL;
+		  
+		  if ( packdatasize == 0 )
+		    return MS_ENDOFFILE;
+		  else
+		    return MS_GENERROR;
 		}
 	      
 	      filepos = lmp_ftello (fp);
@@ -219,16 +230,28 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  if ( (myfread (rawrec + prevreadlen, 1, (readlen - prevreadlen), fp)) < (readlen - prevreadlen) )
 	    {
 	      if ( ! feof (fp) )
-		fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
-	      
-	      if ( verbose && recordcount == 0 )
-		fprintf (stderr, "%s: No data records read, not SEED?\n", msfile);
+		{
+		  fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
+		  retcode = MS_GENERROR;
+		}
+	      else
+		{
+		  retcode = MS_ENDOFFILE;
+		}
+
+	      if ( recordcount == 0 )
+		{
+		  if ( verbose )
+		    fprintf (stderr, "%s: No data records read, not SEED?\n", msfile);
+		  retcode = MS_NOTSEED;
+		}
 	      
 	      if ( fp )
 		{ fclose (fp); fp = NULL; }
-	      msr_free (&msr);
+	      msr_free (ppmsr);
 	      free (rawrec); rawrec = NULL;
-	      return NULL;
+	      
+	      return retcode;
 	    }
 	  
 	  filepos = lmp_ftello (fp);
@@ -320,9 +343,9 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  
 	  if ( fp )
 	    { fclose (fp); fp = NULL; }
-	  msr_free (&msr);
+	  msr_free (ppmsr);
 	  free (rawrec); rawrec = NULL;
-	  return NULL;
+	  return MS_NOTSEED;
 	}
       
       autodet = 0;
@@ -336,9 +359,9 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  
 	  if ( fp )
 	    { fclose (fp); fp = NULL; }
-	  msr_free (&msr);
+	  msr_free (ppmsr);
 	  free (rawrec); rawrec = NULL;
-	  return NULL;
+	  return MS_OUTOFRANGE;
 	}
       
       rawrec = (char *) realloc (rawrec, detsize);
@@ -349,15 +372,30 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  if ( (myfread (rawrec+readlen, 1, detsize-readlen, fp)) < (detsize-readlen) )
 	    {
 	      if ( ! feof (fp) )
-		fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
+		{
+		  fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
+		  retcode = MS_GENERROR;
+		}
+	      else
+		{
+		  retcode = MS_ENDOFFILE;
+		}
+
+	      if ( recordcount == 0 )
+		{
+		  if ( verbose )
+		    fprintf (stderr, "%s: No data records read, not SEED?\n", msfile);
+		  retcode = MS_NOTSEED;
+		}
 	      
 	      if ( fp )
 		{ fclose (fp); fp = NULL; }
-	      msr_free (&msr);
+	      msr_free (ppmsr);
 	      free (rawrec); rawrec = NULL;
-	      return NULL;
+	      
+	      return retcode;
 	    }
-
+	  
 	  filepos = lmp_ftello (fp);
 	}
       
@@ -371,23 +409,24 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	  *last = 1;
       
       readlen = detsize;
-      msr_free (&msr);
+      msr_free (ppmsr);
       
-      if ( msr_unpack (rawrec, readlen, &msr, dataflag, verbose) == NULL )
+      if ( (retcode = msr_unpack (rawrec, readlen, ppmsr, dataflag, verbose)) != MS_NOERROR )
 	{
 	  if ( fp )
 	    { fclose (fp); fp = NULL; }
-	  msr_free (&msr);
+	  msr_free (ppmsr);
 	  free (rawrec); rawrec = NULL;
-	  return NULL;
+
+	  return retcode;
 	}
       
       /* Set record length if it was not already done */
-      if ( msr->reclen == 0 )
-	msr->reclen = readlen;
+      if ( (*ppmsr)->reclen == 0 )
+	(*ppmsr)->reclen = readlen;
       
       recordcount++;
-      return msr;
+      return MS_NOERROR;
     }
   
   /* Read subsequent records */
@@ -400,9 +439,13 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	    {
 	      if ( fp )
 		{ fclose (fp); fp = NULL; }
-	      msr_free (&msr);
+	      msr_free (ppmsr);
 	      free (rawrec); rawrec = NULL;
-	      return NULL;
+	      
+	      if ( packdatasize == 0 )
+		return MS_ENDOFFILE;
+	      else
+		return MS_GENERROR;
 	    }
 	  
 	  filepos = lmp_ftello (fp);
@@ -419,16 +462,28 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
       if ( (myfread (rawrec, 1, readlen, fp)) < readlen )
 	{
 	  if ( ! feof (fp) )
-	    fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
+	    {
+	      fprintf (stderr, "Short read at %d bytes during length detection\n", readlen);
+	      retcode = MS_GENERROR;
+	    }
+	  else
+	    {
+	      retcode = MS_ENDOFFILE;
+	    }
 	  
-	  if ( verbose && recordcount == 0 )
-	    fprintf (stderr, "%s: No data records read, not SEED?\n", msfile);
+	  if ( recordcount == 0 )
+	    {
+	      if ( verbose )
+		fprintf (stderr, "%s: No data records read, not SEED?\n", msfile);
+	      retcode = MS_NOTSEED;
+	    }
 	  
 	  if ( fp )
 	    { fclose (fp); fp = NULL; }
-	  msr_free (&msr);
+	  msr_free (ppmsr);
 	  free (rawrec); rawrec = NULL;
-	  return NULL;
+	  
+	  return retcode;
 	}
       
       filepos = lmp_ftello (fp);
@@ -457,33 +512,36 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
 	break;
     }
   
-  if ( msr_unpack (rawrec, readlen, &msr, dataflag, verbose) == NULL )
+  if ( (retcode = msr_unpack (rawrec, readlen, ppmsr, dataflag, verbose)) != MS_NOERROR )
     {
       if ( fp )
 	{ fclose (fp); fp = NULL; }
-      msr_free (&msr);
+      msr_free (ppmsr);
       free (rawrec); rawrec = NULL;
-      return NULL;
+      
+      return retcode;
     }
   
   /* Set record length if it was not already done */
-  if ( msr->reclen == 0 )
+  if ( (*ppmsr)->reclen == 0 )
     {
-      msr->reclen = readlen;
+      (*ppmsr)->reclen = readlen;
     }
   /* Test that any detected record length is the same as the read length */
-  else if ( msr->reclen != readlen )
+  else if ( (*ppmsr)->reclen != readlen )
     {
       fprintf (stderr, "Error: detected record length (%d) != read length (%d)\n",
-	       msr->reclen, readlen);
+	       (*ppmsr)->reclen, readlen);
+
+      return MS_WRONGLENGTH;
     }
   
   recordcount++;
-  return msr;
+  return MS_NOERROR;
 }  /* End of ms_readmsr() */
 
 
-/***************************************************************************
+/*********************************************************************
  * ms_readtraces:
  *
  * This routine will open and read all Mini-SEED records in specified
@@ -497,33 +555,44 @@ ms_readmsr (char *msfile, int reclen, off_t *fpos, int *last,
  * If reclen is negative the length of every record is automatically
  * detected.
  *
- * Returns the populated MSTraceGroup or NULL error.
- ***************************************************************************/
-MSTraceGroup *
-ms_readtraces (char *msfile, int reclen, double timetol, double sampratetol,
-	       flag dataquality, flag skipnotdata, flag dataflag, flag verbose)
+ * Returns MS_NOERROR and populates an MSTraceGroup struct at *ppmstg
+ * on successful read, returns MS_ENDOFFILE on EOF, otherwise returns
+ * a libmseed error code (listed in libmseed.h).
+ *********************************************************************/
+int
+ms_readtraces (MSTraceGroup **ppmstg, char *msfile, int reclen,
+	       double timetol, double sampratetol, flag dataquality,
+	       flag skipnotdata, flag dataflag, flag verbose)
 {
-  MSRecord *msr;
-  MSTraceGroup *mstg;
+  MSRecord *msr = 0;
+  int retcode = MS_NOERROR;
   
-  mstg = mst_initgroup (NULL);
+  if ( ! ppmstg )
+    return MS_GENERROR;
   
-  if ( ! mstg )
-    return NULL;
-  
-  /* Loop over the input file */
-  while ( (msr = ms_readmsr (msfile, reclen, NULL, NULL, skipnotdata, dataflag, verbose)))
+  /* Initialize MSTraceGroup if needed */
+  if ( ! *ppmstg )
     {
-      mst_addmsrtogroup (mstg, msr, dataquality, timetol, sampratetol);
+      *ppmstg = mst_initgroup (*ppmstg);
+      
+      if ( ! *ppmstg )
+	return MS_GENERROR;
     }
   
-  ms_readmsr (NULL, 0, NULL, NULL, 0, 0, 0);
+  /* Loop over the input file */
+  while ( (retcode = ms_readmsr (&msr, msfile, reclen, NULL, NULL,
+				 skipnotdata, dataflag, verbose)) == MS_NOERROR)
+    {
+      mst_addmsrtogroup (*ppmstg, msr, dataquality, timetol, sampratetol);
+    }
   
-  return mstg;
+  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
+  
+  return retcode;
 }  /* End of ms_readtraces() */
 
 
-/*********************************************************************
+/********************************************************************
  * ms_find_reclen:
  *
  * Determine SEED data record length with the following steps:
@@ -645,7 +714,7 @@ ms_find_reclen ( const char *recbuf, int recbuflen, FILE *fileptr )
 }  /* End of ms_find_reclen() */
 
 
-/***************************************************************************
+/*********************************************************************
  * readpackinfo:
  *
  * Read packed file info: chksum and header, parse and return the size
@@ -675,8 +744,9 @@ ms_find_reclen ( const char *recbuf, int recbuflen, FILE *fileptr )
  * infolen   = length of the info section
  * sizelen   = length of the size field at the end of the info section
  *
- * Returns the data size of the block that follows and 0 on EOF or error.
- ***************************************************************************/
+ * Returns the data size of the block that follows, 0 on EOF or -1
+ * error.
+ *********************************************************************/
 static int
 readpackinfo (int chksumlen, int infolen, int sizelen, FILE *stream)
 {
@@ -687,13 +757,16 @@ readpackinfo (int chksumlen, int infolen, int sizelen, FILE *stream)
   if ( chksumlen )
     if ( lmp_fseeko (stream, chksumlen, SEEK_CUR) )
       {
-	return 0;
+	return -1;
       }
+  
+  if ( ateof (stream) )
+    return 0;
   
   /* Read INFO section */
   if ( (myfread (infostr, 1, infolen, stream)) < infolen )
     {
-      return 0;
+      return -1;
     }
   
   sprintf (infostr, "%8.8s", &infostr[infolen - sizelen]);
@@ -703,13 +776,13 @@ readpackinfo (int chksumlen, int infolen, int sizelen, FILE *stream)
 }  /* End of readpackinfo() */
 
 
-/***************************************************************************
+/*********************************************************************
  * myfread:
  *
  * A wrapper for fread that handles EOF and error conditions.
  *
  * Returns the return value from fread.
- ***************************************************************************/
+ *********************************************************************/
 static int
 myfread (char *buf, int size, int num, FILE *stream)
 {
@@ -730,14 +803,14 @@ myfread (char *buf, int size, int num, FILE *stream)
 }  /* End of myfread() */
 
 
-/***************************************************************************
+/*********************************************************************
  * ateof:
  *
  * Check if stream is at the end-of-file by reading a single character
  * and unreading it if necessary.
  *
  * Returns 1 if stream is at EOF otherwise 0.
- ***************************************************************************/
+ *********************************************************************/
 static int
 ateof (FILE *stream)
 {
