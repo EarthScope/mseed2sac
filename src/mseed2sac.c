@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.184
+ * modified 2006.208
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -118,7 +118,7 @@ main (int argc, char **argv)
 	}
       
       if ( retcode != MS_ENDOFFILE )
-	fprintf (stderr, "Error reading file (%d): %s\n", retcode, flp->data);
+	fprintf (stderr, "Error reading %s: %s\n", flp->data, get_errorstr(retcode));
       
       /* Make sure everything is cleaned up */
       ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);

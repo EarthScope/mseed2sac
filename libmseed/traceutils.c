@@ -1335,6 +1335,11 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
       msr->numsamples = preservenumsamples;
       msr->sampletype = preservesampletype;
     }
+  else
+    {
+      msr->datasamples = 0;
+      msr_free (&msr);
+    }
   
   return packedrecords;
 }  /* End of mst_pack() */

@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2004.328
+ * modified: 2006.208
  ***************************************************************************/
 
 #include <string.h>
@@ -31,7 +31,7 @@ get_samplesize (const char sampletype)
       return 8;
     default:
       return 0;
-    }
+    }  /* end switch */
   
 }  /* End of get_samplesize() */
 
@@ -88,7 +88,7 @@ get_encoding (const char encoding)
       return "RSTN 16 bit gain ranged";
     default:
       return "Unknown format code";
-    }				/* end switch */
+    }  /* end switch */
 
 }  /* End of get_encoding() */
 
@@ -130,7 +130,7 @@ get_blktdesc (uint16_t blkttype)
       return "Data Extension";
     case 2000:
       return "Opaque Data";
-    }				/* end switch */
+    }  /* end switch */
 
   return NULL;
   
@@ -199,3 +199,37 @@ get_blktlen (uint16_t blkttype, const char *blkt, flag swapflag)
   return blktlen;
   
 }  /* End of get_blktlen() */
+
+
+/***************************************************************************
+ * get_errorstr():
+ *
+ * Return a string describing a given libmseed error code or NULL if the
+ * code is unknown.
+ ***************************************************************************/
+char *
+get_errorstr (int errorcode)
+{
+  switch (errorcode)
+    {
+    case MS_ENDOFFILE:
+      return "End of file reached";
+    case MS_NOERROR:
+      return "No error";
+    case MS_GENERROR:
+      return "Generic error";
+    case MS_NOTSEED:
+      return "No SEED data detected";
+    case MS_WRONGLENGTH:
+      return "Length of data read does not match record length";
+    case MS_OUTOFRANGE:
+      return "SEED record length out of range";
+    case MS_UNKNOWNFORMAT:
+      return "Unknown data encoding format";
+    case MS_STBADCOMPFLAG:
+      return "Bad Steim compression flag(s) detected";
+    }				/* end switch */
+  
+  return NULL;
+
+}  /* End of get_blktdesc() */

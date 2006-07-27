@@ -8,7 +8,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified 2006.173
+ * modified 2006.208
  ***************************************************************************/
 
 #include <stdio.h>
@@ -79,7 +79,7 @@ main (int argc, char **argv)
     }
   
   if ( retcode != MS_ENDOFFILE )
-    fprintf (stderr, "Error reading file (%d): %s\n", retcode, inputfile);
+    fprintf (stderr, "Error reading %s: %s\n", inputfile, get_errorstr(retcode));
   
   /* Make sure everything is cleaned up */
   ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);

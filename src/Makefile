@@ -27,6 +27,9 @@ cc:
 gcc:
 	@$(MAKE) "CC=$(GCC)" "CFLAGS=$(GCCFLAGS)"
 
+gcc32:
+	@$(MAKE) "CC=$(GCC)" "CFLAGS=-m32 $(GCCFLAGS)"
+
 gcc64:
 	@$(MAKE) "CC=$(GCC)" "CFLAGS=-m64 $(GCCFLAGS)"
 
@@ -38,6 +41,12 @@ debug:
 
 gccdebug:
 	$(MAKE) "CC=$(GCC)" "CFLAGS=-g $(GCCFLAGS)"
+
+gcc32debug:
+	$(MAKE) "CC=$(GCC)" "CFLAGS=-g -m32 $(GCCFLAGS)"
+
+gcc64debug:
+	$(MAKE) "CC=$(GCC)" "CFLAGS=-g -m64 $(GCCFLAGS)"
 
 install:
 	@echo

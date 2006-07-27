@@ -1,3 +1,9 @@
+2006.208: 1.1
+	- Update to libmseed 1.8.
+	- Use new get_errorstr() function for file read errors to print
+	a useful diagnostic message.
+	- Add gcc32, gcc32debug and gcc64debug targets to Makefile.
+
 2006.184: 1.0
 	- Update to libmseed 1.7.
 

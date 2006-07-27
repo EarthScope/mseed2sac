@@ -30,8 +30,8 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "1.7"
-#define LIBMSEED_RELEASE "2006.182"
+#define LIBMSEED_VERSION "1.8"
+#define LIBMSEED_RELEASE "2006.208"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
@@ -436,6 +436,7 @@ extern uint8_t   get_samplesize (const char sampletype);
 extern char     *get_encoding (const char encoding);
 extern char     *get_blktdesc (uint16_t blkttype);
 extern uint16_t  get_blktlen (uint16_t blkttype, const char *blktdata, flag swapflag);
+extern char *    get_errorstr (int errorcode);
 
 
 /* Generic byte swapping routines */

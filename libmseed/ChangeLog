@@ -1,3 +1,10 @@
+2006.208: version 1.8
+	- Fix memory leak in mst_pack() by freeing the temporary MSRecord
+	when no template is used.
+	- Add get_errorstr() function in lookup.c to return text descriptions
+	for specified libmseed return/error codes.
+	- Add gcc32, gcc32debug and gcc64debug targets to Makefile.
+
 2006.182: version 1.7
 	- Add MS_WRONGLENGTH error code and have msr_unpack() and the
 	file reading routines return it when the read length does not match
