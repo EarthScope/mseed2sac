@@ -1,4 +1,6 @@
 2006.208: version 1.8
+	- Fix memmove bounds for out-of-time-order data additions in both
+	mst_addmsr() and mst_addspan().
 	- Fix memory leak in mst_pack() by freeing the temporary MSRecord
 	when no template is used.
 	- Add get_errorstr() function in lookup.c to return text descriptions

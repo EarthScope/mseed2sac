@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2006.182
+ * modified: 2006.208
  ***************************************************************************/
 
 #include <stdio.h>
@@ -381,7 +381,7 @@ mst_addmsr ( MSTrace *mst, MSRecord *msr, flag whence )
 	    {
 	      memmove ((char *)mst->datasamples + (msr->numsamples * samplesize),
 		       mst->datasamples,
-		       msr->numsamples * samplesize);
+		       mst->numsamples * samplesize);
 	    }
 
 	  memcpy (mst->datasamples,
@@ -480,7 +480,7 @@ mst_addspan ( MSTrace *mst, hptime_t starttime, hptime_t endtime,
 	    {
 	      memmove ((char *)mst->datasamples + (numsamples * samplesize),
 		       mst->datasamples,
-		       numsamples * samplesize);
+		       mst->numsamples * samplesize);
 	    }
 	  
 	  memcpy (mst->datasamples,
