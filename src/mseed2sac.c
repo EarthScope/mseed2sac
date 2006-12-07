@@ -28,7 +28,7 @@
 /* Maximum number of metadata fields per line */
 #define MAXMETAFIELDS 12
 
-/* Macro to test floating point number equality withing 10 decimal places */
+/* Macro to test floating point number equality within 10 decimal places */
 #define FLTEQUAL(F1,F2) (fabs(F1-F2) < 1.0E-10 * (fabs(F1) + fabs(F2) + 1.0))
 
 struct listnode {
