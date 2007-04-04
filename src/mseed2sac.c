@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2006.208
+ * modified 2007.094
  ***************************************************************************/
 
 #include <stdio.h>
@@ -339,7 +339,7 @@ writesac (MSTrace *mst)
 	}
 	   
       if ( verbose > 1 )
-	fprintf (stderr, "Writing binary SAC file\n");
+	fprintf (stderr, "Writing binary SAC file: %s\n", outfile);
 
       if ( writebinarysac (&sh, fdata, mst->numsamples, outfile) )
 	return -1;
@@ -353,7 +353,7 @@ writesac (MSTrace *mst)
 		btime.min, btime.sec);
 
       if ( verbose > 1 )
-	fprintf (stderr, "Writing binary SAC file\n");
+	fprintf (stderr, "Writing alphanumeric SAC file: %s\n", outfile);
       
       if ( writealphasac (&sh, fdata, mst->numsamples, outfile) )
 	return -1;
