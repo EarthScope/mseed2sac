@@ -586,7 +586,7 @@ insertmetadata (struct SACHeader *sh)
     }
   
   return 0;
-}  /* End of swapsacheader() */
+}  /* End of insertmetadata() */
 
 
 /***************************************************************************
