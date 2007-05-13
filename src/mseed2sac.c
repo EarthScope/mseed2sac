@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2007.094
+ * modified 2007.133
  ***************************************************************************/
 
 #include <stdio.h>
@@ -182,6 +182,7 @@ writesac (MSTrace *mst)
   float *fdata = 0;
   double *ddata = 0;
   int32_t *idata = 0;
+  hptime_t submsec;
   int idx;
   
   if ( ! mst )
@@ -217,8 +218,6 @@ writesac (MSTrace *mst)
   sh.nvhdr = 6;                 /* Header version = 6 */
   sh.leven = 1;                 /* Evenly spaced data */
   sh.iftype = ITIME;            /* Data is time-series */
-  sh.b = 0.0;                   /* First sample, offset time */
-  sh.e = (mst->numsamples - 1) * (1 / mst->samprate); /* Last sample, offset time */
   
   /* Insert metadata */
   if ( metadata )
@@ -268,6 +267,16 @@ writesac (MSTrace *mst)
   sh.nzmin = btime.min;
   sh.nzsec = btime.sec;
   sh.nzmsec = btime.fract / 10;
+  
+  /* Determine any sub-millisecond portion of the start time in HP time */
+  submsec = (mst->starttime - 
+	     ms_time2hptime (sh.nzyear, sh.nzjday, sh.nzhour,
+			     sh.nzmin, sh.nzsec, sh.nzmsec * 1000));
+  
+  /* Set begin and end offsets from reference time for first and last sample,
+   * any sub-millisecond start time is stored in these offsets. */
+  sh.b = ((float)submsec / HPTMODULUS);
+  sh.e = (mst->numsamples - 1) * (1 / mst->samprate) + ((float)submsec / HPTMODULUS);
   
   /* Set sampling interval (seconds), sample count */
   sh.delta = 1 / mst->samprate;

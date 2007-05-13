@@ -1,3 +1,8 @@
+2007.133:
+	- Store any sub-millisecond portion of the time in the begin (b)
+	and end (e) header variables, these are offsets from the reference
+	time which has only millisecond resolution.
+
 2006.208: 1.1
 	- Update to libmseed 1.8.
 	- Use new get_errorstr() function for file read errors to print
