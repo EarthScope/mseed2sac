@@ -31,7 +31,8 @@ OBJS=	fileutils.obj	&
 	packdata.obj	&
 	traceutils.obj	&
 	unpack.obj	&
-	unpackdata.obj
+	unpackdata.obj  &
+	logging.obj
 
 all: lib
 
@@ -53,6 +54,7 @@ packdata.obj:	packdata.c libmseed.h packdata.h steimdata.h
 traceutils.obj:	traceutils.c libmseed.h
 unpack.obj:	unpack.c libmseed.h unpackdata.h steimdata.h
 unpackdata.obj:	unpackdata.c libmseed.h unpackdata.h steimdata.h
+logging.obj:	logging.c libmseed.h
 
 # How to compile sources:
 .c.obj:

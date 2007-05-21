@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2006.208
+ * modified: 2006.346
  ***************************************************************************/
 
 #include <string.h>
@@ -13,12 +13,12 @@
 #include "libmseed.h"
 
 /***************************************************************************
- * get_samplesize():
+ * ms_samplesize():
  * 
  * Returns the sample size based on type code or 0 for unknown.
  ***************************************************************************/
 uint8_t
-get_samplesize (const char sampletype)
+ms_samplesize (const char sampletype)
 {
   switch (sampletype)
     {
@@ -33,16 +33,16 @@ get_samplesize (const char sampletype)
       return 0;
     }  /* end switch */
   
-}  /* End of get_samplesize() */
+}  /* End of ms_samplesize() */
 
 
 /***************************************************************************
- * get_encoding():
+ * ms_encodingstr():
  * 
  * Returns a string describing a data encoding format.
  ***************************************************************************/
 char *
-get_encoding (const char encoding)
+ms_encodingstr (const char encoding)
 {
   switch (encoding)
     {
@@ -79,28 +79,28 @@ get_encoding (const char encoding)
     case 19:
       return "STEIM 3 Compression";
     case 30:
-      return "SRO Format";
+      return "SRO Gain Ranged Format";
     case 31:
       return "HGLP Format";
     case 32:
-      return "DWWSSN Gain Ranged Format";
+      return "DWWSSN Format";
     case 33:
       return "RSTN 16 bit gain ranged";
     default:
       return "Unknown format code";
     }  /* end switch */
 
-}  /* End of get_encoding() */
+}  /* End of ms_encodingstr() */
 
 
 /***************************************************************************
- * get_blktdesc():
+ * ms_blktdesc():
  *
  * Return a string describing a given blockette type or NULL if the
  * type is unknown.
  ***************************************************************************/
 char *
-get_blktdesc (uint16_t blkttype)
+ms_blktdesc (uint16_t blkttype)
 {
   switch (blkttype)
     {
@@ -134,17 +134,17 @@ get_blktdesc (uint16_t blkttype)
 
   return NULL;
   
-}  /* End of get_blktdesc() */
+}  /* End of ms_blktdesc() */
 
 
 /***************************************************************************
- * get_blktlen():
+ * ms_blktlen():
  *
  * Returns the total length of a given blockette type in bytes or 0 if
  * type unknown.
  ***************************************************************************/
 uint16_t
-get_blktlen (uint16_t blkttype, const char *blkt, flag swapflag)
+ms_blktlen (uint16_t blkttype, const char *blkt, flag swapflag)
 {
   uint16_t blktlen = 0;
   
@@ -191,24 +191,24 @@ get_blktlen (uint16_t blkttype, const char *blkt, flag swapflag)
       if ( blkt )
 	{
 	  memcpy ((void *) &blktlen, blkt+4, sizeof (int16_t));
-	  if ( swapflag ) gswap2 (&blktlen);
+	  if ( swapflag ) ms_gswap2 (&blktlen);
 	}
       break;
     }  /* end switch */
-
+  
   return blktlen;
   
-}  /* End of get_blktlen() */
+}  /* End of ms_blktlen() */
 
 
 /***************************************************************************
- * get_errorstr():
+ * ms_errorstr():
  *
  * Return a string describing a given libmseed error code or NULL if the
  * code is unknown.
  ***************************************************************************/
 char *
-get_errorstr (int errorcode)
+ms_errorstr (int errorcode)
 {
   switch (errorcode)
     {
@@ -232,4 +232,4 @@ get_errorstr (int errorcode)
   
   return NULL;
 
-}  /* End of get_blktdesc() */
+}  /* End of ms_blktdesc() */

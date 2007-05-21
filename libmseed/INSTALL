@@ -17,7 +17,8 @@ possible to build a shared library with 'make shared'.
 -- Mac OSX (Darwin) --
 
 A static library can be compiled using the above Unix instructions,
-just run 'make'.  A dynamic library can be built with 'make dynamic'.
+just run 'make'.  Using gcc it is possible to build a dynamic library
+with 'make dynamic'.
 
 -- Windows (Win32) --
 

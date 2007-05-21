@@ -1,4 +1,4 @@
-.TH MST_PACK 3 2006/02/27 "Libmseed API"
+.TH MST_PACK 3 2007/03/24 "Libmseed API"
 .SH DESCRIPTION
 Packing of Mini-SEED records from MSTrace segments.
 
@@ -6,16 +6,17 @@ Packing of Mini-SEED records from MSTrace segments.
 .nf
 .B #include <libmseed.h>
 
-.BI "int  \fBmst_pack\fP ( MSTrace *" mst ", void (*" record_handler ") (char *, int),
-.BI "                int " reclen ", flag " encoding ", flag " byteorder ",
-.BI "                int *" packedsamples ", flag " flush ", flag " verbose ",
-.BI "                MSRecord *" mstemplate " );
+.BI "int  \fBmst_pack\fP ( MSTrace *" mst ","
+.BI "                void (*" record_handler ") (char *, int, void *),"
+.BI "                void *" handlerdata ", int " reclen ", flag " encoding ","
+.BI "                flag " byteorder ", int *" packedsamples ", flag " flush ","
+.BI "                flag " verbose ", MSRecord *" mstemplate " );"
 
-.BI "int  \fBmsr_packgroup\fP ( MSTraceGroup *" mstg ",
-.BI "                     void (*" record_handler ") (char *, int),
-.BI "                     int " reclen ", flag " encoding ", flag " byteorder ",
-.BI "                     int *" packedsamples ", flag " flush ", flag " verbose ",
-.BI "                     MSRecord *" mstemplate " );"
+.BI "int  \fBmsr_packgroup\fP ( MSTraceGroup *" mstg ","
+.BI "                     void (*" record_handler ") (char *, int, void *),"
+.BI "                     void *" handlerdata ", int " reclen ", flag " encoding ","
+.BI "                     flag " byteorder ", int *" packedsamples ", flag " flush ","
+.BI "                     flag " verbose ", MSRecord *" mstemplate " );"
 .fi
 
 .SH DESCRIPTION
@@ -42,8 +43,9 @@ which must be expressible as 2 raised to the power of X where X is
 between (and including) 8 to 20.
 
 \fIencoding\fP should be set to one of the following supported
-Mini-SEED data encoding formats: ASCII (0), INT16 (1), INT32 (3),
-FLOAT32 (4), FLOAT64 (5), STEIM1 (10) and STEIM2 (11).
+Mini-SEED data encoding formats: DE_ASCII (0), DE_INT16 (1), DE_INT32
+(3), DE_FLOAT32 (4), DE_FLOAT64 (5), DE_STEIM1 (10) and DE_STEIM2
+(11).  The encoding aliases are defined in libmseed.h.
 MSTrace.sampletype should indicated the sample type as either 'a'
 (ASCII), 'i' (32-bit integers), 'f' (32-bit floats) or 'd' (64-bit
 doubles).
@@ -59,10 +61,17 @@ encoding formats.
 big-endian).
 
 Each time a complete record is packed it will be passed to the
-\fIrecord_handler()\fP function along with it's length in bytes.  It
-is the responsibility of \fIrecord_handler()\fP to process the record,
-the memory will be re-used or freed when \fIrecord_handler()\fP
-returns.
+\fIrecord_handler()\fP function which expects three arguments: 1) a
+char * to the record buffer, 2) the length of the record in bytes and
+3) a void pointer supplied by the caller.  It is the responsibility of
+\fIrecord_handler()\fP to process the record, the memory will be
+re-used or freed when \fIrecord_handler()\fP returns.  This function
+pointer is required, there is no other way to access the packed
+records.
+
+The \fIhandlerdata\fP pointer will be passed as the 3rd argument to
+\fIrecord_handler()\fP.  This allows the caller to optionally pass
+data directly to the \fIrecord_handler()\fP.
 
 The integer pointed to by \fIpackedsamples\fP will be set to the total
 number of samples packed.
@@ -82,25 +91,25 @@ will be set to the total number of samples packed.
 \fBmst_pack\fP returns the number records created on success and -1 on
 error.
 
-\fBmsr_packgroup\fP returns the total (for all MSTraces) number of
+\fBmst_packgroup\fP returns the total (for all MSTraces) number of
 record created on success and -1 on error.
 
 .SH CAVEATS
 When using a MSRecord template (\fImstemplate\fP) the dataquality
-element must be set to a valid value.  It is also advisable to set the
+member must be set to a valid value.  It is also advisable to set the
 network, station, location and channel indicators to appropriate
 values.  Unless these source indicators need to change they can simply
-be copied from the matching MSTrace elements.
+be copied from the matching MSTrace members.
 
 .SH EXAMPLE
 Skeleton code for creating (packing) Mini-SEED records with
 mst_pack(3):
 
 .nf
-static void record_handler (char *record, int reclen) {
+static void record_handler (char *record, int reclen, void *srcname) {
   if ( fwrite(record, reclen, 1, outfile) != 1 )
     {
-      fprintf (stderr, "Error writing to output file\n");
+      ms_log (2, "Error writing %s to output file\n", (char *)srcname);
     }
 }
 
@@ -108,6 +117,7 @@ main() {
   int psamples;
   int precords;
   MSTrace *mst;
+  char srcname[50];
 
   mst = mst_init (NULL);
 
@@ -125,10 +135,13 @@ main() {
   mst->numsamples = 1234;
   mst->sampletype = 'i';      /* declare type to be 32-bit integers */
 
-  /* Pack 4096 byte, big-endian records, using Steim-2 compression */
-  precords = mst_pack (mst, &record_handler, 4096, STEIM2, 1, &psamples, 1, verbose, NULL);
+  mst_srcname (mst, srcname, 0);
 
-  printf ("Packed %d samples into %d records\n", psamples, precords);
+  /* Pack 4096 byte, big-endian records, using Steim-2 compression */
+  precords = mst_pack (mst, &record_handler, srcname, 4096, DE_STEIM2,
+                       1, &psamples, 1, verbose, NULL);
+
+  ms_log (0, "Packed %d samples into %d records\n", psamples, precords);
 
   mst_free (&mst);
 }

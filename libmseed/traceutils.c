@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2006.208
+ * modified: 2007.083
  ***************************************************************************/
 
 #include <stdio.h>
@@ -32,8 +32,8 @@ mst_init ( MSTrace *mst )
       if ( mst->datasamples )
 	free (mst->datasamples);
 
-      if ( mst->private )
-	free (mst->private);
+      if ( mst->prvtptr )
+	free (mst->prvtptr);
     }
   else
     {
@@ -42,7 +42,7 @@ mst_init ( MSTrace *mst )
   
   if ( mst == NULL )
     {
-      fprintf (stderr, "mst_init(): error allocating memory\n");
+      ms_log (2, "mst_init(): Cannot allocate memory\n");
       return NULL;
     }
   
@@ -68,8 +68,8 @@ mst_free ( MSTrace **ppmst )
         free ((*ppmst)->datasamples);
 
       /* Free private memory if present */
-      if ( (*ppmst)->private )
-        free ((*ppmst)->private);
+      if ( (*ppmst)->prvtptr )
+        free ((*ppmst)->prvtptr);
       
       free (*ppmst);
       
@@ -111,7 +111,7 @@ mst_initgroup ( MSTraceGroup *mstg )
   
   if ( mstg == NULL )
     {
-      fprintf (stderr, "mst_initgroup(): Error allocating memory\n");
+      ms_log (2, "mst_initgroup(): Cannot allocate memory\n");
       return NULL;
     }
   
@@ -243,7 +243,7 @@ mst_findadjacent ( MSTraceGroup *mstg, flag *whence, char dataquality,
 		}
 	    }
 	  /* Otherwise check against the specified sample rate tolerance */
-	  else if ( ms_dabs (samprate - mst->samprate) > sampratetol )
+	  else if ( ms_dabs(samprate - mst->samprate) > sampratetol )
 	    {
 	      mst = mst->next;
 	      continue;
@@ -321,21 +321,21 @@ mst_addmsr ( MSTrace *mst, MSRecord *msr, flag whence )
       /* Check that the entire record was decompressed */
       if ( msr->samplecnt != msr->numsamples )
 	{
-	  fprintf (stderr, "mst_addmsr(): Sample counts do not match, record not fully decompressed?\n");
-	  fprintf (stderr, "  The sample buffer will likely contain a discontinuity.\n");
+	  ms_log (2, "mst_addmsr(): Sample counts do not match, record not fully decompressed?\n");
+	  ms_log (2, "  The sample buffer will likely contain a discontinuity.\n");
 	}
 
-      if ( (samplesize = get_samplesize(msr->sampletype)) == 0 )
+      if ( (samplesize = ms_samplesize(msr->sampletype)) == 0 )
 	{
-	  fprintf (stderr, "mst_addmsr(): Unrecognized sample type: '%c'\n",
-		   msr->sampletype);
+	  ms_log (2, "mst_addmsr(): Unrecognized sample type: '%c'\n",
+		  msr->sampletype);
 	  return -1;
 	}
     
       if ( msr->sampletype != mst->sampletype )
 	{
-	  fprintf (stderr, "mst_addmsr(): Mismatched sample type, '%c' and '%c'\n",
-		   msr->sampletype, mst->sampletype);
+	  ms_log (2, "mst_addmsr(): Mismatched sample type, '%c' and '%c'\n",
+		  msr->sampletype, mst->sampletype);
 	  return -1;
 	}
       
@@ -345,7 +345,7 @@ mst_addmsr ( MSTrace *mst, MSRecord *msr, flag whence )
       
       if ( mst->datasamples == NULL )
 	{
-	  fprintf (stderr, "mst_addmsr(): Error allocating memory\n");
+	  ms_log (2, "mst_addmsr(): Cannot allocate memory\n");
 	  return -1;
 	}
     }
@@ -366,7 +366,7 @@ mst_addmsr ( MSTrace *mst, MSRecord *msr, flag whence )
       
       if ( mst->endtime == HPTERROR )
 	{
-	  fprintf (stderr, "mst_addmsr(): Error calculating record end time\n");
+	  ms_log (2, "mst_addmsr(): Error calculating record end time\n");
 	  return -1;
 	}
     }
@@ -430,17 +430,17 @@ mst_addspan ( MSTrace *mst, hptime_t starttime, hptime_t endtime,
   
   if ( datasamples && numsamples > 0 )
     {
-      if ( (samplesize = get_samplesize(sampletype)) == 0 )
+      if ( (samplesize = ms_samplesize(sampletype)) == 0 )
 	{
-	  fprintf (stderr, "mst_addspan(): Unrecognized sample type: '%c'\n",
-		   sampletype);
+	  ms_log (2, "mst_addspan(): Unrecognized sample type: '%c'\n",
+		  sampletype);
 	  return -1;
 	}
       
       if ( sampletype != mst->sampletype )
 	{
-	  fprintf (stderr, "mst_addspan(): Mismatched sample type, '%c' and '%c'\n",
-		   sampletype, mst->sampletype);
+	  ms_log (2, "mst_addspan(): Mismatched sample type, '%c' and '%c'\n",
+		  sampletype, mst->sampletype);
 	  return -1;
 	}
       
@@ -450,7 +450,7 @@ mst_addspan ( MSTrace *mst, hptime_t starttime, hptime_t endtime,
       
       if ( mst->datasamples == NULL )
 	{
-	  fprintf (stderr, "mst_addspan(): Error allocating memory\n");
+	  ms_log (2, "mst_addspan(): Cannot allocate memory\n");
 	  return -1;
 	}
     }
@@ -532,7 +532,7 @@ mst_addmsrtogroup ( MSTraceGroup *mstg, MSRecord *msr, flag dataquality,
   
   if ( endtime == HPTERROR )
     {
-      fprintf (stderr, "mst_addmsrtogroup(): Error calculating record end time\n");
+      ms_log (2, "mst_addmsrtogroup(): Error calculating record end time\n");
       return 0;
     }
   
@@ -642,7 +642,8 @@ mst_addtracetogroup ( MSTraceGroup *mstg, MSTrace *mst )
  * belong together they will be merged.  This routine is only useful
  * if the trace group was assembled from segments out of time order
  * (e.g. a file of Mini-SEED records not in time order) but forming
- * contiguous time coverage.
+ * contiguous time coverage.  The MSTraceGroup will be sorted using
+ * mst_groupsort() before healing.
  *
  * The time tolerance and sample rate tolerance are used to determine
  * if the traces are indeed the same.  If timetol is -1.0 the default
@@ -664,6 +665,10 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
   double postgap, pregap, delta;
   
   if ( ! mstg )
+    return -1;
+  
+  /* Sort MSTraceGroup before any healing */
+  if ( mst_groupsort (mstg, 1) )
     return -1;
   
   curtrace = mstg->traces;
@@ -705,7 +710,7 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
 		}
 	    }
 	  /* Otherwise check against the specified sample rates tolerance */
-	  else if ( ms_dabs (searchtrace->samprate - curtrace->samprate) > sampratetol )
+	  else if ( ms_dabs(searchtrace->samprate - curtrace->samprate) > sampratetol )
 	    {
 	      prevtrace = searchtrace;
 	      continue;
@@ -738,6 +743,10 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
 	      if ( searchtrace->numsamples <= 0 )
 		curtrace->samplecnt += searchtrace->samplecnt;
 	      
+	      /* If qualities do not match reset the indicator */
+	      if (curtrace->dataquality != searchtrace->dataquality)
+		curtrace->dataquality = 0;
+
 	      merged = 1;
 	    }
 	  
@@ -753,13 +762,21 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
 	      if ( searchtrace->numsamples <= 0 )
 		curtrace->samplecnt += searchtrace->samplecnt;
 	      
+	      /* If qualities do not match reset the indicator */
+	      if (curtrace->dataquality != searchtrace->dataquality)
+		curtrace->dataquality = 0;
+	      
 	      merged = 1;
 	    }
-	  
+	 
+	  /* If searchtrace was merged with curtrace remove it from the chain */
 	  if ( merged )
 	    {
 	      /* Re-link trace chain and free searchtrace */
-	      prevtrace->next = nexttrace;
+	      if ( searchtrace == mstg->traces )
+		mstg->traces = nexttrace;
+	      else
+		prevtrace->next = nexttrace;
 	      
 	      mst_free (&searchtrace);
 	      
@@ -782,14 +799,15 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
 /***************************************************************************
  * mst_groupsort:
  *
- * Sort a MSTraceGroup first on source name, then sample rate, then
- * start time and finally on descending endtime (longest trace first).
- * The "bubble sort" algorithm herein is not terribly efficient.
+ * Sort a MSTraceGroup first on source name, then on start time, then
+ * on descending endtime (longest trace first) and finally sample
+ * rate.  The "bubble sort" algorithm herein is not terribly
+ * efficient.
  *
  * Return 0 on success and -1 on error.
  ***************************************************************************/
 int
-mst_groupsort ( MSTraceGroup *mstg )
+mst_groupsort ( MSTraceGroup *mstg, flag quality )
 {
   MSTrace *mst, *pmst;
   char src1[50], src2[50];
@@ -803,7 +821,8 @@ mst_groupsort ( MSTraceGroup *mstg )
   if ( ! mstg->traces )
     return 0;
 
-  /* Loop over the MSTrace chain until no more entries are swapped, "bubble" sort */
+  /* Bubble sort:
+   * Loop over the MSTrace chain until no more entries are swapped */
   do
     {
       swapped = 0;
@@ -814,15 +833,15 @@ mst_groupsort ( MSTraceGroup *mstg )
       while ( mst->next ) {
 	swap = 0;
 	
-	mst_srcname (mst, src1);
-	mst_srcname (mst->next, src2);
+	mst_srcname (mst, src1, quality);
+	mst_srcname (mst->next, src2, quality);
 	
 	strcmpval = strcmp (src1, src2);
 	
 	/* If the source names do not match make sure the "greater" string is 2nd,
-	 * otherwise, if source names do match, make sure the highest sample rate is 2nd
-	 * otherwise, if sample rates match, make sure the later start time is 2nd
+	 * otherwise, if source names do match, make sure the later start time is 2nd
 	 * otherwise, if start times match, make sure the earlier end time is 2nd
+	 * otherwise, if end times match, make sure the highest sample rate is 2nd
 	 */
 	if ( strcmpval > 0 )
 	  {
@@ -830,27 +849,27 @@ mst_groupsort ( MSTraceGroup *mstg )
 	  }
 	else if ( strcmpval == 0 )
 	  {
-	    if ( ! MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) &&
-		 mst->samprate > mst->next->samprate )
+	    if ( mst->starttime > mst->next->starttime )
 	      {
 		swap = 1;
 	      }
-	    else if ( MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) )
+	    else if ( mst->starttime == mst->next->starttime )
 	      {
-		if ( mst->starttime > mst->next->starttime )
+		if ( mst->endtime < mst->next->endtime )
 		  {
 		    swap = 1;
 		  }
-		else if ( mst->starttime == mst->next->starttime )
+		else if ( mst->endtime == mst->next->endtime )
 		  {
-		    if ( mst->endtime < mst->next->endtime )
+		    if ( ! MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) &&
+			 mst->samprate > mst->next->samprate )
 		      {
 			swap = 1;
 		      }
 		  }
 	      }
 	  }
-		
+	
 	/* If a swap condition was found swap the entries */
 	if ( swap )
 	  {
@@ -888,20 +907,21 @@ mst_groupsort ( MSTraceGroup *mstg )
  * mst_srcname:
  *
  * Generate a source name string for a specified MSTrace in the
- * format: 'NET_STA_LOC_CHAN[_QUAL]'.  If mst->dataquality is not zero
- * the quality indicator is appended to the source name.  The passed
- * srcname must have enough room for the resulting string.
+ * format: 'NET_STA_LOC_CHAN[_QUAL]'.  The quality is added to the
+ * srcname if the quality flag argument is 1 and mst->dataquality is
+ * not zero.  The passed srcname must have enough room for the
+ * resulting string.
  *
  * Returns a pointer to the resulting string or NULL on error.
  ***************************************************************************/
 char *
-mst_srcname (MSTrace *mst, char *srcname)
+mst_srcname (MSTrace *mst, char *srcname, flag quality)
 {
   if ( ! mst )
     return NULL;
   
   /* Build the source name string */
-  if ( mst->dataquality )
+  if ( quality == 1 && mst->dataquality )
     sprintf (srcname, "%s_%s_%s_%s_%c",
 	     mst->network, mst->station,
 	     mst->location, mst->channel, mst->dataquality);
@@ -941,6 +961,7 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
   char stime[30];
   char etime[30];
   char gapstr[20];
+  flag nogap;
   double gap;
   double delta;
   double prevsamprate;
@@ -956,13 +977,13 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
   
   /* Print out the appropriate header */
   if ( details > 0 && gaps > 0 )
-    printf ("   Source                Start sample             End sample        Gap  Hz  Samples\n");
+    ms_log (0, "   Source                Start sample             End sample        Gap  Hz  Samples\n");
   else if ( details <= 0 && gaps > 0 )
-    printf ("   Source                Start sample             End sample        Gap\n");
+    ms_log (0, "   Source                Start sample             End sample        Gap\n");
   else if ( details > 0 && gaps <= 0 )
-    printf ("   Source                Start sample             End sample        Hz  Samples\n");
+    ms_log (0, "   Source                Start sample             End sample        Hz  Samples\n");
   else
-    printf ("   Source                Start sample             End sample\n");
+    ms_log (0, "   Source                Start sample             End sample\n");
   
   prevsrcname[0] = '\0';
   prevsamprate = -1.0;
@@ -970,7 +991,7 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
   
   while ( mst )
     {
-      mst_srcname (mst, srcname);
+      mst_srcname (mst, srcname, 1);
       
       /* Create formatted time strings */
       if ( timeformat == 2 )
@@ -981,28 +1002,31 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
       else if ( timeformat == 1 )
 	{
 	  if ( ms_hptime2isotimestr (mst->starttime, stime) == NULL )
-	    fprintf (stderr, "Error converting trace start time for %s\n", srcname);
+	    ms_log (2, "Cannot convert trace start time for %s\n", srcname);
 	  
 	  if ( ms_hptime2isotimestr (mst->endtime, etime) == NULL )
-	    fprintf (stderr, "Error converting trace end time for %s\n", srcname);
+	    ms_log (2, "Cannot convert trace end time for %s\n", srcname);
 	}
       else
 	{
 	  if ( ms_hptime2seedtimestr (mst->starttime, stime) == NULL )
-	    fprintf (stderr, "Error converting trace start time for %s\n", srcname);
+	    ms_log (2, "Cannot convert trace start time for %s\n", srcname);
 	  
 	  if ( ms_hptime2seedtimestr (mst->endtime, etime) == NULL )
-	    fprintf (stderr, "Error converting trace end time for %s\n", srcname);
+	    ms_log (2, "Cannot convert trace end time for %s\n", srcname);
 	}
       
       /* Print trace info at varying levels */
       if ( gaps > 0 )
 	{
 	  gap = 0.0;
+	  nogap = 0;
 	  
 	  if ( ! strcmp (prevsrcname, srcname) && prevsamprate != -1.0 &&
 	       MS_ISRATETOLERABLE (prevsamprate, mst->samprate) )
 	    gap = (double) (mst->starttime - prevendtime) / HPTMODULUS;
+	  else
+	    nogap = 1;
 	  
 	  /* Check that any overlap is not larger than the trace coverage */
 	  if ( gap < 0.0 )
@@ -1014,25 +1038,29 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
 	    }
 	  
 	  /* Fix up gap display */
-	  if ( gap >= 86400.0 || gap <= -86400.0 )
+	  if ( nogap )
+	    snprintf (gapstr, sizeof(gapstr), " == ");
+	  else if ( gap >= 86400.0 || gap <= -86400.0 )
 	    snprintf (gapstr, sizeof(gapstr), "%-3.1fd", (gap / 86400));
 	  else if ( gap >= 3600.0 || gap <= -3600.0 )
 	    snprintf (gapstr, sizeof(gapstr), "%-3.1fh", (gap / 3600));
+	  else if ( gap == 0.0 )
+	    snprintf (gapstr, sizeof(gapstr), "-0  ");
 	  else
 	    snprintf (gapstr, sizeof(gapstr), "%-4.4g", gap);
 	  
 	  if ( details <= 0 )
-	    printf ("%-17s %-24s %-24s %-4s\n",
+	    ms_log (0, "%-17s %-24s %-24s %-4s\n",
 		    srcname, stime, etime, gapstr);
 	  else
-	    printf ("%-17s %-24s %-24s %-s %-3.3g %-d\n",
+	    ms_log (0, "%-17s %-24s %-24s %-s %-3.3g %-d\n",
 		    srcname, stime, etime, gapstr, mst->samprate, mst->samplecnt);
 	}
       else if ( details > 0 && gaps <= 0 )
-	printf ("%-17s %-24s %-24s %-3.3g %-d\n",
+	ms_log (0, "%-17s %-24s %-24s %-3.3g %-d\n",
 		srcname, stime, etime, mst->samprate, mst->samplecnt);
       else
-	printf ("%-17s %-24s %-24s\n", srcname, stime, etime);
+	ms_log (0, "%-17s %-24s %-24s\n", srcname, stime, etime);
       
       if ( gaps > 0 )
 	{
@@ -1046,10 +1074,10 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
     }
 
   if ( tracecnt != mstg->numtraces )
-    fprintf (stderr, "mst_printtracelist(): number of traces in trace group is inconsistent\n");
+    ms_log (2, "mst_printtracelist(): number of traces in trace group is inconsistent\n");
   
   if ( details > 0 )
-    printf ("Total: %d trace(s)\n", tracecnt);
+    ms_log (0, "Total: %d trace(s)\n", tracecnt);
   
 }  /* End of mst_printtracelist() */
 
@@ -1093,12 +1121,12 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
   mst = mstg->traces;
   pmst = mst;
   
-  printf ("   Source                Last Sample              Next Sample       Gap  Samples\n");
+  ms_log (0, "   Source                Last Sample              Next Sample       Gap  Samples\n");
   
   while ( mst->next )
     {
-      mst_srcname (mst, src1);
-      mst_srcname (mst->next, src2);
+      mst_srcname (mst, src1, 1);
+      mst_srcname (mst->next, src2, 1);
       
       if ( ! strcmp (src1, src2) )
 	{
@@ -1109,12 +1137,12 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 	      mst = mst->next;
 	      continue;
 	    }
-
+	  
 	  /* Check that sample rates match using default tolerance */
 	  if ( ! MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) )
 	    {
-	      fprintf (stderr, "%s Sample rate changed! %.10g -> %.10g\n",
-		       src1, mst->samprate, mst->next->samprate );
+	      ms_log (2, "%s Sample rate changed! %.10g -> %.10g\n",
+		      src1, mst->samprate, mst->next->samprate );
 	    }
 	  
 	  gap = (double) (mst->next->starttime - mst->endtime) / HPTMODULUS;
@@ -1122,19 +1150,19 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 	  /* Check that any overlap is not larger than the trace coverage */
 	  if ( gap < 0.0 )
 	    {
-	      delta = ( mst->next->samprate ) ? (1.0 / mst->next->samprate) : 0,0;
+	      delta = ( mst->next->samprate ) ? (1.0 / mst->next->samprate) : 0.0;
 	      
 	      if ( (gap * -1.0) > (((double)(mst->next->endtime - mst->next->starttime)/HPTMODULUS) + delta) )
 		gap = -(((double)(mst->next->endtime - mst->next->starttime)/HPTMODULUS) + delta);
 	    }
-
+	  
 	  printflag = 1;
-
+	  
 	  /* Check gap/overlap criteria */
 	  if ( mingap )
 	    if ( gap < *mingap )
 	      printflag = 0;
-
+	  
 	  if ( maxgap )
 	    if ( gap > *maxgap )
 	      printflag = 0;
@@ -1153,6 +1181,8 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 		snprintf (gapstr, sizeof(gapstr), "%-3.1fd", (gap / 86400));
 	      else if ( gap >= 3600.0 || gap <= -3600.0 )
 		snprintf (gapstr, sizeof(gapstr), "%-3.1fh", (gap / 3600));
+	      else if ( gap == 0.0 )
+		snprintf (gapstr, sizeof(gapstr), "-0  ");
 	      else
 		snprintf (gapstr, sizeof(gapstr), "%-4.4g", gap);
 	      
@@ -1165,21 +1195,21 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 	      else if ( timeformat == 1 )
 		{
 		  if ( ms_hptime2isotimestr (mst->endtime, time1) == NULL )
-		    fprintf (stderr, "Error converting trace end time for %s\n", src1);
+		    ms_log (2, "Cannot convert trace end time for %s\n", src1);
 		  
 		  if ( ms_hptime2isotimestr (mst->next->starttime, time2) == NULL )
-		    fprintf (stderr, "Error converting next trace start time for %s\n", src1);
+		    ms_log (2, "Cannot convert next trace start time for %s\n", src1);
 		}
 	      else
 		{
 		  if ( ms_hptime2seedtimestr (mst->endtime, time1) == NULL )
-		    fprintf (stderr, "Error converting trace end time for %s\n", src1);
+		    ms_log (2, "Cannot convert trace end time for %s\n", src1);
 		  
 		  if ( ms_hptime2seedtimestr (mst->next->starttime, time2) == NULL )
-		    fprintf (stderr, "Error converting next trace start time for %s\n", src1);
+		    ms_log (2, "Cannot convert next trace start time for %s\n", src1);
 		}
 	      
-	      printf ("%-17s %-24s %-24s %-4s %-.8g\n",
+	      ms_log (0, "%-17s %-24s %-24s %-4s %-.8g\n",
 		      src1, time1, time2, gapstr, nsamples);
 	      
 	      gapcnt++;
@@ -1190,7 +1220,7 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
       mst = mst->next;
     }
   
-  printf ("Total: %d gap(s)\n", gapcnt);
+  ms_log (0, "Total: %d gap(s)\n", gapcnt);
   
 }  /* End of mst_printgaplist() */
 
@@ -1204,9 +1234,11 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
  * samples were packed.
  *
  * As each record is filled and finished they are passed to
- * record_handler along with their length in bytes.  It is the
+ * record_handler which expects 1) a char * to the record, 2) the
+ * length of the record and 3) a pointer supplied by the original
+ * caller containing optional private data (handlerdata).  It is the
  * responsibility of record_handler to process the record, the memory
- * will be re-used when record_handler returns.
+ * will be re-used or freed when record_handler returns.
  *
  * If the flush flag is > 0 all of the data will be packed into data
  * records even though the last one will probably not be filled.
@@ -1222,8 +1254,8 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
  * Returns the number of records created on success and -1 on error.
  ***************************************************************************/
 int
-mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
-	   int reclen, flag encoding, flag byteorder,
+mst_pack ( MSTrace *mst, void (*record_handler) (char *, int, void *),
+	   void *handlerdata, int reclen, flag encoding, flag byteorder,
 	   int *packedsamples, flag flush, flag verbose,
 	   MSRecord *mstemplate )
 {
@@ -1255,7 +1287,7 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
       
       if ( msr == NULL )
 	{
-	  fprintf (stderr, "mst_pack(): Error initializing msr\n");
+	  ms_log (2, "mst_pack(): Error initializing msr\n");
 	  return -1;
 	}
       
@@ -1280,16 +1312,16 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
   /* Sample count sanity check */
   if ( mst->samplecnt != mst->numsamples )
     {
-      fprintf (stderr, "mst_pack(): Sample counts do not match, abort\n");
+      ms_log (2, "mst_pack(): Sample counts do not match, abort\n");
       return -1;
     }
   
   /* Pack data */
-  packedrecords = msr_pack (msr, record_handler, packedsamples, flush, verbose);
+  packedrecords = msr_pack (msr, record_handler, handlerdata, packedsamples, flush, verbose);
   
   if ( verbose > 1 )
     {
-      fprintf (stderr, "Packed %d records for %s trace\n", packedrecords, mst_srcname (mst, srcname));
+      ms_log (1, "Packed %d records for %s trace\n", packedrecords, mst_srcname (mst, srcname, 1));
     }
   
   /* Adjust MSTrace start time, data array and sample count */
@@ -1298,7 +1330,7 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
       /* The new start time was calculated my msr_pack */
       mst->starttime = msr->starttime;
       
-      samplesize = get_samplesize (mst->sampletype);
+      samplesize = ms_samplesize (mst->sampletype);
       bufsize = (mst->numsamples - *packedsamples) * samplesize;
       
       if ( bufsize )
@@ -1311,7 +1343,7 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
 	  
 	  if ( mst->datasamples == NULL )
 	    {
-	      fprintf (stderr, "mst_pack(): Error re-allocing datasamples buffer\n");
+	      ms_log (2, "mst_pack(): Cannot (re)allocate datasamples buffer\n");
 	      return -1;
 	    }
 	}
@@ -1354,8 +1386,8 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int),
  * Returns the number of records created on success and -1 on error.
  ***************************************************************************/
 int
-mst_packgroup ( MSTraceGroup *mstg, void (*record_handler) (char *, int),
-		int reclen, flag encoding, flag byteorder,
+mst_packgroup ( MSTraceGroup *mstg, void (*record_handler) (char *, int, void *),
+		void *handlerdata, int reclen, flag encoding, flag byteorder,
 		int *packedsamples, flag flush, flag verbose,
 		MSRecord *mstemplate )
 {
@@ -1378,15 +1410,15 @@ mst_packgroup ( MSTraceGroup *mstg, void (*record_handler) (char *, int),
 	{
 	  if ( verbose > 1 )
 	    {
-	      mst_srcname (mst, srcname);
-	      fprintf (stderr, "No data samples for %s, skipping\n", srcname);
+	      mst_srcname (mst, srcname, 1);
+	      ms_log (1, "No data samples for %s, skipping\n", srcname);
 	    }
 	}
       else
 	{
-	  packedrecords += mst_pack (mst, record_handler, reclen, encoding,
-				     byteorder, &tracesamples, flush, verbose,
-				     mstemplate);
+	  packedrecords += mst_pack (mst, record_handler, handlerdata, reclen,
+				     encoding, byteorder, &tracesamples, flush,
+				     verbose, mstemplate);
 	  
 	  if ( packedrecords == -1 )
 	    break;

@@ -24,7 +24,8 @@ OBJS=	fileutils.obj	\
 	packdata.obj	\
 	traceutils.obj	\
 	unpack.obj	\
-	unpackdata.obj
+	unpackdata.obj  \
+	logging.obj
 
 all: lib
 

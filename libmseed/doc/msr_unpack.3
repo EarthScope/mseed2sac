@@ -1,4 +1,4 @@
-.TH MSR_UNPACK 3 2006/06/21 "Libmseed API"
+.TH MSR_UNPACK 3 2007/03/24 "Libmseed API"
 .SH DESCRIPTION
 Unpacking of Mini-SEED records.
 
@@ -39,33 +39,42 @@ returned by the get_samplesize(3) lookup routine.
 The \fIverbose\fP flag controls verbosity, a value of zero will result
 in no diagnostic output.
 
-.SH ENVIRONMENT VARIABLES
-The following environment variables effect the unpacking of Mini-SEED:
+.SH UNPACKING OVERRIDES
+The following macros and environment variables effect the unpacking of
+Mini-SEED:
 
 .nf
+Macros:
+MS_UNPACKHEADERBYTEORDER(X)
+MS_UNPACKDATABYTEORDER(X)
+MS_UNPACKDATAFORMAT(X)
+MS_UNPACKDATAFORMATFALLBACK(X)
+
+Environment variables:
 UNPACK_HEADER_BYTEORDER
 UNPACK_DATA_BYTEORDER
 UNPACK_DATA_FORMAT
 UNPACK_DATA_FORMAT_FALLBACK
 .fi
 
-The UNPACK_HEADER_BYTEORDER and UNPACK_DATA_BYTEORDER variables force
-the byte order of the header and data respectively.  They could be set
-to either 0 (little endian) or 1 (big endian).  See \fBms_intro(3)\fP
-for a description of how libmseed determines a records byte order.
+The UNPACK_HEADER_BYTEORDER and UNPACK_DATA_BYTEORDER macros and
+variables force the byte order of the header and data respectively.
+They could be set to either 0 (little endian) or 1 (big endian).  See
+\fBms_intro(3)\fP for a description of how libmseed determines a
+records byte order.
 
-The UNPACK_DATA_FORMAT variable forces the encoding format, this
-should be set to any of the supported formats codes (i.e. 10 = Steim-1
-compression).
+The UNPACK_DATA_FORMAT macro and variable forces the encoding format,
+this should be set to any of the supported formats codes (i.e. 10 =
+Steim-1 compression).
 
-The UNPACK_DATA_FORMAT_FALLBACK variable defines an encoding format
-that will be used when the SEED data record does not indicate the
-format, i.e. the record does not include a 1000 blockette.  By default
-the fallback encoding format is 10 (Steim-1 compression).  If this
-default is invoked and the byte order of the data is unspecified big
-endian byte order will be assumed.  If a data record does not include
-a 1000 blockette it is not Mini-SEED, the capability to read these
-records is included only to support legacy data.
+The UNPACK_DATA_FORMAT_FALLBACK macro and variable defines an encoding
+format that will be used when the SEED data record does not indicate
+the format, i.e. the record does not include a 1000 blockette.  By
+default the fallback encoding format is 10 (Steim-1 compression).  If
+this default is invoked and the byte order of the data is unspecified
+big endian byte order will be assumed.  If a data record does not
+include a 1000 blockette it is not Mini-SEED, the capability to read
+these records is included only to support legacy data.
 
 .SH RETURN VALUE
 

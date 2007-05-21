@@ -1,13 +1,13 @@
 /***************************************************************************
  * gswap.c:
  *
- * Functions for generalized byte in-place swapping between LSBF and
+ * Functions for generalized, in-pace byte swapping between LSBF and
  * MSBF byte orders.
  *
  * Some standard integer types are needed, namely uint8_t and
  * uint32_t, (these are normally declared by including inttypes.h or
  * stdint.h).  Each function expects it's input to be a void pointer
- * to an quantity of the appropriate size.
+ * to a quantity of the appropriate size.
  *
  * There are two versions of most routines, one that works on
  * quantities regardless of alignment (gswapX) and one that works on
@@ -18,7 +18,7 @@
  * Written by Chad Trabant,
  *   IRIS Data Management Center
  *
- * Version: 2004.278
+ * Version: 2006.344
  ***************************************************************************/
 
 #include "lmplatform.h"
@@ -26,7 +26,7 @@
 /* Swap routines that work on any (aligned or not) quantities */
 
 void
-gswap2 ( void *data2 )
+ms_gswap2 ( void *data2 )
 {
   uint8_t temp;
   
@@ -44,7 +44,7 @@ gswap2 ( void *data2 )
 
 
 void
-gswap3 ( void *data3 )
+ms_gswap3 ( void *data3 )
 {
   uint8_t temp;
   
@@ -62,7 +62,7 @@ gswap3 ( void *data3 )
 
 
 void
-gswap4 ( void *data4 )
+ms_gswap4 ( void *data4 )
 {
   uint8_t temp;
 
@@ -82,7 +82,7 @@ gswap4 ( void *data4 )
 
 
 void
-gswap8 ( void *data8 )
+ms_gswap8 ( void *data8 )
 {
   uint8_t temp;
   
@@ -113,7 +113,7 @@ gswap8 ( void *data8 )
 /* Swap routines that work on memory aligned quantities */
 
 void
-gswap2a ( void *data2 )
+ms_gswap2a ( void *data2 )
 {
   uint16_t *data = data2;
   
@@ -122,7 +122,7 @@ gswap2a ( void *data2 )
 
 
 void
-gswap4a ( void *data4 )
+ms_gswap4a ( void *data4 )
 {
   uint32_t *data = data4;
   
@@ -132,7 +132,7 @@ gswap4a ( void *data4 )
 
 
 void
-gswap8a ( void *data8 )
+ms_gswap8a ( void *data8 )
 {
   uint32_t *data4 = data8;
   uint32_t h0, h1;

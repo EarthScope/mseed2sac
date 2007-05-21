@@ -14,7 +14,7 @@
  *
  * Modified by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2004.313
+ * modified: 2006.344
  ************************************************************************/
 
 /*
@@ -141,11 +141,11 @@ int msr_pack_int_16
   while (points_remaining > 0 && max_bytes >= 2)
     {  /* Pack the next available data into INT_16 format */
       if ( data[i] < -32768 || data[i] > 32767 )
-	fprintf (stderr, "msr_pack_int_16(): input sample out of range: %d\n",
-		 data[i]);
+	ms_log (2, "msr_pack_int_16(%s): input sample out of range: %d\n",
+		PACK_SRCNAME, data[i]);
       
       *packed = data[i];      
-      if ( swapflag ) gswap2 (packed);
+      if ( swapflag ) ms_gswap2 (packed);
       
       packed++;
       max_bytes -= 2;
@@ -189,7 +189,7 @@ int msr_pack_int_32
   while (points_remaining > 0 && max_bytes >= 4)
     { /* Pack the next available data into INT_32 format */
       *packed = data[i];
-      if ( swapflag ) gswap4 (packed);
+      if ( swapflag ) ms_gswap4 (packed);
       
       packed++;
       max_bytes -= 4;
@@ -233,7 +233,7 @@ int msr_pack_float_32
   while (points_remaining > 0 && max_bytes >= 4)
     {
       *packed = data[i];
-      if ( swapflag ) gswap4 (packed);
+      if ( swapflag ) ms_gswap4 (packed);
       
       packed++;
       max_bytes -= 4;
@@ -277,7 +277,7 @@ int msr_pack_float_64
   while (points_remaining > 0 && max_bytes >= 8)
     {
       *packed = data[i];
-      if ( swapflag ) gswap8 (packed);
+      if ( swapflag ) ms_gswap8 (packed);
       
       packed++;
       max_bytes -= 8;
@@ -336,7 +336,8 @@ int msr_pack_steim1
   
   if (minbits == NULL)
     {
-      fprintf (stderr, "msr_pack_steim1(): cannot malloc minbits\n");
+      ms_log (2, "msr_pack_steim1(%s): Cannot allocate memory\n",
+	      PACK_SRCNAME);
       return -1;
     }
   
@@ -346,10 +347,10 @@ int msr_pack_steim1
   
   /* Set new X0 value in first frame */
   X0 = data[0];
-  if ( swapflag ) gswap4 (&X0);
+  if ( swapflag ) ms_gswap4 (&X0);
   dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
   XN = data[ns-1];
-  if ( swapflag ) gswap4 (&XN);
+  if ( swapflag ) ms_gswap4 (&XN);
   dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
   
   while (points_remaining > 0)
@@ -367,7 +368,7 @@ int msr_pack_steim1
 	  for (j=0; j<2; j++)
 	    {
 	      stmp = diff[ipt++];
-	      if ( swapflag ) gswap2 (&stmp);
+	      if ( swapflag ) ms_gswap2 (&stmp);
 	      dframes->f[fn].w[wn].hw[j] = stmp;
 	    }
 	  points_remaining -= 2;
@@ -376,7 +377,7 @@ int msr_pack_steim1
 	{
 	  mask = STEIM1_FULLWORD_MASK;
 	  itmp = diff[ipt++];
-	  if ( swapflag ) gswap4 (&itmp);
+	  if ( swapflag ) ms_gswap4 (&itmp);
 	  dframes->f[fn].w[wn].fw = itmp;
 	  points_remaining -= 1;
 	}
@@ -387,7 +388,7 @@ int msr_pack_steim1
       /* Check for full frame or full block */
       if (++wn >= VALS_PER_FRAME)
 	{
-	  if ( swapflag ) gswap4 (&dframes->f[fn].ctrl);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].ctrl);
 	  /* Reset output index to beginning of frame */
 	  wn = 0;
 	  /* If block is full, output block and reinitialize */
@@ -398,7 +399,7 @@ int msr_pack_steim1
   
   /* Set new XN value in first frame */
   XN = data[(ns-1)-points_remaining];
-  if ( swapflag ) gswap4 (&XN);
+  if ( swapflag ) ms_gswap4 (&XN);
   
   /* End of data.  Pad current frame and optionally rest of block */
   /* Do not pad and output a completely empty block */
@@ -452,7 +453,8 @@ int msr_pack_steim2
   
   if (minbits == NULL)
     {
-      fprintf (stderr, "msr_pack_steim2(): cannot malloc minbits\n");
+      ms_log (2, "msr_pack_steim2(%s): Cannot allocate memory\n",
+	      PACK_SRCNAME);
       return -1;
     }
   
@@ -462,10 +464,10 @@ int msr_pack_steim2
   
   /* Set new X0 value in first frame */
   X0 = data[0];
-  if ( swapflag ) gswap4 (&X0);
+  if ( swapflag ) ms_gswap4 (&X0);
   dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM2_SPECIAL_MASK;
   XN = data[ns-1];
-  if ( swapflag ) gswap4 (&XN);
+  if ( swapflag ) ms_gswap4 (&XN);
   dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM2_SPECIAL_MASK;
   
   while (points_remaining > 0)
@@ -474,21 +476,21 @@ int msr_pack_steim2
       if (BIT4PACK(ipt,points_remaining))
 	{
 	  PACK(4,7,0x0000000f,02)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
 	  points_remaining -= 7;
 	}
       else if (BIT5PACK(ipt,points_remaining))
 	{
 	  PACK(5,6,0x0000001f,01)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
 	  points_remaining -= 6;
 	}
       else if (BIT6PACK(ipt,points_remaining))
 	{
 	  PACK(6,5,0x0000003f,00)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
 	  points_remaining -= 5;
 	}
@@ -501,27 +503,28 @@ int msr_pack_steim2
       else if (BIT10PACK(ipt,points_remaining))
 	{
 	  PACK(10,3,0x000003ff,03)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
 	  points_remaining -= 3;
 	}
       else if (BIT15PACK(ipt,points_remaining))
 	{
 	  PACK(15,2,0x00007fff,02)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
 	  points_remaining -= 2;
 	}
       else if (BIT30PACK(ipt,points_remaining))
 	{
 	  PACK(30,1,0x3fffffff,01)
-	  if ( swapflag ) gswap4 (&dframes->f[fn].w[wn].fw);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
 	  points_remaining -= 1;
 	}
       else
 	{
-	  fprintf (stderr, "msr_pack_steim2(): Unable to represent difference in <= 30 bits\n");
+	  ms_log (2, "msr_pack_steim2(%s): Unable to represent difference in <= 30 bits\n",
+		  PACK_SRCNAME);
 	  return -1;
 	}
       
@@ -531,7 +534,7 @@ int msr_pack_steim2
       /* Check for full frame or full block */
       if (++wn >= VALS_PER_FRAME)
 	{
-	  if ( swapflag ) gswap4 (&dframes->f[fn].ctrl);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].ctrl);
 	  /* Reset output index to beginning of frame */
 	  wn = 0;
 	  /* If block is full, output block and reinitialize */
@@ -542,7 +545,7 @@ int msr_pack_steim2
   
   /* Set new XN value in first frame */
   XN = data[(ns-1)-points_remaining];
-  if ( swapflag ) gswap4 (&XN);
+  if ( swapflag ) ms_gswap4 (&XN);
   
   /* End of data.  Pad current frame and optionally rest of block */
   /* Do not pad and output a completely empty block */
@@ -585,7 +588,7 @@ static int pad_steim_frame
 	  dframes->f[fn].w[wn].fw = 0;
 	  dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
 	}
-      if ( swapflag ) gswap4 (&dframes->f[fn].ctrl);
+      if ( swapflag ) ms_gswap4 (&dframes->f[fn].ctrl);
       fn++;
     }
   
@@ -601,7 +604,7 @@ static int pad_steim_frame
 	      dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
 	    }
 	  
-	  if ( swapflag ) gswap4 (&dframes->f[fn].ctrl);
+	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].ctrl);
 	}
     }
   

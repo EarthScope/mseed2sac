@@ -8,7 +8,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified 2006.208
+ * modified 2006.331
  ***************************************************************************/
 
 #include <stdio.h>
@@ -79,13 +79,13 @@ main (int argc, char **argv)
     }
   
   if ( retcode != MS_ENDOFFILE )
-    fprintf (stderr, "Error reading %s: %s\n", inputfile, get_errorstr(retcode));
+    ms_log (2, "Cannot read %s: %s\n", inputfile, ms_errorstr(retcode));
   
   /* Make sure everything is cleaned up */
   ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
   
   if ( basicsum )
-    printf ("Records: %d, Samples: %d\n", totalrecs, totalsamps);
+    ms_log (1, "Records: %d, Samples: %d\n", totalrecs, totalsamps);
   
   return 0;
 }  /* End of main() */
@@ -107,7 +107,7 @@ parameter_proc (int argcount, char **argvec)
     {
       if (strcmp (argvec[optind], "-V") == 0)
 	{
-	  fprintf (stderr, "%s version: %s\n", PACKAGE, VERSION);
+	  ms_log (1, "%s version: %s\n", PACKAGE, VERSION);
 	  exit (0);
 	}
       else if (strcmp (argvec[optind], "-h") == 0)
@@ -134,7 +134,7 @@ parameter_proc (int argcount, char **argvec)
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
 	       strlen (argvec[optind]) > 1 )
 	{
-	  fprintf(stderr, "Unknown option: %s\n", argvec[optind]);
+	  ms_log (2, "Unknown option: %s\n", argvec[optind]);
 	  exit (1);
 	}
       else if ( inputfile == 0 )
@@ -143,7 +143,7 @@ parameter_proc (int argcount, char **argvec)
 	}
       else
 	{
-	  fprintf(stderr, "Unknown option: %s\n", argvec[optind]);
+	  ms_log (2, "Unknown option: %s\n", argvec[optind]);
 	  exit (1);
 	}
     }
@@ -151,16 +151,16 @@ parameter_proc (int argcount, char **argvec)
   /* Make sure an inputfile was specified */
   if ( ! inputfile )
     {
-      fprintf (stderr, "No input file was specified\n\n");
-      fprintf (stderr, "%s version %s\n\n", PACKAGE, VERSION);
-      fprintf (stderr, "Try %s -h for usage\n", PACKAGE);
+      ms_log (2, "No input file was specified\n\n");
+      ms_log (1, "%s version %s\n\n", PACKAGE, VERSION);
+      ms_log (1, "Try %s -h for usage\n", PACKAGE);
       exit (1);
     }
 
   /* Report the program version */
   if ( verbose )
-    printf ("%s version: %s\n", PACKAGE, VERSION);
-
+    ms_log (1, "%s version: %s\n", PACKAGE, VERSION);
+  
   return 0;
 }  /* End of parameter_proc() */
 

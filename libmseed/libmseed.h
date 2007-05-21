@@ -30,20 +30,25 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "1.8"
-#define LIBMSEED_RELEASE "2006.208"
+#define LIBMSEED_VERSION "2.1.1"
+#define LIBMSEED_RELEASE "2007.138"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
 
 /* SEED data encoding types */
-#define ASCII      0
-#define INT16      1
-#define INT32      3
-#define FLOAT32    4
-#define FLOAT64    5
-#define STEIM1     10
-#define STEIM2     11
+#define DE_ASCII       0
+#define DE_INT16       1
+#define DE_INT32       3
+#define DE_FLOAT32     4
+#define DE_FLOAT64     5
+#define DE_STEIM1      10
+#define DE_STEIM2      11
+#define DE_GEOSCOPE24  12
+#define DE_GEOSCOPE163 13
+#define DE_GEOSCOPE164 14
+#define DE_SRO         30
+#define DE_DWWSSN      32
 
 /* Library return and error code values, error values should always be negative */
 #define MS_ENDOFFILE        1        /* End of file reached return value */
@@ -56,22 +61,82 @@ extern "C" {
 #define MS_STBADCOMPFLAG   -6        /* Steim, invalid compression flag(s) */
 
 /* Define the high precision time tick interval as 1/modulus seconds */
+/* Default modulus of 1000000 defines tick interval as a microsecond */
 #define HPTMODULUS 1000000
 
 /* Error code for routines that normally return a high precision time.
  * The time value corresponds to '1902/1/1 00:00:00.000000' with the
  * default HPTMODULUS */
 #define HPTERROR -2145916800000000LL
-
+  
 /* Macros to scale between Unix/POSIX epoch time & high precision time */
 #define MS_EPOCH2HPTIME(X) X * (hptime_t) HPTMODULUS
 #define MS_HPTIME2EPOCH(X) X / HPTMODULUS
 
 /* Macro to test a character for data record indicators */
-#define MS_ISDATAINDICATOR(X) (X=='D' || X=='R' || X=='Q')
+#define MS_ISDATAINDICATOR(X) (X=='D' || X=='R' || X=='Q' || X=='M')
 
 /* Macro to test default sample rate tolerance: abs(1-sr1/sr2) < 0.0001 */
 #define MS_ISRATETOLERABLE(A,B) (ms_dabs (1.0 - (A / B)) < 0.0001)
+
+/* Macro to test memory for a SEED data record signature by checking
+ * SEED data record header values at known byte offsets to determine
+ * if the memory contains a valid record.
+ * 
+ * Offset = Value
+ * [0-5]  = Digits, SEED sequence number
+ *     6  = Data record quality indicator
+ *     7  = Space or NULL [not valid SEED]
+ *     24 = Start hour (0-23)
+ *     25 = Start minute (0-59)
+ *     26 = Start second (0-60)
+ *
+ * Usage:
+ *   MS_ISVALIDHEADER ((char *)X)  X buffer must contain at least 27 bytes
+ */
+#define MS_ISVALIDHEADER(X) (isdigit ((unsigned char) *(X)) &&              \
+			     isdigit ((unsigned char) *(X+1)) &&            \
+			     isdigit ((unsigned char) *(X+2)) &&            \
+			     isdigit ((unsigned char) *(X+3)) &&            \
+			     isdigit ((unsigned char) *(X+4)) &&            \
+			     isdigit ((unsigned char) *(X+5)) &&            \
+			     MS_ISDATAINDICATOR(*(X+6)) &&                  \
+			     (*(X+7) == ' ' || *(X+7) == '\0') &&           \
+			     (int)(*(X+24)) >= 0 && (int)(*(X+24)) <= 23 && \
+			     (int)(*(X+25)) >= 0 && (int)(*(X+25)) <= 59 && \
+			     (int)(*(X+26)) >= 0 && (int)(*(X+26)) <= 60)
+
+/* Macro to test memory for a blank/noise SEED data record signature
+ * by checking for a valid SEED sequence number and padding characters
+ * to determine if the memory contains a valid blank/noise record.
+ * 
+ * Offset = Value
+ * [0-5]  = Digits, SEED sequence number
+ * [6-47] = Space character (ASCII 32), remainder of fixed header
+ *
+ * Usage:
+ *   MS_ISVALIDBLANK ((char *)X)  X buffer must contain at least 27 bytes
+ */
+#define MS_ISVALIDBLANK(X) (isdigit ((unsigned char) *(X)) &&                 \
+			    isdigit ((unsigned char) *(X+1)) &&		      \
+			    isdigit ((unsigned char) *(X+2)) &&		      \
+			    isdigit ((unsigned char) *(X+3)) &&		      \
+			    isdigit ((unsigned char) *(X+4)) &&		      \
+			    isdigit ((unsigned char) *(X+5)) &&	 	      \
+			    (*(X+6)==' ')&&(*(X+7)==' ')&&(*(X+8)==' ') &&    \
+			    (*(X+9)==' ')&&(*(X+10)==' ')&&(*(X+11)==' ') &&  \
+			    (*(X+12)==' ')&&(*(X+13)==' ')&&(*(X+14)==' ') && \
+			    (*(X+15)==' ')&&(*(X+16)==' ')&&(*(X+17)==' ') && \
+			    (*(X+18)==' ')&&(*(X+19)==' ')&&(*(X+20)==' ') && \
+			    (*(X+21)==' ')&&(*(X+22)==' ')&&(*(X+23)==' ') && \
+			    (*(X+24)==' ')&&(*(X+25)==' ')&&(*(X+26)==' ') && \
+			    (*(X+27)==' ')&&(*(X+28)==' ')&&(*(X+29)==' ') && \
+			    (*(X+30)==' ')&&(*(X+31)==' ')&&(*(X+32)==' ') && \
+			    (*(X+33)==' ')&&(*(X+34)==' ')&&(*(X+35)==' ') && \
+			    (*(X+36)==' ')&&(*(X+37)==' ')&&(*(X+38)==' ') && \
+			    (*(X+39)==' ')&&(*(X+40)==' ')&&(*(X+41)==' ') && \
+			    (*(X+42)==' ')&&(*(X+43)==' ')&&(*(X+44)==' ') && \
+			    (*(X+45)==' ')&&(*(X+46)==' ')&&(*(X+47)==' ') )
 
 /* Require a large (>= 64-bit) integer type for hptime_t */
 typedef int64_t hptime_t;
@@ -308,7 +373,7 @@ typedef struct MSRecord_s {
   double          samprate;          /* Nominal sample rate (Hz) */
   int32_t         samplecnt;         /* Number of samples in record */
   int8_t          encoding;          /* Data encoding format */
-  int8_t          byteorder;         /* Orignal/Final byte order of record */
+  int8_t          byteorder;         /* Original/Final byte order of record */
   
   /* Data sample fields */
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
@@ -332,7 +397,7 @@ typedef struct MSTrace_s {
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
-  void           *private;           /* Private pointer for general use, unused by libmseed */
+  void           *prvtptr;           /* Private pointer for general use, unused by libmseed */
   struct MSTrace_s *next;            /* Pointer to next trace */
 }
 MSTrace;
@@ -344,75 +409,113 @@ typedef struct MSTraceGroup_s {
 }
 MSTraceGroup;
 
+/* Global variables (defined in pack.c) and macros to set/force
+ * pack byte orders */
+extern flag packheaderbyteorder;
+extern flag packdatabyteorder;
+#define MS_PACKHEADERBYTEORDER(X) (packheaderbyteorder = X);
+#define MS_PACKDATABYTEORDER(X) (packdatabyteorder = X);
+
+/* Global variables (defined in unpack.c) and macros to set/force
+ * unpack byte orders */
+extern flag unpackheaderbyteorder;
+extern flag unpackdatabyteorder;
+#define MS_UNPACKHEADERBYTEORDER(X) (unpackheaderbyteorder = X);
+#define MS_UNPACKDATABYTEORDER(X) (unpackdatabyteorder = X);
+
+/* Global variables (defined in unpack.c) and macros to set/force
+ * encoding and fallback encoding */
+extern int unpackencodingformat;
+extern int unpackencodingformatfallback;
+#define MS_UNPACKENCODINGFORMAT(X) (unpackencodingformat = X);
+#define MS_UNPACKENCODINGFORMATFALLBACK(X) (unpackencodingformatfallback = X);
+
 /* Mini-SEED record related functions */
-extern int          msr_unpack (char *record, int reclen, MSRecord **ppmsr,
-				flag dataflag, flag verbose);
+extern int           msr_unpack (char *record, int reclen, MSRecord **ppmsr,
+				 flag dataflag, flag verbose);
 
-extern int          msr_pack (MSRecord *msr, void (*record_handler) (char *, int),
-			      int *packedsamples, flag flush, flag verbose );
+extern int           msr_pack (MSRecord *msr, void (*record_handler) (char *, int, void *),
+		 	       void *handlerdata, int *packedsamples, flag flush, flag verbose );
 
-extern int          msr_pack_header (MSRecord *msr, flag verbose);
+extern int           msr_pack_header (MSRecord *msr, flag normalize, flag verbose);
 
-extern MSRecord*    msr_init (MSRecord *msr);
-extern void         msr_free (MSRecord **ppmsr);
-extern void         msr_free_blktchain (MSRecord *msr);
-extern BlktLink*    msr_addblockette (MSRecord *msr, char *blktdata, int length,
-                                      int blkttype, int chainpos);
-extern double       msr_samprate (MSRecord *msr);
-extern double       msr_nomsamprate (MSRecord *msr);
-extern hptime_t     msr_starttime (MSRecord *msr);
-extern hptime_t     msr_starttime_uc (MSRecord *msr);
-extern hptime_t     msr_endtime (MSRecord *msr);
-extern char*        msr_srcname (MSRecord *msr, char *srcname);
-extern void         msr_print (MSRecord *msr, flag details);
-extern double       msr_host_latency (MSRecord *msr);
+extern MSRecord*     msr_init (MSRecord *msr);
+extern void          msr_free (MSRecord **ppmsr);
+extern void          msr_free_blktchain (MSRecord *msr);
+extern BlktLink*     msr_addblockette (MSRecord *msr, char *blktdata, int length,
+				       int blkttype, int chainpos);
+extern int           msr_normalize_header (MSRecord *msr, flag verbose);
+extern MSRecord*     msr_duplicate (MSRecord *msr, flag datadup);
+extern double        msr_samprate (MSRecord *msr);
+extern double        msr_nomsamprate (MSRecord *msr);
+extern hptime_t      msr_starttime (MSRecord *msr);
+extern hptime_t      msr_starttime_uc (MSRecord *msr);
+extern hptime_t      msr_endtime (MSRecord *msr);
+extern char*         msr_srcname (MSRecord *msr, char *srcname, flag quality);
+extern void          msr_print (MSRecord *msr, flag details);
+extern double        msr_host_latency (MSRecord *msr);
 
 
 /* MSTrace related functions */
-extern MSTrace*     mst_init (MSTrace *mst);
-extern void         mst_free (MSTrace **ppmst);
-extern MSTraceGroup*  mst_initgroup (MSTraceGroup *mstg);
-extern void         mst_freegroup (MSTraceGroup **ppmstg);
-extern MSTrace*     mst_findmatch (MSTrace *startmst, char dataquality,
-				   char *network, char *station, char *location, char *channel);
-extern MSTrace*     mst_findadjacent (MSTraceGroup *mstg, flag *whence, char dataquality,
-				      char *network, char *station, char *location, char *channel,
-				      double samprate, double sampratetol,
-				      hptime_t starttime, hptime_t endtime, double timetol);
-extern int          mst_addmsr (MSTrace *mst, MSRecord *msr, flag whence);
-extern int          mst_addspan (MSTrace *mst, hptime_t starttime,  hptime_t endtime,
-				 void *datasamples, int numsamples,
-				 char sampletype, flag whence);
-extern MSTrace*     mst_addmsrtogroup (MSTraceGroup *mstg, MSRecord *msr, flag dataquality,
-				       double timetol, double sampratetol);
-extern MSTrace*     mst_addtracetogroup (MSTraceGroup *mstg, MSTrace *mst);
-extern int          mst_groupheal (MSTraceGroup *mstg, double timetol, double sampratetol);
-extern int          mst_groupsort (MSTraceGroup *mstg);
-extern char *       mst_srcname (MSTrace *mst, char *srcname);
-extern void         mst_printtracelist (MSTraceGroup *mstg, flag timeformat,
-					flag details, flag gaps);
-extern void         mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
-				      double *mingap, double *maxgap);
-extern int          mst_pack (MSTrace *mst, void (*record_handler) (char *, int),
-			      int reclen, flag encoding, flag byteorder,
-			      int *packedsamples, flag flush, flag verbose,
-			      MSRecord *mstemplate);
-extern int          mst_packgroup (MSTraceGroup *mstg, void (*record_handler) (char *, int),
-				   int reclen, flag encoding, flag byteorder,
-				   int *packedsamples, flag flush, flag verbose,
-				   MSRecord *mstemplate);
+extern MSTrace*      mst_init (MSTrace *mst);
+extern void          mst_free (MSTrace **ppmst);
+extern MSTraceGroup* mst_initgroup (MSTraceGroup *mstg);
+extern void          mst_freegroup (MSTraceGroup **ppmstg);
+extern MSTrace*      mst_findmatch (MSTrace *startmst, char dataquality,
+				    char *network, char *station, char *location, char *channel);
+extern MSTrace*      mst_findadjacent (MSTraceGroup *mstg, flag *whence, char dataquality,
+				       char *network, char *station, char *location, char *channel,
+				       double samprate, double sampratetol,
+				       hptime_t starttime, hptime_t endtime, double timetol);
+extern int           mst_addmsr (MSTrace *mst, MSRecord *msr, flag whence);
+extern int           mst_addspan (MSTrace *mst, hptime_t starttime,  hptime_t endtime,
+				  void *datasamples, int numsamples,
+				  char sampletype, flag whence);
+extern MSTrace*      mst_addmsrtogroup (MSTraceGroup *mstg, MSRecord *msr, flag dataquality,
+					double timetol, double sampratetol);
+extern MSTrace*      mst_addtracetogroup (MSTraceGroup *mstg, MSTrace *mst);
+extern int           mst_groupheal (MSTraceGroup *mstg, double timetol, double sampratetol);
+extern int           mst_groupsort (MSTraceGroup *mstg, flag quality);
+extern char *        mst_srcname (MSTrace *mst, char *srcname, flag quality);
+extern void          mst_printtracelist (MSTraceGroup *mstg, flag timeformat,
+					 flag details, flag gaps);
+extern void          mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
+				       double *mingap, double *maxgap);
+extern int           mst_pack (MSTrace *mst, void (*record_handler) (char *, int, void *),
+			       void *handlerdata, int reclen, flag encoding, flag byteorder,
+			       int *packedsamples, flag flush, flag verbose,
+			       MSRecord *mstemplate);
+extern int           mst_packgroup (MSTraceGroup *mstg, void (*record_handler) (char *, int, void *),
+				    void *handlerdata, int reclen, flag encoding, flag byteorder,
+				    int *packedsamples, flag flush, flag verbose,
+				    MSRecord *mstemplate);
 
 
 /* Reading Mini-SEED records from files */
-extern int          ms_readmsr (MSRecord **ppmsr, char *msfile, int reclen, off_t *fpos, int *last,
-				flag skipnotdata, flag dataflag, flag verbose);
-extern int          ms_readtraces (MSTraceGroup **ppmstg, char *msfile, int reclen, double timetol, double sampratetol,
-				     flag dataquality, flag skipnotdata, flag dataflag, flag verbose);
-extern int            ms_find_reclen (const char *recbuf, int recbuflen, FILE *fileptr);
+typedef struct MSFileParam_s
+{
+  FILE *fp;
+  char *rawrec;
+  char  filename[512];
+  int   autodet;
+  int   readlen;
+  int   packtype;
+  off_t packhdroffset;
+  off_t filepos;
+  int   recordcount;
+} MSFileParam;
+
+extern int      ms_readmsr (MSRecord **ppmsr, char *msfile, int reclen, off_t *fpos, int *last,
+			    flag skipnotdata, flag dataflag, flag verbose);
+extern int      ms_readmsr_r (MSFileParam **ppmsfp, MSRecord **ppmsr, char *msfile, int reclen,
+			      off_t *fpos, int *last, flag skipnotdata, flag dataflag, flag verbose);
+extern int      ms_readtraces (MSTraceGroup **ppmstg, char *msfile, int reclen, double timetol, double sampratetol,
+			       flag dataquality, flag skipnotdata, flag dataflag, flag verbose);
+extern int      ms_find_reclen (const char *recbuf, int recbuflen, FILE *fileptr);
 
 
 /* General use functions */
-extern int      ms_verify_header (struct fsdh_s *fsdh);
+extern char*    ms_recsrcname (char *record, char *srcname, flag quality);
 extern int      ms_strncpclean (char *dest, const char *source, int length);
 extern int      ms_strncpopen (char *dest, const char *source, int length);
 extern int      ms_doy2md (int year, int jday, int *month, int *mday);
@@ -432,29 +535,48 @@ extern int      ms_bigendianhost ();
 extern double   ms_dabs (double val);
 
 /* Lookup functions */
-extern uint8_t   get_samplesize (const char sampletype);
-extern char     *get_encoding (const char encoding);
-extern char     *get_blktdesc (uint16_t blkttype);
-extern uint16_t  get_blktlen (uint16_t blkttype, const char *blktdata, flag swapflag);
-extern char *    get_errorstr (int errorcode);
+extern uint8_t  ms_samplesize (const char sampletype);
+extern char*    ms_encodingstr (const char encoding);
+extern char*    ms_blktdesc (uint16_t blkttype);
+extern uint16_t ms_blktlen (uint16_t blkttype, const char *blktdata, flag swapflag);
+extern char *   ms_errorstr (int errorcode);
 
+/* Logging facility */
+#define MAX_LOG_MSG_LENGTH  200      /* Maximum length of log messages */
+
+/* Logging parameters */
+typedef struct MSLogParam_s
+{
+  void (*log_print)();
+  const char *logprefix;
+  void (*diag_print)();
+  const char *errprefix;
+} MSLogParam;
+
+extern int    ms_log (int level, ...);
+extern int    ms_log_l (MSLogParam *logp, int level, ...);
+extern void   ms_loginit (void (*log_print)(const char*), const char *logprefix,
+			  void (*diag_print)(const char*), const char *errprefix);
+extern MSLogParam *ms_loginit_l (MSLogParam *logp,
+			         void (*log_print)(const char*), const char *logprefix,
+			         void (*diag_print)(const char*), const char *errprefix);
 
 /* Generic byte swapping routines */
-extern void   gswap2 ( void *data2 );
-extern void   gswap3 ( void *data3 );
-extern void   gswap4 ( void *data4 );
-extern void   gswap8 ( void *data8 );
+extern void     ms_gswap2 ( void *data2 );
+extern void     ms_gswap3 ( void *data3 );
+extern void     ms_gswap4 ( void *data4 );
+extern void     ms_gswap8 ( void *data8 );
 
 /* Generic byte swapping routines for memory aligned quantities */
-extern void   gswap2a ( void *data2 );
-extern void   gswap4a ( void *data4 );
-extern void   gswap8a ( void *data8 );
+extern void     ms_gswap2a ( void *data2 );
+extern void     ms_gswap4a ( void *data4 );
+extern void     ms_gswap8a ( void *data8 );
 
 /* Byte swap macro for the BTime struct */
-#define SWAPBTIME(x) \
-  gswap2 (x.year);   \
-  gswap2 (x.day);    \
-  gswap2 (x.fract);
+#define MS_SWAPBTIME(x) \
+  ms_gswap2 (x.year);   \
+  ms_gswap2 (x.day);    \
+  ms_gswap2 (x.fract);
 
 
 #ifdef __cplusplus

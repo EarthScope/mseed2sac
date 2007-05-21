@@ -1,4 +1,4 @@
-.TH MSR_PRINT 3 2006/02/27 "Libmseed API"
+.TH MSR_PRINT 3 2006/11/27 "Libmseed API"
 .SH DESCRIPTION
 Printing of Mini-SEED record header values.
 
@@ -6,15 +6,14 @@ Printing of Mini-SEED record header values.
 .nf
 .B #include <libmseed.h>
 
-.BI "void   \fBmsr_print\fP ( MSRecord *" msr ", flag " details " );
-
-.BI "char  *\fBmsr_srcname\fP ( MSRecord *" msr ", char *" srcname " );
+.BI "void   \fBmsr_print\fP ( MSRecord *" msr ", flag " details " );"
 .fi
 
 .SH DESCRIPTION
-\fBmsr_print\fP prints formatted details from the given (parsed)
-record header, i.e. fixed section and blockettes, to stdout.  The
-\fIdetails\fP flag controls how much information is printed:
+\fBmsr_print\fP prints formatted details from the given MSRecord
+struct (parsed record header), i.e. fixed section and blockettes.  All
+output is printed using \fBms_log(3)\fP at level 0.  The \fIdetails\fP
+flag controls how much information is printed:
 .nf
 0  : a single line summarizing the record
 1  : most commonly desired header details
@@ -24,15 +23,6 @@ record header, i.e. fixed section and blockettes, to stdout.  The
 If no fixed section header information is available at MSRecord.fsdh
 then a single line is printed from the other information in the
 MSRecord structure.
-
-\fBmsr_srcname\fP generates a source name string in the
-format: 'NET_STA_LOC_CHAN' and stores it in \fIsrcname\fP.  The memory
-pointed to by \fIsrcname\fP must have enough room for the resulting
-string.
-
-.SH RETURN VALUES
-\fBmsr_srcname\fP returns a pointer to the resulting string or NULL on
-error.
 
 .SH SEE ALSO
 \fBms_intro(3)\fP and \fBmsr_unpack(3)\fP.

@@ -1,19 +1,20 @@
 /************************************************************************
  *  Routines for unpacking INT_16, INT_32, FLOAT_32, FLOAT_64,
- *  STEIM1 and STEIM2, data records.
+ *  STEIM1, STEIM2, GEOSCOPE (24bit and gain ranged), SRO and
+ *  DWWSSN encoded data records.
  *
- *  Original framework by:
+ *  Some routines originated and were borrowed from qlib2 by:
  *
- *	Douglas Neuhauser						
- *	Seismographic Station						
- *	University of California, Berkeley				
- *	doug@seismo.berkeley.edu					
+ *	Douglas Neuhauser
+ *	Seismographic Station
+ *	University of California, Berkeley
+ *	doug@seismo.berkeley.edu
  *									
  *  Modified by Chad Trabant,
  *  (previously) ORFEUS/EC-Project MEREDIAN
  *  (currently) IRIS Data Management Center
  *
- *  modified: 2006.173
+ *  modified: 2007.023
  ************************************************************************/
 
 /*
@@ -51,18 +52,26 @@
 #include "libmseed.h"
 #include "unpackdata.h"
 
+#define MAX12 0x7ff         /* maximum 12 bit positive # */
+#define MAX16 0x7fff        /* maximum 16 bit positive # */
+#define MAX24 0x7fffff      /* maximum 24 bit positive # */
+
+/* For Steim encodings */
 #define X0  pf->w[0].fw
 #define XN  pf->w[1].fw
 
 
+
 /************************************************************************
  *  msr_unpack_int_16:							*
- *	Unpack int_16 miniSEED data and place in supplied buffer.	*
+ *                                                                      *
+ *  Unpack int_16 miniSEED data and place in supplied buffer.           *
+ *                                                                      *
  *  Return: # of samples returned.                                      *
  ************************************************************************/
 int msr_unpack_int_16 
  (int16_t      *ibuf,		/* ptr to input data.			*/
-  int		num_samples,	/* number of data samples in all frames.*/
+  int		num_samples,	/* number of data samples in total.     */
   int		req_samples,	/* number of data desired by caller.	*/
   int32_t      *databuff,	/* ptr to unpacked data array.		*/
   int		swapflag)       /* if data should be swapped.	        */
@@ -75,7 +84,7 @@ int msr_unpack_int_16
   
   for (nd=0; nd<req_samples && nd<num_samples; nd++) {
     stmp = ibuf[nd];
-    if ( swapflag ) gswap2a (&stmp);
+    if ( swapflag ) ms_gswap2a (&stmp);
     databuff[nd] = stmp;
   }
   
@@ -85,12 +94,14 @@ int msr_unpack_int_16
 
 /************************************************************************
  *  msr_unpack_int_32:							*
- *	Unpack int_32 miniSEED data and place in supplied buffer.	*
+ *                                                                      *
+ *  Unpack int_32 miniSEED data and place in supplied buffer.           *
+ *                                                                      *
  *  Return: # of samples returned.                                      *
  ************************************************************************/
 int msr_unpack_int_32
  (int32_t      *ibuf,		/* ptr to input data.			*/
-  int		num_samples,	/* number of data samples in all frames.*/
+  int		num_samples,	/* number of data samples in total.     */
   int		req_samples,	/* number of data desired by caller.	*/
   int32_t      *databuff,	/* ptr to unpacked data array.		*/
   int		swapflag)	/* if data should be swapped.	        */
@@ -103,7 +114,7 @@ int msr_unpack_int_32
   
   for (nd=0; nd<req_samples && nd<num_samples; nd++) {
     itmp = ibuf[nd];
-    if ( swapflag) gswap4a (&itmp);
+    if ( swapflag) ms_gswap4a (&itmp);
     databuff[nd] = itmp;
   }
   
@@ -113,12 +124,14 @@ int msr_unpack_int_32
 
 /************************************************************************
  *  msr_unpack_float_32:	       				 	*
- *	Unpack float_32 miniSEED data and place in supplied buffer.	*
+ *                                                                      *
+ *  Unpack float_32 miniSEED data and place in supplied buffer.	        *
+ *                                                                      *
  *  Return: # of samples returned.                                      *
  ************************************************************************/
 int msr_unpack_float_32
  (float	       *fbuf,		/* ptr to input data.			*/
-  int		num_samples,	/* number of data samples in all frames.*/
+  int		num_samples,	/* number of data samples in total.     */
   int		req_samples,	/* number of data desired by caller.	*/
   float	       *databuff,	/* ptr to unpacked data array.		*/
   int		swapflag)	/* if data should be swapped.	        */
@@ -131,7 +144,7 @@ int msr_unpack_float_32
   
   for (nd=0; nd<req_samples && nd<num_samples; nd++) {
     ftmp = fbuf[nd];
-    if ( swapflag ) gswap4a (&ftmp);
+    if ( swapflag ) ms_gswap4a (&ftmp);
     databuff[nd] = ftmp;
   }
   
@@ -141,12 +154,14 @@ int msr_unpack_float_32
 
 /************************************************************************
  *  msr_unpack_float_64:	       					*
- *	Unpack float_64 miniSEED data and place in supplied buffer.	*
- *  Return: # of samples returned.                                       *
+ *                                                                      *
+ *  Unpack float_64 miniSEED data and place in supplied buffer.	        *
+ *                                                                      *
+ *  Return: # of samples returned.                                      *
  ************************************************************************/
 int msr_unpack_float_64
  (double       *fbuf,		/* ptr to input data.			*/
-  int		num_samples,	/* number of data samples in all frames.*/
+  int		num_samples,	/* number of data samples in total.     */
   int		req_samples,	/* number of data desired by caller.	*/
   double       *databuff,	/* ptr to unpacked data array.		*/
   int		swapflag)	/* if data should be swapped.	        */
@@ -159,7 +174,7 @@ int msr_unpack_float_64
   
   for (nd=0; nd<req_samples && nd<num_samples; nd++) {
     dtmp = fbuf[nd];
-    if ( swapflag ) gswap8a (&dtmp);
+    if ( swapflag ) ms_gswap8a (&dtmp);
     databuff[nd] = dtmp;
   }
   
@@ -169,8 +184,9 @@ int msr_unpack_float_64
 
 /************************************************************************
  *  msr_unpack_steim1:							*
- *	Unpack STEIM1 data frames and place in supplied buffer.		*
- *	Data is divided into frames.                                    *
+ *                                                                      *
+ *  Unpack STEIM1 data frames and place in supplied buffer.		*
+ *  See the SEED format manual for Steim-1 encoding details.            *
  *                                                                      *
  *  Return: # of samples returned or negative error code.               *
  ************************************************************************/
@@ -210,20 +226,20 @@ int msr_unpack_steim1
   
   if ( swapflag )
     {
-      gswap4 (px0);
-      gswap4 (pxn);
+      ms_gswap4a (px0);
+      ms_gswap4a (pxn);
     }
   
   if ( verbose > 2 )
-    fprintf (stderr, "forward/reverse integration constants:\nX0: %d  XN: %d\n",
-	     *px0, *pxn);
+    ms_log (1, "%s: forward/reverse integration constants:\nX0: %d  XN: %d\n",
+	    UNPACK_SRCNAME, *px0, *pxn);
   
   /* Decode compressed data in each frame */
   for (fn = 0; fn < num_data_frames; fn++)
     {
       
       ctrl = pf->ctrl;
-      if ( swapflag ) gswap4 (&ctrl);
+      if ( swapflag ) ms_gswap4a (&ctrl);
 
       for (wn = 0; wn < VALS_PER_FRAME; wn++)
 	{
@@ -248,10 +264,10 @@ int msr_unpack_steim1
 	      /* Next 4 bytes are 2 2-byte differences */
 	      for (i=0; i < 2 && nd < num_samples; i++, nd++)
 		{
-		  if (swapflag)
+		  if ( swapflag )
 		    {
 		      stmp = pf->w[wn].hw[i];
-		      if ( swapflag ) gswap2 (&stmp);
+		      ms_gswap2a (&stmp);
 		      *diff++ = stmp;
 		    }
 		  else *diff++ = pf->w[wn].hw[i];
@@ -260,10 +276,10 @@ int msr_unpack_steim1
 	      
 	    case STEIM1_FULLWORD_MASK:
 	      /* Next 4 bytes are 1 4-byte difference */
-	      if (swapflag)
+	      if ( swapflag )
 		{
 		  itmp = pf->w[wn].fw;
-		  if ( swapflag ) gswap4 (&itmp);
+		  ms_gswap4a (&itmp);
 		  *diff++ = itmp;
 		}
 	      else *diff++ = pf->w[wn].fw;
@@ -272,7 +288,8 @@ int msr_unpack_steim1
 	      
 	    default:
 	      /* Should NEVER get here */
-	      fprintf (stderr, "msr_unpack_steim1(): invalid compression flag = %d\n", compflag);
+	      ms_log (2, "msr_unpack_steim1(%s): invalid compression flag = %d\n",
+		      UNPACK_SRCNAME, compflag);
 	      return MS_STBADCOMPFLAG;
 	    }
 	}
@@ -284,8 +301,8 @@ int msr_unpack_steim1
    */
   if ( nd != num_samples )
     {
-      fprintf (stderr, "msr_unpack_steim1(): number of samples indicated in header (%d) does not equal data (%d)\n",
-	       num_samples, nd);
+      ms_log (2, "msr_unpack_steim1(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
+	      UNPACK_SRCNAME, num_samples, nd);
     }
   
   /*	For now, assume sample count in header to be correct.		*/
@@ -302,7 +319,7 @@ int msr_unpack_steim1
   /* a previous record).  Although the Steim compression algorithm	*/
   /* defines x(-1) as 0 for the first record, this only works for the	*/
   /* first record created since coldstart of the datalogger, NOT the	*/
-  /* first record of an arbitrary starting record for an event.	*/
+  /* first record of an arbitrary starting record.	                */
   
   /* In all cases, assume x0 is correct, since we don't have x(-1).	*/
   data = databuff;
@@ -324,8 +341,8 @@ int msr_unpack_steim1
   /* Verify that the last value is identical to xn = rev. int. constant */
   if (last_data != *pxn)
     {
-      fprintf (stderr, "Data integrity check for Steim-1 failed, last_data=%d, xn=%d\n",
-	       last_data, *pxn);
+      ms_log (2, "%s: Data integrity check for Steim-1 failed, last_data=%d, xn=%d\n",
+	      UNPACK_SRCNAME, last_data, *pxn);
     }
   
   return ((req_samples < num_samples) ? req_samples : num_samples);
@@ -334,8 +351,9 @@ int msr_unpack_steim1
 
 /************************************************************************
  *  msr_unpack_steim2:							*
- *	Unpack STEIM2 data frames and place in supplied buffer.		*
- *	Data is divided into frames.                                    *
+ *                                                                      *
+ *  Unpack STEIM2 data frames and place in supplied buffer.		*
+ *  See the SEED format manual for Steim-2 encoding details.            *
  *                                                                      *
  *  Return: # of samples returned or negative error code.               *
  ************************************************************************/
@@ -376,20 +394,20 @@ int msr_unpack_steim2
   
   if ( swapflag )
     {
-      gswap4 (px0);
-      gswap4 (pxn);
+      ms_gswap4a (px0);
+      ms_gswap4a (pxn);
     }
   
   if ( verbose > 2 )
-    fprintf (stderr, "forward/reverse integration constants:\nX0: %d  XN: %d\n",
-	     *px0, *pxn);
+    ms_log (1, "%s: forward/reverse integration constants:\nX0: %d  XN: %d\n",
+	    UNPACK_SRCNAME, *px0, *pxn);
   
   /* Decode compressed data in each frame */
   for (fn = 0; fn < num_data_frames; fn++)
     {
       
       ctrl = pf->ctrl;
-      if ( swapflag ) gswap4 (&ctrl);
+      if ( swapflag ) ms_gswap4a (&ctrl);
       
       for (wn = 0; wn < VALS_PER_FRAME; wn++)
 	{
@@ -411,7 +429,7 @@ int msr_unpack_steim2
 	      
 	    case STEIM2_123_MASK:
 	      val = pf->w[wn].fw;
-	      if ( swapflag ) gswap4 (&val);
+	      if ( swapflag ) ms_gswap4a (&val);
 	      dnib =  val >> 30 & 0x3;
 	      switch (dnib)
 		{
@@ -422,8 +440,8 @@ int msr_unpack_steim2
 		case 3:	/* 3 10-bit differences */
 		  bits = 10; n = 3; m1 = 0x000003ff; m2 = 0x00000200; break;
 		default:	/*  should NEVER get here  */
-		  fprintf(stderr, "msr_unpack_steim2(): invalid compflag, dnib, fn, wn = %d, %d, %d, %d\n", 
-			  compflag, dnib, fn, wn);
+		  ms_log (2, "msr_unpack_steim2(%s): invalid compflag, dnib, fn, wn = %d, %d, %d, %d\n", 
+			  UNPACK_SRCNAME, compflag, dnib, fn, wn);
 		  return MS_STBADCOMPFLAG;
 		}
 	      /*  Uncompress the differences */
@@ -437,7 +455,7 @@ int msr_unpack_steim2
 	      
 	    case STEIM2_567_MASK:
 	      val = pf->w[wn].fw;
-	      if ( swapflag ) gswap4 (&val);
+	      if ( swapflag ) ms_gswap4a (&val);
 	      dnib =  val >> 30 & 0x3;
 	      switch (dnib)
 		{
@@ -448,8 +466,8 @@ int msr_unpack_steim2
 		case 2:	/*  7 4-bit differences  */
 		  bits = 4; n = 7; m1 = 0x0000000f; m2 = 0x00000008; break;
 		default:
-		  fprintf (stderr, "msr_unpack_steim2(): invalid compflag, dnib, fn, wn = %d, %d, %d, %d\n", 
-			   compflag, dnib, fn, wn);
+		  ms_log (2, "msr_unpack_steim2(%s): invalid compflag, dnib, fn, wn = %d, %d, %d, %d\n", 
+			  UNPACK_SRCNAME, compflag, dnib, fn, wn);
 		  return MS_STBADCOMPFLAG;
 		}
 	      /* Uncompress the differences */
@@ -463,8 +481,8 @@ int msr_unpack_steim2
 	      
 	    default:
 	      /* Should NEVER get here */
-	      fprintf (stderr, "msr_unpack_steim2(): invalid compflag, fn, wn = %d, %d, %d - nsamp: %d\n",
-		       compflag, fn, wn, nd);
+	      ms_log (2, "msr_unpack_steim2(%s): invalid compflag, fn, wn = %d, %d, %d - nsamp: %d\n",
+		      UNPACK_SRCNAME, compflag, fn, wn, nd);
 	      return MS_STBADCOMPFLAG;
 	    }
 	}
@@ -476,8 +494,8 @@ int msr_unpack_steim2
    */
   if ( nd != num_samples )
     {
-      fprintf (stderr, "msr_unpack_steim2(): number of samples indicated in header (%d) does not equal data (%d)\n",
-	       num_samples, nd);
+      ms_log (2, "msr_unpack_steim2(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
+	      UNPACK_SRCNAME, num_samples, nd);
     }
 
   /*	For now, assume sample count in header to be correct.		*/
@@ -485,17 +503,17 @@ int msr_unpack_steim2
   /*	the sample count.  It is not clear from the documentation	*/
   /*	whether this is a valid or not, but it appears to be done	*/
   /*	by other program, so we should not complain about its effect.	*/
-
+  
   nr = req_samples;
-
+  
   /* Compute first value based on last_value from previous buffer.	*/
   /* The two should correspond in all cases EXCEPT for the first	*/
   /* record for each component (because we don't have a valid xn from	*/
   /* a previous record).  Although the Steim compression algorithm	*/
   /* defines x(-1) as 0 for the first record, this only works for the	*/
   /* first record created since coldstart of the datalogger, NOT the	*/
-  /* first record of an arbitrary starting record for an event.	*/
-
+  /* first record of an arbitrary starting record.	                */
+  
   /* In all cases, assume x0 is correct, since we don't have x(-1).	*/
   data = databuff;
   diff = diffbuff;
@@ -507,7 +525,7 @@ int msr_unpack_steim2
   prev = data - 1;
   while (--nr > 0 && --nd > 0)
     last_data = *++data = *++diff + *++prev;
-
+  
   /* If a short count was requested compute the last sample in order    */
   /* to perform the integrity check comparison                          */
   while (--nd > 0)
@@ -516,9 +534,268 @@ int msr_unpack_steim2
   /* Verify that the last value is identical to xn = rev. int. constant */
   if (last_data != *pxn)
     {
-      fprintf (stderr, "Data integrity check for Steim-2 failed, last_data=%d, xn=%d\n",
-	       last_data, *pxn);
+      ms_log (2, "%s: Data integrity check for Steim-2 failed, last_data=%d, xn=%d\n",
+	      UNPACK_SRCNAME, last_data, *pxn);
     }
   
   return ((req_samples < num_samples) ? req_samples : num_samples);
 }  /* End of msr_unpack_steim2() */
+
+
+/* Defines for GEOSCOPE encoding */
+#define GEOSCOPE_MANTISSA_MASK 0x0fff   /* mask for mantissa */
+#define GEOSCOPE_GAIN3_MASK 0x7000      /* mask for gainrange factor */
+#define GEOSCOPE_GAIN4_MASK 0xf000      /* mask for gainrange factor */
+#define GEOSCOPE_SHIFT 12               /* # bits in mantissa */
+
+/************************************************************************
+ *  msr_unpack_geoscope:                                                *
+ *                                                                      *
+ *  Unpack GEOSCOPE gain ranged data (demultiplexed only) encoded       *
+ *  miniSEED data and place in supplied buffer.                         *
+ *                                                                      *
+ *  Return: # of samples returned.                                      *
+ ************************************************************************/
+int msr_unpack_geoscope
+ (const char   *edata,		/* ptr to encoded data.			*/
+  int		num_samples,	/* number of data samples in total.     */
+  int		req_samples,	/* number of data desired by caller.	*/
+  float	       *databuff,	/* ptr to unpacked data array.		*/
+  int           encoding,       /* specific GEOSCOPE encoding type      */
+  int		swapflag)	/* if data should be swapped.	        */
+{
+  int nd = 0;		/* # of data points in packet.		*/
+  int mantissa;		/* mantissa from SEED data */
+  int gainrange;	/* gain range factor */
+  int exponent;		/* total exponent */
+  int k;
+  uint64_t exp2val;
+  int16_t sint;
+  double dsample = 0.0;
+  
+  union {
+    uint8_t b[4];
+    uint32_t i;
+  } sample32;
+  
+  if (num_samples < 0) return 0;
+  if (req_samples < 0) return 0;
+
+  /* Make sure we recognize this as a GEOSCOPE encoding format */
+  if ( encoding != DE_GEOSCOPE24 &&
+       encoding != DE_GEOSCOPE163 &&
+       encoding != DE_GEOSCOPE164 )
+    {
+      ms_log (2, "msr_unpack_geoscope(%s): unrecognized GEOSCOPE encoding: %d\n",
+	      UNPACK_SRCNAME, encoding);
+      return -1;
+    }
+  
+  for (nd=0; nd<req_samples && nd<num_samples; nd++)
+    {
+      switch (encoding)
+	{
+	case DE_GEOSCOPE24:
+	  sample32.i = 0;
+	  if ( swapflag )
+	    for (k=0; k < 3; k++)
+	      sample32.b[2-k] = edata[k];
+	  else
+	    for (k=0; k < 3; k++)
+	      sample32.b[1+k] = edata[k];
+	  
+	  mantissa = sample32.i;
+
+	  /* Take 2's complement for mantissa for overflow */
+	  if (mantissa > MAX24) 
+	    mantissa -= 2 * (MAX24 + 1);
+	  
+	  /* Store */
+	  dsample = (double) mantissa;
+	  
+	  break;
+	case DE_GEOSCOPE163:
+	  memcpy (&sint, edata, sizeof(int16_t));
+	  if ( swapflag ) ms_gswap2a(&sint);
+	  
+	  /* Recover mantissa and gain range factor */
+	  mantissa = (sint & GEOSCOPE_MANTISSA_MASK);
+	  gainrange = (sint & GEOSCOPE_GAIN3_MASK) >> GEOSCOPE_SHIFT;
+	  
+	  /* Exponent is just gainrange for GEOSCOPE */
+	  exponent = gainrange;
+	  
+	  /* Calculate sample as mantissa / 2^exponent */
+	  exp2val = (uint64_t) 1 << exponent;
+	  dsample = ((double) (mantissa-2048)) / exp2val;
+	  
+	  break;
+	case DE_GEOSCOPE164:
+	  memcpy (&sint, edata, sizeof(int16_t));
+	  if ( swapflag ) ms_gswap2a(&sint);
+	  
+	  /* Recover mantissa and gain range factor */
+	  mantissa = (sint & GEOSCOPE_MANTISSA_MASK);
+	  gainrange = (sint & GEOSCOPE_GAIN4_MASK) >> GEOSCOPE_SHIFT;
+	  
+	  /* Exponent is just gainrange for GEOSCOPE */
+	  exponent = gainrange;
+	  
+	  /* Calculate sample as mantissa / 2^exponent */
+	  exp2val = (uint64_t) 1 << exponent;
+	  dsample = ((double) (mantissa-2048)) / exp2val;
+	  
+	  break;
+	}
+      
+      /* Save sample in output array */
+      databuff[nd] = (float) dsample;
+      
+      /* Increment edata pointer depending on size */
+      switch (encoding)
+	{
+	case DE_GEOSCOPE24:
+	  edata += 3;
+	  break;
+	case DE_GEOSCOPE163:
+	case DE_GEOSCOPE164:
+	  edata += 2;
+	  break;
+	}
+    }
+  
+  return nd;
+}  /* End of msr_unpack_geoscope() */
+
+
+/* Defines for SRO encoding */
+#define SRO_MANTISSA_MASK 0x0fff   /* mask for mantissa */
+#define SRO_GAINRANGE_MASK 0xf000  /* mask for gainrange factor */
+#define SRO_SHIFT 12               /* # bits in mantissa */
+
+/************************************************************************
+ *  msr_unpack_sro:                                                     *
+ *                                                                      *
+ *  Unpack SRO gain ranged data encoded miniSEED data and place in      *
+ *  supplied buffer.                                                    *
+ *                                                                      *
+ *  Notes from original rdseed routine:                                 *
+ *  SRO data are represented according to the formula                   *
+ *                                                                      *
+ *  sample = M * (b exp {[m * (G + agr)] + ar})                         *
+ *                                                                      *
+ *  where                                                               *
+ *	sample = seismic data sample                                    *
+ *	M      = mantissa                                               *
+ *	G      = gain range factor                                      *
+ *	b      = base to be exponentiated = 2 for SRO                   *
+ *	m      = multiplier  = -1 for SRO                               *
+ *	agr    = term to be added to gain range factor = 0 for SRO      *
+ *	ar     = term to be added to [m * (gr + agr)]  = 10 for SRO     *
+ *	exp    = exponentiation operation                               *
+ *	Data are stored in two bytes as follows:                        *
+ *		fedc ba98 7654 3210 = bit number, power of two          *
+ *		GGGG MMMM MMMM MMMM = form of SEED data                 *
+ *		where G = gain range factor and M = mantissa            *
+ *	Masks to recover gain range and mantissa:                       *
+ *		fedc ba98 7654 3210 = bit number = power of two         *
+ *		0000 1111 1111 1111 = 0x0fff     = mask for mantissa    *
+ *		1111 0000 0000 0000 = 0xf000     = mask for gain range  *
+ *                                                                      *
+ *  Return: # of samples returned.                                      *
+ ************************************************************************/
+int msr_unpack_sro
+ (int16_t      *edata,		/* ptr to encoded data.			*/
+  int		num_samples,	/* number of data samples in total.     */
+  int		req_samples,	/* number of data desired by caller.	*/
+  int32_t      *databuff,	/* ptr to unpacked data array.		*/
+  int		swapflag)	/* if data should be swapped.	        */
+{
+  int32_t nd = 0;	/* sample count */
+  int32_t mantissa;	/* mantissa */
+  int32_t gainrange;	/* gain range factor */
+  int32_t add2gr;       /* added to gainrage factor */
+  int32_t mult;         /* multiplier for gain range */
+  int32_t add2result;   /* added to multiplied gain rage */
+  int32_t exponent;	/* total exponent */
+  uint16_t sint;
+  int32_t sample;
+  
+  if (num_samples < 0) return 0;
+  if (req_samples < 0) return 0;
+  
+  add2gr = 0;
+  mult = -1;
+  add2result = 10;
+  
+  for (nd=0; nd<req_samples && nd<num_samples; nd++)
+    {
+      memcpy (&sint, &edata[nd], sizeof(int16_t));
+      if ( swapflag ) ms_gswap2a(&sint);
+      
+      /* Recover mantissa and gain range factor */
+      mantissa = (sint & SRO_MANTISSA_MASK);
+      gainrange = (sint & SRO_GAINRANGE_MASK) >> SRO_SHIFT;
+      
+      /* Take 2's complement for mantissa */
+      if ( mantissa > MAX12 )
+	mantissa -= 2 * (MAX12 + 1);
+      
+      /* Calculate exponent, SRO exponent = 0..10 */
+      exponent = (mult * (gainrange + add2gr)) + add2result;
+      
+      if ( exponent < 0 || exponent > 10 )
+	{
+	  ms_log (2, "msr_unpack_sro(%s): SRO gain ranging exponent out of range: %d\n",
+		  UNPACK_SRCNAME, exponent);
+	  return MS_GENERROR;
+	}
+      
+      /* Calculate sample as mantissa * 2^exponent */
+      sample = mantissa * ( (uint64_t) 1 << exponent );
+      
+      /* Save sample in output array */
+      databuff[nd] = sample;
+    }
+  
+  return nd;
+}  /* End of msr_unpack_sro() */
+
+
+/************************************************************************
+ *  msr_unpack_dwwssn:                                                  *
+ *                                                                      *
+ *  Unpack DWWSSN encoded miniSEED data and place in supplied buffer.   *
+ *                                                                      *
+ *  Return: # of samples returned.                                      *
+ ************************************************************************/
+int msr_unpack_dwwssn
+ (int16_t      *edata,		/* ptr to encoded data.			*/
+  int		num_samples,	/* number of data samples in total.     */
+  int		req_samples,	/* number of data desired by caller.	*/
+  int32_t      *databuff,	/* ptr to unpacked data array.		*/
+  int		swapflag)	/* if data should be swapped.	        */
+{
+  int32_t nd = 0;	/* sample count */
+  int32_t sample;
+  uint16_t sint;
+  
+  if (num_samples < 0) return 0;
+  if (req_samples < 0) return 0;
+  
+  for (nd=0; nd<req_samples && nd<num_samples; nd++)
+    {
+      memcpy (&sint, &edata[nd], sizeof(uint16_t));
+      if ( swapflag ) ms_gswap2a(&sint);
+      sample = (int32_t) sint;
+      
+      /* Take 2's complement for sample */
+      if ( sample > MAX16 )
+	sample -= 2 * (MAX16 + 1);
+      
+      /* Save sample in output array */
+      databuff[nd] = sample;
+    }
+  
+  return nd;
+}  /* End of msr_unpack_dwwssn() */

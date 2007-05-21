@@ -1,4 +1,4 @@
-.TH MST_INIT 3 2006/02/27 "Libmseed API"
+.TH MST_INIT 3 2006/10/10 "Libmseed API"
 .SH DESCRIPTION
 Initializing and freeing MSTrace and MSTraceGroup structures
 
@@ -19,12 +19,12 @@ Initializing and freeing MSTrace and MSTraceGroup structures
 \fBmst_init\fP will initialize a MSTrace structure.  If the \fImst\fP
 parameter is NULL a new structure will be allocated.  If the \fImst\fP
 parameter is not NULL the structure will be cleared and any memory
-allocated for the MSTrace.datasamples and MSTrace.private members will
+allocated for the MSTrace.datasamples and MSTrace.prvtptr members will
 be freed.
 
 \fBmst_free\fP will free all memory associated with a MSTrace structure
 and set the structure pointer (*\fIppmst\fP) to 0.  This includes any
-memory pointed to by the \fIprivate\fP member of the MSTrace structure.
+memory pointed to by the \fIprvtptr\fP member of the MSTrace structure.
 
 \fBmst_initgroup\fP will initialize a MSTraceGroup structure.  If the
 \fImstg\fP parameter is NULL a new structure will be allocated.  If

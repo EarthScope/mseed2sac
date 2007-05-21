@@ -30,7 +30,9 @@ and packing: ASCII, INT16, INT32, FLOAT32, FLOAT64, STEIM1 and STEIM2.
 The INT and FLOAT encodings each have two versions for quantities with
 a different number of bits of representation.  The STEIM decompression
 produces 32-bit integers; likewise the compression routines require
-32-bit integers as input.
+32-bit integers as input.  The following data encoding formats are
+supported for unpacking only: GEOSCOPE (24-bit, 16/3 and 16/4 gain
+ranged), SRO and DWWSSN.
 
 
  -- Data Records --
@@ -151,8 +153,8 @@ samplecnt:
 encoding:
   The SEED data sample encoding format.  During packing this dictates
   what format will be used to pack the data samples.  Supported
-  packing formats are 0 (ASCII), 1 (INT16), 3 (INT32), 4 (FLOAT32),
-  5 (FLOAT64), 10 (STEIM1) and 11 (STEIM2).
+  packing formats are 0 (DE_ASCII), 1 (DE_INT16), 3 (DE_INT32),
+  4 (DE_FLOAT32), 5 (DE_FLOAT64), 10 (DE_STEIM1) and 11 (DE_STEIM2).
 
 byteorder:
   Byte order of multi-byte quantities in the record.  A value of 0
@@ -207,7 +209,7 @@ typedef struct MSTrace_s {
   void           *datasamples;     /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;      /* Number of data samples in datasamples */
   char            sampletype;      /* Sample type code: a, i, f, d */
-  void           *private;         /* Private pointer for general use */
+  void           *prvtptr;         /* Private pointer for general use */
   struct MSTrace_s *next;            /* Pointer to next trace */
 }
 MSTrace;
@@ -268,13 +270,40 @@ sampletype:
   'd' (double).  The size of each sample type in bytes is returned
   by the get_samplesize(3) lookup routine.
 
-private:
+prvtptr:
   A private pointer for general use.  This pointer is not used by
   libmseed and can safely be used by the calling program.
 
 next:
   A pointer to the next MSTrace structure.  The value will be 0 for the
   last link in a chain of MSTrace structures.
+
+
+ -- Log Messages --
+
+All of the log and diagnostic messages emitted by the library functions
+use the same interface.  The output from this interface can be controlled.
+This is useful when the library will be embedded in a larger system with
+a custom logging facility.  See the man page for more details.
+
+  ms_log() : the central logging facility.  Behavior is controlled by the
+        settings specified with ms_loginit().
+
+  ms_loginit() : set the functions and prefixes used for log,
+        diagnostic and error messages.
+
+The default destination for log messages is standard output (stdout),
+while all diagnostic (including error) messages go to standard error
+(stderr).  Most of the internal messages emmited by the library are
+considered diagnostic and will, by default, go to standard error.
+
+The default prefix for log and diagnostic messages is nothing. The
+default prefix for diagnostic error messages is "error: ".
+
+There are reentrant versions of these functions that operate directly
+on a logging parameter MSLogParam struct.  These are intended for use
+in threaded programs or where a complex logging scheme is desired.
+See the man pages for more details.
 
 
  -- Waveform Data --
@@ -326,7 +355,7 @@ main() {
     }
 
   if ( retcode != MS_ENDOFFILE )
-    fprintf (stderr, "Error reading input file %s\\n", filename);
+    ms_log (2, "Cannot read %s: %s\n", filename, ms_errorstr(retcode));
 
   /* Cleanup memory and close file */
   ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0);
@@ -338,15 +367,15 @@ main() {
   MSTraceGroup *mstg = NULL;
   int retcode;
 
-  retcode = msr_readtraces (&mstg, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = ms_readtraces (&mstg, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( retcode != MS_ENDOFFILE )
-    fprintf (stderr, "Error reading input file %s\\n", filename);
+    ms_log (2, "Cannot read %s: %s\n", filename, ms_errorstr(retcode));
 
-  retcode = msr_readtraces (&mstg, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = ms_readtraces (&mstg, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( retcode != MS_ENDOFFILE )
-    fprintf (stderr, "Error reading input file %s\\n", filename2);
+    ms_log (2, "Cannot read %s: %s\n", filename2, ms_errorstr(retcode));
 
   if ( ! mstg )
     {
@@ -376,10 +405,10 @@ exceptions, of the header in the final data records.
 Skeleton code for creating (packing) Mini-SEED records with
 mst_pack(3):
 
-static void record_handler (char *record, int reclen) {
+static void record_handler (char *record, int reclen, void *srcname) {
   if ( fwrite(record, reclen, 1, outfile) != 1 )
     {
-      fprintf (stderr, "Error writing to output file\n");
+      ms_log (2, "Error writing %s to output file\n", (char *)srcname);
     }
 }
 
@@ -387,6 +416,7 @@ main() {
   int psamples;
   int precords;
   MSTrace *mst;
+  char srcname[50];
 
   mst = mst_init (NULL);
 
@@ -404,10 +434,13 @@ main() {
   mst->numsamples = 1234;
   mst->sampletype = 'i';      /* declare type to be 32-bit integers */
 
-  /* Pack 4096 byte, big-endian records, using Steim-2 compression */
-  precords = mst_pack (mst, &record_handler, 4096, STEIM2, 1, &psamples, 1, verbose, NULL);
+  mst_srcname (mst, srcname, 0);
 
-  printf ("Packed %d samples into %d records\n", psamples, precords);
+  /* Pack 4096 byte, big-endian records, using Steim-2 compression */
+  precords = mst_pack (mst, &record_handler, srcname, 4096, DE_STEIM2,
+                                     1, &psamples, 1, verbose, NULL);
+
+  ms_log (0, "Packed %d samples into %d records\n", psamples, precords);
 
   mst_free (&mst);
 }

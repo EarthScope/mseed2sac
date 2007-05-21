@@ -4,7 +4,7 @@
  * Interface declarations for the Mini-SEED packing routines in
  * packdata.c
  *
- * modified: 2004.278
+ * modified: 2006.331
  ***************************************************************************/
 
 
@@ -16,6 +16,9 @@ extern "C" {
 #endif
 
 #include "steimdata.h"
+
+/* Pointer to srcname of record being packed, declared in pack.c */
+extern char *PACK_SRCNAME;
 
 extern int msr_pack_int_16 (int16_t*, int32_t*, int, int, int, int*, int*, int);
 extern int msr_pack_int_32 (int32_t*, int32_t*, int, int, int, int*, int*, int);
