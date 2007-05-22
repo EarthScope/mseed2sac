@@ -1,3 +1,8 @@
+2007.142: 1.2
+	- Update to libmseed 2.1.1.
+	- Fix reading of metadata file making it much more robust and
+	clarify it's usage in the man page.
+
 2007.133:
 	- Store any sub-millisecond portion of the time in the begin (b)
 	and end (e) header variables, these are offsets from the reference

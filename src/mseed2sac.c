@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2007.133
+ * modified 2007.142
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -118,7 +118,7 @@ main (int argc, char **argv)
 	}
       
       if ( retcode != MS_ENDOFFILE )
-	fprintf (stderr, "Error reading %s: %s\n", flp->data, get_errorstr(retcode));
+	fprintf (stderr, "Error reading %s: %s\n", flp->data, ms_errorstr(retcode));
       
       /* Make sure everything is cleaned up */
       ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
@@ -343,7 +343,7 @@ writesac (MSTrace *mst)
 	  
 	  for (idx=0; idx < mst->numsamples; idx++)
 	    {
-	      gswap4 (fdata + idx);
+	      ms_gswap4 (fdata + idx);
 	    }
 	}
 	   
@@ -509,7 +509,7 @@ swapsacheader (struct SACHeader *sh)
   for ( idx=0; idx < (NUMFLOATHDR + NUMINTHDR); idx++ )
     {
       ip = (int32_t *) sh + idx;
-      gswap4 (ip);
+      ms_gswap4 (ip);
     }
   
   return 0;
@@ -557,38 +557,48 @@ insertmetadata (struct SACHeader *sh)
   if ( ! mlp || ! sh )
     return -1;
   
+  /* Determine source name parameters for comparison, as a special case if the 
+   * location code is not set it will match '--' */
   if ( strncmp (sh->knetwk, SUNDEF, 8) ) ms_strncpclean (sacnetwork, sh->knetwk, 8);
   else sacnetwork[0] = '\0';
   if ( strncmp (sh->kstnm, SUNDEF, 8) ) ms_strncpclean (sacstation, sh->kstnm, 8);
   else sacstation[0] = '\0';
   if ( strncmp (sh->khole, SUNDEF, 8) ) ms_strncpclean (saclocation, sh->khole, 8);
-  else saclocation[0] = '\0';
+  else { saclocation[0] = '-'; saclocation[1] = '-'; saclocation[2] = '\0'; }
   if ( strncmp (sh->kcmpnm, SUNDEF, 8) ) ms_strncpclean (sacchannel, sh->kcmpnm, 8);
   else sacchannel[0] = '\0';
   
-  while ( mlp ) 
+  while ( mlp )
     {
       memcpy (metafields, mlp->data, sizeof(metafields));
       
+      /* Sanity check that source name fields are present */
+      if ( ! metafields[0] || ! metafields[1] || 
+	   ! metafields[2] || ! metafields[3] )
+	{
+	  fprintf (stderr, "insertmetadata(): error, source name fields not all present\n");
+	}
       /* Test if network, station, location and channel match; also handle simple wildcards */
-      if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
-	   ( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
-	   ( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
-	   ( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
+      else if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
+		( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
+		( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
+		( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
 	{
 	  if ( verbose )
 	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s'\n",
 		     sacnetwork, sacstation, saclocation, sacchannel);
 	  
 	  /* Insert metadata into SAC header */
-	  if ( *(metafields[4]) ) sh->scale = (float) strtod (metafields[4], &endptr);
-	  if ( *(metafields[5]) ) sh->stla = (float) strtod (metafields[5], &endptr);
-	  if ( *(metafields[6]) ) sh->stlo = (float) strtod (metafields[6], &endptr);
-	  if ( *(metafields[7]) ) sh->stel = (float) strtod (metafields[7], &endptr);
-	  if ( *(metafields[8]) ) sh->stdp = (float) strtod (metafields[8], &endptr);
-	  if ( *(metafields[9]) ) sh->cmpaz = (float) strtod (metafields[9], &endptr);
-	  if ( *(metafields[10]) ) sh->cmpinc = (float) strtod (metafields[10], &endptr);
-	  if ( *(metafields[11]) ) strncpy (sh->kinst, metafields[11], 8);
+	  if ( metafields[4] ) sh->scale = (float) strtod (metafields[4], &endptr);
+	  if ( metafields[5] ) sh->stla = (float) strtod (metafields[5], &endptr);
+	  if ( metafields[6] ) sh->stlo = (float) strtod (metafields[6], &endptr);
+	  if ( metafields[7] ) sh->stel = (float) strtod (metafields[7], &endptr);
+	  if ( metafields[8] ) sh->stdp = (float) strtod (metafields[8], &endptr);
+	  if ( metafields[9] ) sh->cmpaz = (float) strtod (metafields[9], &endptr);
+	  if ( metafields[10] ) sh->cmpinc = (float) strtod (metafields[10], &endptr);
+	  if ( metafields[11] ) strncpy (sh->kinst, metafields[11], 8);
+	  
+	  break;
 	}
       
       mlp = mlp->next;
@@ -979,12 +989,12 @@ readlistfile (char *listfile)
   char  line[1024];
   char *ptr;
   int   filecnt = 0;
-
+  
   char  filename[1024];
   char *lastfield = 0;
   int   fields = 0;
   int   wspace;
-
+  
   /* Open the list file */
   if ( (fp = fopen (listfile, "rb")) == NULL )
     {
@@ -1087,6 +1097,10 @@ readlistfile (char *listfile)
  *  10: Component Incident Angle (cmpinc), degrees from vertical
  *  11: Instrument Name (kinst)
  *
+ * Any lines not containing at least 3 commas are skipped.  If fields
+ * are not specified the values are set to NULL with the execption
+ * that the first 4 fields (net, sta, loc & chan) cannot be empty.
+ *
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
 static int
@@ -1097,7 +1111,8 @@ readmetadata (char *metafile)
   char *lineptr;
   char *metafields[MAXMETAFIELDS];
   char *fp;
-  int idx;
+  int idx, count;
+  int linecount = 0;
   
   if ( ! metafile )
     return -1;
@@ -1114,25 +1129,66 @@ readmetadata (char *metafile)
   
   while ( fgets (line, sizeof(line), mfp) )
     {
+      linecount++;
+
       /* Truncate at line return if any */
       if ( (fp = strchr (line, '\n')) )
 	*fp = '\0';
       
+      /* Count the number of commas */
+      count = 0;
+      fp = line;
+      while ( (fp = strchr (fp, ',')) )
+	{
+	  count++;
+	  fp++;
+	}
+      
+      /* Must have at least 3 commas for Net, Sta, Loc, Chan ... */
+      if ( count < 3 )
+	{
+	  if ( verbose > 1 )
+	    fprintf (stderr, "Skipping metadata line: %s\n", line);
+	  continue;
+	}
+      
       /* Create a copy of the line */
-      lineptr = (char *) malloc (strlen(line)+1);
-      strcpy (lineptr, line);
+      lineptr = strdup (line);
       
       metafields[0] = fp = lineptr;
       
+      /* Separate line on commas and index in metafields array */
       for (idx = 1; idx < MAXMETAFIELDS; idx++)
 	{
-	  if ( (fp = strchr (fp, ',')) )
+	  if ( fp )
 	    {
-	      *fp++ = '\0';
-	      metafields[idx] = fp;
+	      if ( (fp = strchr (fp, ',')) )
+		{
+		  *fp++ = '\0';
+		  
+		  if ( *fp == ',' || *fp == '\0' )
+		    metafields[idx] = NULL;
+		  else
+		    metafields[idx] = fp;
+		}
 	    }
 	  else
-	    metafields[idx] = NULL;
+	    {
+	      metafields[idx] = NULL;
+	    }
+	}
+      
+      /* Sanity check, source name fields must be populated */
+      for (idx = 0; idx <= 3; idx++)
+	{
+	  if ( metafields[idx] == NULL )
+	    {
+	      fprintf (stderr, "Error, field %d cannot be empty in metadata file line %d\n",
+		       idx+1, linecount);
+	      fprintf (stderr, "Perhaps a wildcard character (*) was the intention?\n");
+	      
+	      exit (1);
+	    }
 	}
       
       /* Add the metafields array to the metadata list */
@@ -1141,7 +1197,7 @@ readmetadata (char *metafile)
 	  fprintf (stderr, "Error adding metadata fields to list\n");
 	}
     }
-  
+   
   fclose (mfp);
   
   return 0;
