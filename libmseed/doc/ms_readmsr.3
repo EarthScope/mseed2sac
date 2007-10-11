@@ -1,4 +1,4 @@
-.TH MS_READMSR 3 2007/03/15 "Libmseed API"
+.TH MS_READMSR 3 2007/07/19 "Libmseed API"
 .SH DESCRIPTION
 Read Mini-SEED data from files
 
@@ -120,7 +120,7 @@ main() {
     ms_log (2, "Error reading input file %s: %s\\n", filename, ms_errorstr(retcode));
 
   /* Cleanup memory and close file */
-  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0);
+  ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, verbose);
 }
 
 For reading a file with the thread safe \fBms_readmsr_r(3)\fP:
@@ -141,7 +141,7 @@ main() {
     ms_log (2, "Error reading input file %s: %s\\n", filename, ms_errorstr(retcode));
 
   /* Cleanup memory and close file */
-  ms_readmsr_r (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0);
+  ms_readmsr_r (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, verbose);
 }
 
 .fi

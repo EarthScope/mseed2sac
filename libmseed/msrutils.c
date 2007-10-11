@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2007.114
+ * modified: 2007.228
  ***************************************************************************/
 
 #include <stdio.h>
@@ -46,6 +46,9 @@ msr_init ( MSRecord *msr )
       
       if ( msr->blkts )
         msr_free_blktchain (msr);
+
+      if ( msr->ststate )
+	free (msr->ststate);
     }
   
   if ( msr == NULL )
@@ -90,6 +93,10 @@ msr_free ( MSRecord **ppmsr )
       if ( (*ppmsr)->datasamples )
 	free ((*ppmsr)->datasamples);
       
+      /* Free stream processing state if present */
+      if ( (*ppmsr)->ststate )
+        free ((*ppmsr)->ststate);
+
       free (*ppmsr);
       
       *ppmsr = NULL;
@@ -661,7 +668,7 @@ msr_print (MSRecord *msr, flag details)
   msr_srcname (msr, srcname, 0);
   
   /* Generate a start time string */
-  ms_hptime2seedtimestr (msr->starttime, time);
+  ms_hptime2seedtimestr (msr->starttime, time, 1);
   
   /* Report information in the fixed header */
   if ( details > 0 && msr->fsdh )

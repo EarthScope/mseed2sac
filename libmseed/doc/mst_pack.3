@@ -1,4 +1,4 @@
-.TH MST_PACK 3 2007/03/24 "Libmseed API"
+.TH MST_PACK 3 2007/08/16 "Libmseed API"
 .SH DESCRIPTION
 Packing of Mini-SEED records from MSTrace segments.
 
@@ -52,10 +52,9 @@ doubles).
 
 The encoding format must be appropriate for the sample type of the
 MSTrace samples.  For example, Steim compression and integer encoding
-formats must be used with integer samples and float encoding formats
-require the appropriate size floats as input.  As a counter example,
-float samples cannot be packed using Steim compression or integer
-encoding formats.
+formats require integer samples and float encoding formats require the
+appropriate size floats as input.  As a counter example, float samples
+cannot be packed using Steim compression or integer encoding formats.
 
 \fIbyteorder\fP must be either 0 (LSBF or little-endian) or 1 (MBF or
 big-endian).
@@ -86,6 +85,20 @@ in no diagnostic output.
 \fBmst_packgroup\fP simply calls \fBmst_pack\fP for each MSTrace in the
 specified MSTraceGroup.  The integer pointed to by \fIpackedsamples\fP
 will be set to the total number of samples packed.
+
+.SH COMPRESSION HISTORY
+When the encoding format is Steim 1 or 2 compression contiguous
+records will be created including compression history.  Put simply,
+this means that the first difference in the compression series will be
+the difference between the first sample of the current record and the
+last sample of the previous record.  For the first record in a series
+(no previous record), a so-called cold start, the first difference
+will be zero.
+
+The compression history can be seeded by allocating the StreamState
+struct for the MSTrace and setting the \fBlastintsample\fP member to
+the integer sample value that preceded the first sample in the current
+series and setting the \fBcomphistory\fP flag to true (1).
 
 .SH RETURN VALUES
 \fBmst_pack\fP returns the number records created on success and -1 on

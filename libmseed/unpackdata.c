@@ -399,7 +399,7 @@ int msr_unpack_steim2
     }
   
   if ( verbose > 2 )
-    ms_log (1, "%s: forward/reverse integration constants:\nX0: %d  XN: %d\n",
+    ms_log (1, "%s: forward/reverse integration constants:  X0: %d  XN: %d\n",
 	    UNPACK_SRCNAME, *px0, *pxn);
   
   /* Decode compressed data in each frame */

@@ -88,6 +88,9 @@ typedef struct MSRecord_s {
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
+
+  /* Stream oriented state information */
+  StreamState    *ststate;           /* Stream processing state information */
 }
 MSRecord;
 
@@ -124,7 +127,7 @@ sequence_number:
   SEED record sequence number, should be between 0 and 999999.
 
 dataquality:
-  Data record indicator, should be 'D', 'R' or 'Q'.
+  Data record indicator, should be 'D', 'R', 'Q' or 'M'.
 
 network:
 station:
@@ -135,8 +138,7 @@ channel:
 starttime:
   Record start time, the time of the first sample, as a high precision
   epoch time (seed ms_time(3)).  This time can be converted using the
-  ms_hptime2isotimestr(3), ms_hptime2seedtimestr(3) and
-  ms_hptime2btime(3) functions.
+  various ms_hptime2<X> functions.
 
 samprate:
   The sample rate in samples per second in double precision.  During
@@ -176,6 +178,10 @@ sampletype:
   'd' (double).  The size of each sample type in bytes is returned
   by the get_samplesize(3) lookup routine.
 
+ststate:
+  Pointer to a StreamState struct used internally to track stream
+  oriented state variables.  Memory for this only allocated when needed.
+
  -- Traces --
 
 In order to manage continuous trace segments the library defines a
@@ -196,11 +202,11 @@ chain of MSTrace structures and keep track of the number of traces.
 The MSTrace and MSTraceGroup data structures:
 
 typedef struct MSTrace_s {
-  char            dataquality;      /* Data quality indicator */
   char            network[11];     /* Network designation, NULL terminated */
   char            station[11];     /* Station designation, NULL terminated */
   char            location[11];    /* Location designation, NULL terminated */
   char            channel[11];     /* Channel designation, NULL terminated */
+  char            dataquality;     /* Data quality indicator */
   char            type;            /* MSTrace type code */
   hptime_t        starttime;       /* Time of first sample */
   hptime_t        endtime;         /* Time of last sample */
@@ -210,20 +216,21 @@ typedef struct MSTrace_s {
   int32_t         numsamples;      /* Number of data samples in datasamples */
   char            sampletype;      /* Sample type code: a, i, f, d */
   void           *prvtptr;         /* Private pointer for general use */
-  struct MSTrace_s *next;            /* Pointer to next trace */
+  StreamState    *ststate;         /* Stream processing state information */
+  struct MSTrace_s *next;          /* Pointer to next trace */
 }
 MSTrace;
 
 typedef struct MSTraceGroup_s {
-  int32_t         numtraces;       /* Number of MSTraces in the trace chain */
-  struct MSTrace_s *traces;          /* Root of the trace chain */
+  int32_t           numtraces;     /* Number of MSTraces in the trace chain */
+  struct MSTrace_s *traces;        /* Root of the trace chain */
 }
 MSTraceGroup;
 
 Explanation of fields:
 
 dataquality:
-  A SEED data quality indicator, either 'Q', 'D', or 'R'.   This value will
+  A SEED data quality indicator, either 'D', 'R', 'Q' or 'M'.   This value
   will be (binary) 0 when the quality is unknown or mixed.
 
 network:
@@ -240,14 +247,12 @@ type:
 starttime:
   MSTrace start time, the time of the first sample, as a high precision
   epoch time (see ms_time(3)).  This time can be converted using the
-  ms_hptime2isotimestr(3), ms_hptime2seedtimestr(3) and
-  ms_hptime2btime(3) functions.
+  various ms_hptime2<X> functions.
 
 endtime:
   MSTrace end time, the time of the last sample, as a high precision
   epoch time (see ms_time(3)).  This time can be converted using the
-  ms_hptime2isotimestr(3), ms_hptime2seedtimestr(3) and
-  ms_hptime2btime(3) functions.
+  various ms_hptime2<X> functions.
 
 samprate:
   The sample rate in samples per second in double precision.
@@ -273,6 +278,10 @@ sampletype:
 prvtptr:
   A private pointer for general use.  This pointer is not used by
   libmseed and can safely be used by the calling program.
+
+ststate:
+  Pointer to a StreamState struct used internally to track stream
+  oriented state variables.  Memory for this only allocated when needed.
 
 next:
   A pointer to the next MSTrace structure.  The value will be 0 for the

@@ -7,7 +7,7 @@
  * Written by Chad Trabant,
  *   IRIS Data Management Center
  *
- * modified: 2007.083
+ * modified: 2007.227
  ***************************************************************************/
 
 #include <stdio.h>
@@ -23,8 +23,8 @@ static int msr_pack_header_raw (MSRecord *msr, char *rawrec, int maxheaderlen,
 				flag swapflag, flag normalize, flag verbose);
 static int msr_update_header (MSRecord * msr, char *rawrec, flag swapflag,
 			      flag verbose);
-static int msr_pack_data (void *dest, void *src,
-			  int maxsamples, int maxdatabytes, int *packsamples,
+static int msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
+			  int *packsamples, int32_t *lastintsample, flag comphistory,
 			  char sampletype, flag encoding, flag swapflag,
 			  flag verbose);
 
@@ -98,6 +98,18 @@ msr_pack ( MSRecord * msr, void (*record_handler) (char *, int, void *),
     {
       ms_log (2, "msr_pack(): record_handler() function pointer not set!\n");
       return -1;
+    }
+
+  /* Allocate stream processing state space if needed */
+  if ( ! msr->ststate )
+    {
+      msr->ststate = (StreamState *) malloc (sizeof(StreamState));
+      if ( ! msr->ststate )
+        {
+          ms_log (2, "msr_pack(): Could not allocate memory for StreamState\n");
+          return -1;
+        }
+      memset (msr->ststate, 0, sizeof(StreamState));
     }
 
   /* Generate source name for MSRecord */
@@ -317,8 +329,8 @@ msr_pack ( MSRecord * msr, void (*record_handler) (char *, int, void *),
       packret = msr_pack_data (rawrec + dataoffset,
 			       (char *) msr->datasamples + packoffset,
 			       (msr->numsamples - totalpackedsamples), maxdatabytes,
-			       &packsamples, msr->sampletype,
-			       msr->encoding, dataswapflag, verbose);
+			       &packsamples, &msr->ststate->lastintsample, msr->ststate->comphistory,
+			       msr->sampletype, msr->encoding, dataswapflag, verbose);
       
       if ( packret )
 	{
@@ -340,14 +352,21 @@ msr_pack ( MSRecord * msr, void (*record_handler) (char *, int, void *),
       
       totalpackedsamples += packsamples;
       if ( packedsamples ) *packedsamples = totalpackedsamples;
+      msr->ststate->packedsamples += packsamples;
       
       /* Update record header for next record */
-      msr->sequence_number = ( msr->sequence_number >= 999999) ? 1 : msr->sequence_number + 1;
-      msr->starttime += (double) packsamples / msr->samprate * HPTMODULUS;
+      msr->sequence_number = ( msr->sequence_number >= 999999 ) ? 1 : msr->sequence_number + 1;
+      if ( msr->samprate > 0 )
+        msr->starttime += (double) packsamples / msr->samprate * HPTMODULUS;
       msr_update_header (msr, rawrec, headerswapflag, verbose);
       
       recordcnt++;
-      
+      msr->ststate->packedrecords++;
+
+      /* Set compression history flag for subsequent records (Steim encodings) */
+      if ( ! msr->ststate->comphistory )
+        msr->ststate->comphistory = 1;
+     
       if ( totalpackedsamples >= msr->numsamples )
 	break;
     }
@@ -485,20 +504,19 @@ msr_pack_header_raw ( MSRecord *msr, char *rawrec, int maxheaderlen,
 		      flag swapflag, flag normalize, flag verbose )
 {
   struct blkt_link_s *cur_blkt;
+  struct fsdh_s *fsdh;
   int16_t offset;
   int blktcnt = 0;
   int nextoffset;
-  
-  struct fsdh_s *fsdh;
-  
+
   if ( ! msr || ! rawrec )
     return -1;
   
   /* Make sure a fixed section of data header is available */
   if ( ! msr->fsdh )
     {
-      msr->fsdh = (struct fsdh_s *) malloc (sizeof (struct fsdh_s));
-
+      msr->fsdh = (struct fsdh_s *) calloc (1, sizeof (struct fsdh_s));
+      
       if ( msr->fsdh == NULL )
 	{
 	  ms_log (2, "msr_pack_header_raw(%s): Cannot allocate memory\n",
@@ -844,14 +862,22 @@ msr_update_header ( MSRecord *msr, char *rawrec, flag swapflag,
  *
  *  Pack Mini-SEED data samples.  The input data samples specified as
  *  'src' will be packed with 'encoding' format and placed in 'dest'.
+ *  
+ *  If a pointer to a 32-bit integer sample is provided in the
+ *  argument 'lastintsample' and 'comphistory' is true the sample
+ *  value will be used to seed the difference buffer for Steim1/2
+ *  encoding and provide a compression history.  It will also be
+ *  updated with the last sample packed in order to be used with a
+ *  subsequent call to this routine.
+ *
  *  The number of samples packed will be placed in 'packsamples' and
  *  the number of bytes packed will be placed in 'packbytes'.
  *
  *  Return 0 on success and a negative number on error.
  ************************************************************************/
 static int
-msr_pack_data (void *dest, void *src,
-	       int maxsamples, int maxdatabytes, int *packsamples,
+msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
+	       int *packsamples, int32_t *lastintsample, flag comphistory,
 	       char sampletype, flag encoding, flag swapflag, flag verbose)
 {
   int retval;
@@ -963,7 +989,8 @@ msr_pack_data (void *dest, void *src,
 	  return -1;
 	}
       
-      diffbuff[0] = 0;
+      /* If a previous sample is supplied use it for compression history otherwise cold-start */      
+      diffbuff[0] = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
       for (npacked=1; npacked < maxsamples; npacked++)
 	diffbuff[npacked] = intbuff[npacked] - intbuff[npacked-1];
       
@@ -974,6 +1001,10 @@ msr_pack_data (void *dest, void *src,
       
       retval = msr_pack_steim1 (dest, src, diffbuff, maxsamples, nframes, 1,
 				&npacked, packsamples, swapflag);
+      
+      /* If a previous sample is supplied update it with the last sample value */
+      if ( lastintsample && retval == 0 )
+	*lastintsample = intbuff[*packsamples-1];
       
       free (diffbuff);
       break;
@@ -987,17 +1018,18 @@ msr_pack_data (void *dest, void *src,
 	}
       
       intbuff = (int32_t *) src;
-
+      
       /* Allocate and populate the difference buffer */
       diffbuff = (int32_t *) malloc (maxsamples * sizeof(int32_t));
-
+      
       if ( diffbuff == NULL )
 	{
 	  ms_log (2, "msr_pack_data(%s): Cannot allocate diff buffer\n", PACK_SRCNAME);
 	  return -1;
 	}
       
-      diffbuff[0] = 0;
+      /* If a previous sample is supplied use it for compression history otherwise cold-start */
+      diffbuff[0] = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
       for (npacked=1; npacked < maxsamples; npacked++)
 	diffbuff[npacked] = intbuff[npacked] - intbuff[npacked-1];
       
@@ -1008,6 +1040,10 @@ msr_pack_data (void *dest, void *src,
       
       retval = msr_pack_steim2 (dest, src, diffbuff, maxsamples, nframes, 1,
 				&npacked, packsamples, swapflag);
+      
+      /* If a previous sample is supplied update it with the last sample value */
+      if ( lastintsample && retval == 0 )
+	*lastintsample = intbuff[*packsamples-1];
       
       free (diffbuff);
       break;

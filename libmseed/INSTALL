@@ -11,14 +11,19 @@ A simple 'make' on most Unix-like systems should build the library.
 The included Makefile should work for most Unix-like environments; a
 special target of 'gcc' will explicitly use gcc with '-02'
 optimization and more warnings.  By default a statically linked
-version of the library is built: 'libmseed.a'.  Using gcc it is
-possible to build a shared library with 'make shared'.
+version of the library is built: 'libmseed.a'.
+
+Using gcc it is possible to build a shared library with 'make shared'.
+If 'make' has been run before 'make shared' the object files will
+need to be cleaned up using 'make clean' before running 'make shared'.
 
 -- Mac OSX (Darwin) --
 
 A static library can be compiled using the above Unix instructions,
 just run 'make'.  Using gcc it is possible to build a dynamic library
-with 'make dynamic'.
+with 'make dynamic'.  If 'make' has been run before 'make dynamic' the
+object files will need to be cleaned up using 'make clean' before
+running 'make dynamic'.
 
 -- Windows (Win32) --
 

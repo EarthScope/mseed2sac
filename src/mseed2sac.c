@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.2"
+#define VERSION "1.3"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */

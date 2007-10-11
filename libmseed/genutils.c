@@ -7,7 +7,7 @@
  * ORFEUS/EC-Project MEREDIAN
  * IRIS Data Management Center
  *
- * modified: 2007.030
+ * modified: 2007.228
  ***************************************************************************/
 
 #include <stdio.h>
@@ -359,6 +359,44 @@ ms_btime2isotimestr (BTime *btime, char *isotimestr)
 
 
 /***************************************************************************
+ * ms_btime2mdtimestr:
+ *
+ * Build a time string in month-day format from a BTime struct.
+ * 
+ * The provided isostimestr must have enough room for the resulting time
+ * string of 25 characters, i.e. '2001-07-29 12:38:00.0000' + NULL.
+ *
+ * Returns a pointer to the resulting string or NULL on error.
+ ***************************************************************************/
+char *
+ms_btime2mdtimestr (BTime *btime, char *mdtimestr)
+{ 
+  int month = 0;
+  int mday = 0;
+  int ret;
+  
+  if ( ! mdtimestr )
+    return NULL;
+  
+  if ( ms_doy2md (btime->year, btime->day, &month, &mday) )
+    {
+      ms_log (2, "ms_btime2mdtimestr(): Error converting year %d day %d\n",
+              btime->year, btime->day);
+      return NULL;
+    }
+  
+  ret = snprintf (mdtimestr, 25, "%4d-%02d-%02d %02d:%02d:%02d.%04d",
+                  btime->year, month, mday,
+                  btime->hour, btime->min, btime->sec, btime->fract);
+
+  if ( ret != 24 )
+    return NULL;
+  else
+    return mdtimestr;
+}  /* End of ms_btime2mdtimestr() */
+
+
+/***************************************************************************
  * ms_btime2seedtimestr:
  *
  * Build a SEED time string from a BTime struct.
@@ -451,10 +489,13 @@ ms_hptime2btime (hptime_t hptime, BTime *btime)
  * The provided isostimestr must have enough room for the resulting time
  * string of 27 characters, i.e. '2001-07-29T12:38:00.000000' + NULL.
  *
+ * The 'subseconds' flag controls whenther the sub second portion of the
+ * time is included or not.
+ *
  * Returns a pointer to the resulting string or NULL on error.
  ***************************************************************************/
 char *
-ms_hptime2isotimestr (hptime_t hptime, char *isotimestr)
+ms_hptime2isotimestr (hptime_t hptime, char *isotimestr, flag subseconds)
 {
   struct tm *tm;
   int isec;
@@ -480,16 +521,79 @@ ms_hptime2isotimestr (hptime_t hptime, char *isotimestr)
   if ( ! (tm = gmtime ( &tsec )) )
     return NULL;
   
-  /* Assuming ifract has at least microsecond precision */
-  ret = snprintf (isotimestr, 27, "%4d-%02d-%02dT%02d:%02d:%02d.%06d",
-		  tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		  tm->tm_hour, tm->tm_min, tm->tm_sec, ifract);
-  
-  if ( ret != 26 )
+  if ( subseconds )
+    /* Assuming ifract has at least microsecond precision */
+    ret = snprintf (isotimestr, 27, "%4d-%02d-%02dT%02d:%02d:%02d.%06d",
+                    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec, ifract);
+  else
+    ret = snprintf (isotimestr, 20, "%4d-%02d-%02dT%02d:%02d:%02d",
+                    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+  if ( ret != 26 && ret != 19 )
     return NULL;
   else
     return isotimestr;
 }  /* End of ms_hptime2isotimestr() */
+
+
+/***************************************************************************
+ * ms_hptime2mdtimestr:
+ *
+ * Build a time string in month-day format from a high precision
+ * epoch time.
+ *
+ * The provided mdtimestr must have enough room for the resulting time
+ * string of 27 characters, i.e. '2001-07-29 12:38:00.000000' + NULL.
+ *
+ * The 'subseconds' flag controls whenther the sub second portion of the
+ * time is included or not.
+ *
+ * Returns a pointer to the resulting string or NULL on error.
+ ***************************************************************************/
+char *
+ms_hptime2mdtimestr (hptime_t hptime, char *mdtimestr, flag subseconds)
+{
+  struct tm *tm;
+  int isec;
+  int ifract;
+  int ret;
+  time_t tsec;
+
+  if ( mdtimestr == NULL )
+    return NULL;
+
+  /* Reduce to Unix/POSIX epoch time and fractional seconds */
+  isec = MS_HPTIME2EPOCH(hptime);
+  ifract = (hptime_t) hptime - (isec * HPTMODULUS);
+
+  /* Adjust for negative epoch times */
+  if ( hptime < 0 && ifract != 0 )
+    {
+      isec -= 1;
+      ifract = HPTMODULUS - (-ifract);
+    }
+
+  tsec = (time_t) isec;
+  if ( ! (tm = gmtime ( &tsec )) )
+    return NULL;
+
+  if ( subseconds )
+    /* Assuming ifract has at least microsecond precision */
+    ret = snprintf (mdtimestr, 27, "%4d-%02d-%02d %02d:%02d:%02d.%06d",
+                    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec, ifract);
+  else
+    ret = snprintf (mdtimestr, 20, "%4d-%02d-%02d %02d:%02d:%02d",
+                    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+  if ( ret != 26 && ret != 19 )
+    return NULL;
+  else
+    return mdtimestr;
+}  /* End of ms_hptime2mdtimestr() */
 
 
 /***************************************************************************
@@ -500,10 +604,13 @@ ms_hptime2isotimestr (hptime_t hptime, char *isotimestr)
  * The provided seedtimestr must have enough room for the resulting time
  * string of 25 characters, i.e. '2001,195,12:38:00.000000\n'.
  *
+ * The 'subseconds' flag controls whenther the sub second portion of the
+ * time is included or not.
+ *
  * Returns a pointer to the resulting string or NULL on error.
  ***************************************************************************/
 char *
-ms_hptime2seedtimestr (hptime_t hptime, char *seedtimestr)
+ms_hptime2seedtimestr (hptime_t hptime, char *seedtimestr, flag subseconds)
 {
   struct tm *tm;
   int isec;
@@ -529,12 +636,18 @@ ms_hptime2seedtimestr (hptime_t hptime, char *seedtimestr)
   if ( ! (tm = gmtime ( &tsec )) )
     return NULL;
   
-  /* Assuming ifract has at least microsecond precision */
-  ret = snprintf (seedtimestr, 25, "%4d,%03d,%02d:%02d:%02d.%06d",
-		  tm->tm_year + 1900, tm->tm_yday + 1,
-		  tm->tm_hour, tm->tm_min, tm->tm_sec, ifract);
+  if ( subseconds )
+    /* Assuming ifract has at least microsecond precision */
+    ret = snprintf (seedtimestr, 25, "%4d,%03d,%02d:%02d:%02d.%06d",
+		    tm->tm_year + 1900, tm->tm_yday + 1,
+		    tm->tm_hour, tm->tm_min, tm->tm_sec, ifract);
+  else
+    /* Assuming ifract has at least microsecond precision */
+    ret = snprintf (seedtimestr, 18, "%4d,%03d,%02d:%02d:%02d",
+                    tm->tm_year + 1900, tm->tm_yday + 1,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec);
   
-  if ( ret != 24 )
+  if ( ret != 24 && ret != 17 )
     return NULL;
   else
     return seedtimestr;

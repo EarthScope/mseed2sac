@@ -1,3 +1,34 @@
+2007.228: 2.1.4
+	- Include compression history for Steim encodings by tracking the
+	last sample value packed for each data stream.  For the first
+	record of a stream, a cold-start, the first difference is zero.
+	This included the addition of a StreamState struct and associated
+	pointers for MSRecord and MSTrace which get allocated during packing
+	routines.
+	- Do not adjust start time of record header during packing when
+	sampling rate is zero or negative.
+	- Add ms_hptime2mdtimestr() and ms_btime2mdtimestr routines to
+	create time strings in month-day format, this is the same as
+	the ISO format without the 'T' between the date and time.
+	- Add a 'subsecond' flag argument to all ms_hptime2<string>
+	routines to control the addition of sub-second precision.
+
+2007.178: 2.1.3
+	- Fix log message bug for unknown encoding format while unpacking,
+	this could cause certain systems to segfault if encountered.
+	- Rename MS_UNPACKENCODINGFORMATFALLBACK macro to 
+	MS_UNPACKENCODINGFALLBACK to match the actual variable name.
+	- Fix handling of fallback encoding format in unpack.c, worked
+	earlier but had regressed to a broken state.
+	- Remove declaration for lmp_strerror() which does not exist.
+
+2007.148: 2.1.2
+	- Use calloc instead of malloc to allocate and clear a fsdh_s
+        in msr_pack_header_raw() when none is available in the passed
+        MSRecord.  Previously this could result in a subtle bug for systems
+        where malloc'd memory is not zeroed.  This would only have effected
+	programs that were creating Mini-SEED in a particular way.
+
 2007.138: 2.1.1
 	- Create LMP_BSD platform definition to cover the BSDs including
 	Apple Mac OS X, this replaces LMP_DARWIN.  Specifically FreeBSD,
@@ -100,7 +131,7 @@
 
 2006.326: 2.0pre6
 	- Add ms_readmsr_r() as a reenentrant, thread safe version of what
-	ms_readmsr() to to be and make ms_readmsr() a wrapper for the new
+	ms_readmsr() used to be and make ms_readmsr() a wrapper for the new
 	reentrant version that uses global file reading parameters.
 	- Use ms_readmsr_r() in ms_readtraces() so that it's now thread
 	safe too.

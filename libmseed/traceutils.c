@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2007.083
+ * modified: 2007.228
  ***************************************************************************/
 
 #include <stdio.h>
@@ -34,6 +34,9 @@ mst_init ( MSTrace *mst )
 
       if ( mst->prvtptr )
 	free (mst->prvtptr);
+
+      if ( mst->ststate )
+        free (mst->ststate);
     }
   else
     {
@@ -71,6 +74,10 @@ mst_free ( MSTrace **ppmst )
       if ( (*ppmst)->prvtptr )
         free ((*ppmst)->prvtptr);
       
+      /* Free stream processing state if present */
+      if ( (*ppmst)->ststate )
+        free ((*ppmst)->ststate);
+
       free (*ppmst);
       
       *ppmst = 0;
@@ -1001,18 +1008,18 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
 	}
       else if ( timeformat == 1 )
 	{
-	  if ( ms_hptime2isotimestr (mst->starttime, stime) == NULL )
+	  if ( ms_hptime2isotimestr (mst->starttime, stime, 1) == NULL )
 	    ms_log (2, "Cannot convert trace start time for %s\n", srcname);
 	  
-	  if ( ms_hptime2isotimestr (mst->endtime, etime) == NULL )
+	  if ( ms_hptime2isotimestr (mst->endtime, etime, 1) == NULL )
 	    ms_log (2, "Cannot convert trace end time for %s\n", srcname);
 	}
       else
 	{
-	  if ( ms_hptime2seedtimestr (mst->starttime, stime) == NULL )
+	  if ( ms_hptime2seedtimestr (mst->starttime, stime, 1) == NULL )
 	    ms_log (2, "Cannot convert trace start time for %s\n", srcname);
 	  
-	  if ( ms_hptime2seedtimestr (mst->endtime, etime) == NULL )
+	  if ( ms_hptime2seedtimestr (mst->endtime, etime, 1) == NULL )
 	    ms_log (2, "Cannot convert trace end time for %s\n", srcname);
 	}
       
@@ -1194,18 +1201,18 @@ mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 		}
 	      else if ( timeformat == 1 )
 		{
-		  if ( ms_hptime2isotimestr (mst->endtime, time1) == NULL )
+		  if ( ms_hptime2isotimestr (mst->endtime, time1, 1) == NULL )
 		    ms_log (2, "Cannot convert trace end time for %s\n", src1);
 		  
-		  if ( ms_hptime2isotimestr (mst->next->starttime, time2) == NULL )
+		  if ( ms_hptime2isotimestr (mst->next->starttime, time2, 1) == NULL )
 		    ms_log (2, "Cannot convert next trace start time for %s\n", src1);
 		}
 	      else
 		{
-		  if ( ms_hptime2seedtimestr (mst->endtime, time1) == NULL )
+		  if ( ms_hptime2seedtimestr (mst->endtime, time1, 1) == NULL )
 		    ms_log (2, "Cannot convert trace end time for %s\n", src1);
 		  
-		  if ( ms_hptime2seedtimestr (mst->next->starttime, time2) == NULL )
+		  if ( ms_hptime2seedtimestr (mst->next->starttime, time2, 1) == NULL )
 		    ms_log (2, "Cannot convert next trace start time for %s\n", src1);
 		}
 	      
@@ -1270,6 +1277,19 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int, void *),
   void *preservedatasamples = 0;
   int32_t preservenumsamples = 0;
   char preservesampletype = 0;
+  StreamState *preserveststate = 0;
+
+  /* Allocate stream processing state space if needed */
+  if ( ! mst->ststate )
+    {
+      mst->ststate = (StreamState *) malloc (sizeof(StreamState));
+      if ( ! mst->ststate )
+        {
+          ms_log (2, "mst_pack(): Could not allocate memory for StreamState\n");
+          return -1;
+        }
+      memset (mst->ststate, 0, sizeof(StreamState));
+    }
   
   if ( mstemplate )
     {
@@ -1280,6 +1300,7 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int, void *),
       preservedatasamples = msr->datasamples;
       preservenumsamples = msr->numsamples;
       preservesampletype = msr->sampletype;
+      preserveststate = msr->ststate;
     }
   else
     {
@@ -1308,6 +1329,7 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int, void *),
   msr->datasamples = mst->datasamples;
   msr->numsamples = mst->numsamples;
   msr->sampletype = mst->sampletype;
+  msr->ststate = mst->ststate;
   
   /* Sample count sanity check */
   if ( mst->samplecnt != mst->numsamples )
@@ -1366,10 +1388,12 @@ mst_pack ( MSTrace *mst, void (*record_handler) (char *, int, void *),
       msr->datasamples = preservedatasamples;
       msr->numsamples = preservenumsamples;
       msr->sampletype = preservesampletype;
+      msr->ststate = preserveststate;
     }
   else
     {
       msr->datasamples = 0;
+      msr->ststate = 0;
       msr_free (&msr);
     }
   

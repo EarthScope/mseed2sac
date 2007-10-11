@@ -1,4 +1,4 @@
-.TH MSR_PACK 3 2007/03/24 "Libmseed API"
+.TH MSR_PACK 3 2007/08/16 "Libmseed API"
 .SH DESCRIPTION
 Packing of Mini-SEED records.
 
@@ -6,7 +6,7 @@ Packing of Mini-SEED records.
 .nf
 .B #include <libmseed.h>
 
-.BI "MSRecord *\fBmsr_pack\fP ( MSRecord *" msr ","
+.BI "int       \fBmsr_pack\fP ( MSRecord *" msr ","
 .BI "                     void (*" record_handler ") (char *, int, void *),"
 .BI "                     void *" handlerdata ", int *" packedsamples ","
 .BI "                     flag " flush ", flag " verbose " );"
@@ -30,36 +30,36 @@ it packs records.
 
 The key characteristics of data record & quality indicator, record
 length, encoding format and byte order of packed records are taken
-from MSRecord.dataquality, MSRecord.reclen, MSRecord.encoding and
-MSRecord.byteorder respectively.  Default values for these quantities
-will be used when the indicator is 0 or the reclen, encoding or
-byteorder are -1 respectively.  The default values are: dataquality
-= 'D', reclen = 4096 bytes, encoding = 11 (Steim2) and byteorder = 1
-(MSBF or big-endian).
+from \fBMSRecord.dataquality\fP, \fBMSRecord.reclen\fP,
+\fBMSRecord.encoding\fP and \fBMSRecord.byteorder\fP respectively.
+Default values for these quantities will be used when the indicator is
+0 or the reclen, encoding or byteorder are -1 respectively.  The
+default values are: dataquality = 'D', reclen = 4096 bytes, encoding =
+11 (Steim2) and byteorder = 1 (MSBF or big-endian).
 
-MSRecord.dataquality should be either 'D', 'R' or 'Q'.
+\fBMSRecord.dataquality\fP should be either 'D', 'R', 'Q' or 'M'.
 
-MSRecord.reclen should be set to the desired data record length in
+\fBMSRecord.reclen\fP should be set to the desired data record length in
 bytes which must be expressible as 2 raised to the power of X where X
 is between (and including) 8 to 20.
 
-MSRecord.encoding should be set to one of the following supported
-Mini-SEED data encoding formats: DE_ASCII (0), DE_INT16 (1), DE_INT32
-(3), DE_FLOAT32 (4), DE_FLOAT64 (5), DE_STEIM1 (10) and DE_STEIM2
-(11).  The encoding aliases are defined in libmseed.h.
+\fBMSRecord.encoding\fP should be set to one of the following
+supported Mini-SEED data encoding formats: DE_ASCII (0), DE_INT16 (1),
+DE_INT32 (3), DE_FLOAT32 (4), DE_FLOAT64 (5), DE_STEIM1 (10) and
+DE_STEIM2 (11).  The encoding aliases are defined in libmseed.h.
 
-MSRecord.sampletype should indicated the sample type as either 'a'
-(ASCII), 'i' (32-bit integers), 'f' (32-bit floats) or 'd' (64-bit
-doubles).
+\fBMSRecord.sampletype\fP should indicated the sample type as
+either 'a' (ASCII), 'i' (32-bit integers), 'f' (32-bit floats) or 'd'
+(64-bit doubles).
 
 The encoding format must be appropriate for the sample type.  For
-example, Steim compression and integer encoding formats must be used
-with integer samples and float encoding formats require the appropriate
+example, Steim compression and integer encoding formats require
+integer samples and float encoding formats require the appropriate
 size floats as input.  As a counter example, float samples cannot be
 packed using Steim compression or integer encoding formats.
 
-MSRecord.byteorder must be either 0 (LSBF or little-endian) or 1 (MBF
-or big-endian).
+\fBMSRecord.byteorder\fP must be either 0 (LSBF or little-endian) or 1
+(MBF or big-endian).
 
 Each time a complete record is packed it will be passed to the
 \fIrecord_handler()\fP function which expects three arguments: 1) a
@@ -116,6 +116,20 @@ endian) or 1 (big endian).  Normally the byte order of the header and
 data is determined by the byteorder flag of the MSRecord, this
 capability is included to support any combination of byte orders in a
 generalized way.
+
+.SH COMPRESSION HISTORY
+When the encoding format is Steim 1 or 2 compression contiguous
+records will be created including compression history.  Put simply,
+this means that the first difference in the compression series will be
+the difference between the first sample of the current record and the
+last sample of the previous record.  For the first record in a series
+(no previous record), a so-called cold start, the first difference
+will be zero.
+
+The compression history can be seeded by allocating the StreamState
+struct for the MSRecord and setting the \fBlastintsample\fP member to
+the integer sample value that preceded the first sample in the current
+series and setting the \fBcomphistory\fP flag to true (1).
 
 .SH RETURN VALUES
 \fBmsr_pack\fP returns the number records created on success and -1 on

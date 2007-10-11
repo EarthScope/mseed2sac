@@ -13,7 +13,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2007.083
+ * modified: 2007.178
  ***************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,7 +128,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   if ( unpackheaderbyteorder == -2 ||
        unpackdatabyteorder == -2 ||
        unpackencodingformat == -2 ||
-       unpackencodingformat == -2 )
+       unpackencodingfallback == -2 )
     if ( check_environment(verbose) )
       return MS_GENERROR;
   
@@ -623,9 +623,9 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   
   /* Use encoding format fallback if defined and no encoding is set,
    * also make sure the byteorder is set by default to big endian */
-  if ( unpackencodingformat >= 0 && msr->encoding == -1 )
+  if ( unpackencodingfallback >= 0 && msr->encoding == -1 )
     {
-      msr->encoding = unpackencodingformat;
+      msr->encoding = unpackencodingfallback;
       
       if ( msr->byteorder == -1 )
 	{
@@ -899,7 +899,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       
     default:
       ms_log (2, "%s: Unsupported encoding format %d (%s)\n",
-	      msr->encoding, (char *) ms_encodingstr(msr->encoding), UNPACK_SRCNAME);
+	      UNPACK_SRCNAME, msr->encoding, (char *) ms_encodingstr(msr->encoding));
       
       return MS_UNKNOWNFORMAT;
     }
@@ -999,25 +999,25 @@ check_environment (int verbose)
     }
   
   /* Read possible environmental variable to be used as a fallback encoding format */
-  if ( unpackencodingformat == -2 )
+  if ( unpackencodingfallback == -2 )
     {
       if ( (envvariable = getenv("UNPACK_DATA_FORMAT_FALLBACK")) )
 	{
-	  unpackencodingformat = (int) strtol (envvariable, NULL, 10);
+	  unpackencodingfallback = (int) strtol (envvariable, NULL, 10);
 	  
-	  if ( unpackencodingformat < 0 || unpackencodingformat > 33 )
+	  if ( unpackencodingfallback < 0 || unpackencodingfallback > 33 )
 	    {
 	      ms_log (2, "Environment variable UNPACK_DATA_FORMAT_FALLBACK set to invalid value: '%d'\n",
-		      unpackencodingformat);
+		      unpackencodingfallback);
 	      return -1;
 	    }
 	  else if ( verbose > 2 )
-	    ms_log (1, "UNPACK_DATA_FORMAT_FALLBACK, unpacking data in encoding format %d\n",
-		    unpackencodingformat);
+	    ms_log (1, "UNPACK_DATA_FORMAT_FALLBACK, fallback data unpacking encoding format %d\n",
+		    unpackencodingfallback);
 	}
       else
 	{
-	  unpackencodingformat = 10;  /* Default fallback is Steim-1 encoding */
+	  unpackencodingfallback = 10;  /* Default fallback is Steim-1 encoding */
 	}
     }
   

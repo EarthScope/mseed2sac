@@ -30,8 +30,8 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "2.1.1"
-#define LIBMSEED_RELEASE "2007.138"
+#define LIBMSEED_VERSION "2.1.4"
+#define LIBMSEED_RELEASE "2007.228"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
@@ -68,7 +68,7 @@ extern "C" {
  * The time value corresponds to '1902/1/1 00:00:00.000000' with the
  * default HPTMODULUS */
 #define HPTERROR -2145916800000000LL
-  
+
 /* Macros to scale between Unix/POSIX epoch time & high precision time */
 #define MS_EPOCH2HPTIME(X) X * (hptime_t) HPTMODULUS
 #define MS_HPTIME2EPOCH(X) X / HPTMODULUS
@@ -351,6 +351,15 @@ typedef struct blkt_link_s
 }
 BlktLink;
 
+typedef struct StreamState_s
+{
+  int64_t   packedrecords;           /* Count of packed records */
+  int64_t   packedsamples;           /* Count of packed samples */
+  int32_t   lastintsample;           /* Value of last integer sample packed */
+  flag      comphistory;             /* Control use of lastintsample for compression history */
+}
+StreamState;
+
 typedef struct MSRecord_s {
   char           *record;            /* Mini-SEED record */
   int32_t         reclen;            /* Length of Mini-SEED record in bytes */
@@ -379,6 +388,9 @@ typedef struct MSRecord_s {
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
+  
+  /* Stream oriented state information */
+  StreamState    *ststate;           /* Stream processing state information */
 }
 MSRecord;
 
@@ -398,14 +410,15 @@ typedef struct MSTrace_s {
   int32_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
   void           *prvtptr;           /* Private pointer for general use, unused by libmseed */
+  StreamState    *ststate;           /* Stream processing state information */
   struct MSTrace_s *next;            /* Pointer to next trace */
 }
 MSTrace;
 
 /* Container for a group (chain) of traces */
 typedef struct MSTraceGroup_s {
-  int32_t           numtraces;     /* Number of MSTraces in the trace chain */
-  struct MSTrace_s *traces;        /* Root of the trace chain */
+  int32_t           numtraces;       /* Number of MSTraces in the trace chain */
+  struct MSTrace_s *traces;          /* Root of the trace chain */
 }
 MSTraceGroup;
 
@@ -426,9 +439,9 @@ extern flag unpackdatabyteorder;
 /* Global variables (defined in unpack.c) and macros to set/force
  * encoding and fallback encoding */
 extern int unpackencodingformat;
-extern int unpackencodingformatfallback;
+extern int unpackencodingfallback;
 #define MS_UNPACKENCODINGFORMAT(X) (unpackencodingformat = X);
-#define MS_UNPACKENCODINGFORMATFALLBACK(X) (unpackencodingformatfallback = X);
+#define MS_UNPACKENCODINGFALLBACK(X) (unpackencodingfallback = X);
 
 /* Mini-SEED record related functions */
 extern int           msr_unpack (char *record, int reclen, MSRecord **ppmsr,
@@ -522,10 +535,12 @@ extern int      ms_doy2md (int year, int jday, int *month, int *mday);
 extern int      ms_md2doy (int year, int month, int mday, int *jday);
 extern hptime_t ms_btime2hptime (BTime *btime);
 extern char*    ms_btime2isotimestr (BTime *btime, char *isotimestr);
+extern char*    ms_btime2mdtimestr (BTime *btime, char *mdtimestr);
 extern char*    ms_btime2seedtimestr (BTime *btime, char *seedtimestr);
 extern int      ms_hptime2btime (hptime_t hptime, BTime *btime);
-extern char*    ms_hptime2isotimestr (hptime_t hptime, char *isotimestr);
-extern char*    ms_hptime2seedtimestr (hptime_t hptime, char *seedtimestr);
+extern char*    ms_hptime2isotimestr (hptime_t hptime, char *isotimestr, flag subsecond);
+extern char*    ms_hptime2mdtimestr (hptime_t hptime, char *mdtimestr, flag subsecond);
+extern char*    ms_hptime2seedtimestr (hptime_t hptime, char *seedtimestr, flag subsecond);
 extern hptime_t ms_time2hptime (int year, int day, int hour, int min, int sec, int usec);
 extern hptime_t ms_seedtimestr2hptime (char *seedtimestr);
 extern hptime_t ms_timestr2hptime (char *timestr);

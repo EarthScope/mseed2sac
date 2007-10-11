@@ -14,7 +14,7 @@
  *
  * Modified by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2006.344
+ * modified: 2007.227
  ************************************************************************/
 
 /*
@@ -215,7 +215,7 @@ int msr_pack_int_32
 /************************************************************************
  *  msr_pack_float_32:							*
  *	Pack float data into FLOAT32 format.				*
- *	Return: 0 on success, -1 on failure.				*
+ *	Return: 0 on success, -1 on error.				*
  ************************************************************************/
 int msr_pack_float_32 
  (float    *packed,          /* output data array - packed              */
@@ -259,7 +259,7 @@ int msr_pack_float_32
 /************************************************************************
  *  msr_pack_float_64:							*
  *	Pack double data into FLOAT64 format.				*
- *	Return: 0 on success, -1 on failure.				*
+ *	Return: 0 on success, -1 on error.				*
  ************************************************************************/
 int msr_pack_float_64 
  (double   *packed,          /* output data array - packed              */
@@ -305,7 +305,7 @@ int msr_pack_float_64
  *	Pack data into STEIM1 data frames.				*
  *  return:								*
  *	0 on success.							*
- *	negative code on error.		           	         	*
+ *	-1 on error.		           	         	        *
  ************************************************************************/
 int msr_pack_steim1
  (DFRAMES      *dframes,       	/* ptr to data frames                   */
@@ -424,7 +424,7 @@ int msr_pack_steim1
  *	Pack data into STEIM1 data frames.				*
  *  return:								*
  *	0 on success.							*
- *	negative QLIB2 error code on error.				*
+ *	-1 on error.                                                    *
  ************************************************************************/
 int msr_pack_steim2
  (DFRAMES      *dframes,	/* ptr to data frames                   */
@@ -614,8 +614,9 @@ static int pad_steim_frame
 
 /************************************************************************
  *  msr_pack_text:						       	*
- *	Pack text data into text format.				*
- *	Return: 0 on success, -1 on failure.				*
+ *	Pack text data into text format.  Split input data on line	*
+*	breaks so as to not split lines between records.		* 
+*	Return: 0 on success, -1 on error.				*
  ************************************************************************/
 int msr_pack_text
  (char 	       *packed,         /* output data array - packed.		*/
@@ -644,7 +645,7 @@ int msr_pack_text
 	}
       if (last < 0) last = max_bytes - 1;
     }
-
+  
   if (last < 0) last = points_remaining - 1;
   nbytes = last + 1;
   memcpy (packed, data, nbytes);
