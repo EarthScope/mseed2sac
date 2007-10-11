@@ -1,5 +1,6 @@
 2007.284: 1.3
 	- Update to libmseed 2.1.4.
+	- Change src/Makefile to use user defined CFLAGS if specified.
 
 2007.142: 1.2
 	- Update to libmseed 2.1.1.
