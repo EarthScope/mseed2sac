@@ -8,13 +8,16 @@
  *	doug@seismo.berkeley.edu					
  *
  *
+ * modified Aug 2008:
+ *  - Optimize Steim 1 & 2 packing routines using small, re-used buffers.
+ *
  * modified Sep 2004:
  *  - Reworked and cleaned routines for use within libmseed.
  *  - Added float32 and float64 packing routines.
  *
  * Modified by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2007.227
+ * modified: 2008.220
  ************************************************************************/
 
 /*
@@ -100,7 +103,7 @@ static int pad_steim_frame (DFRAMES*, int, int, int, int, int);
    (minbits[i] <= 30))
 
 #define	MINBITS(diff,minbits)					       \
-  if (diff >= -8 && diff < 8) minbits= 4;			       \
+  if (diff >= -8 && diff < 8) minbits = 4;			       \
   else if (diff >= -16 && diff < 16) minbits = 5;		       \
   else if (diff >= -32 && diff < 32) minbits = 6;		       \
   else if (diff >= -128 && diff < 128) minbits = 8;		       \
@@ -114,7 +117,7 @@ static int pad_steim_frame (DFRAMES*, int, int, int, int, int);
     int i = 0;					\
     unsigned int val = 0;			\
     for (i=0;i<n;i++) {				\
-      val = (val<<bits) | (diff[ipt++]&m1);	\
+      val = (val<<bits) | (diff[i]&m1); 	\
     }						\
     val |= ((unsigned int)m2 << 30);		\
     dframes->f[fn].w[wn].fw = val; }
@@ -310,7 +313,7 @@ int msr_pack_float_64
 int msr_pack_steim1
  (DFRAMES      *dframes,       	/* ptr to data frames                   */
   int32_t      *data,		/* ptr to unpacked data array           */
-  int32_t      *diff,		/* ptr to unpacked diff array           */
+  int32_t       d0,		/* first difference value               */
   int		ns,		/* number of samples to pack            */
   int		nf,		/* total number of data frames          */
   int		pad,		/* flag to specify padding to nf        */
@@ -319,72 +322,73 @@ int msr_pack_steim1
   int           swapflag)       /* if data should be swapped            */
 {
   int		points_remaining = ns;
-  int		*minbits;	/* min bytes for difference.		*/
+  int           points_packed = 0;
+  int32_t       diff[4];        /* array of differences                 */
+  uint8_t       minbits[4];     /* array of minimum bits for diffs      */
   int		i, j;
   int		mask;
   int		ipt = 0;	/* index of initial data to pack.	*/
   int		fn = 0;		/* index of initial frame to pack.	*/
   int		wn = 2;		/* index of initial word to pack.	*/
-  int		itmp;
-  short int	stmp;
-  int		nb;		/* number of minbits to compute.	*/
+  int32_t      	itmp;
+  int16_t	stmp;
   
-  nb = STEIM1_FRAME_MAX_SAMPLES * nf;
-  if (nb > points_remaining) nb = points_remaining;
-  
-  minbits = (int *) malloc (nb * sizeof(int));
-  
-  if (minbits == NULL)
+  /* Calculate initial difference and minbits buffers */
+  diff[0] = d0;
+  MINBITS(diff[0],minbits[0]);
+  for (i=1; i < 4 && i < ns; i++)
     {
-      ms_log (2, "msr_pack_steim1(%s): Cannot allocate memory\n",
-	      PACK_SRCNAME);
-      return -1;
+      diff[i] = data[i] - data[i-1];
+      MINBITS(diff[i],minbits[i]);
     }
-  
-  for (i=0; i<nb; i++) MINBITS(diff[i],minbits[i]);
   
   dframes->f[fn].ctrl = 0;
   
-  /* Set new X0 value in first frame */
+  /* Set X0 and XN values in first frame */
   X0 = data[0];
   if ( swapflag ) ms_gswap4 (&X0);
-  dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
+  dframes->f[0].ctrl = (dframes->f[0].ctrl<<2) | STEIM1_SPECIAL_MASK;
   XN = data[ns-1];
   if ( swapflag ) ms_gswap4 (&XN);
-  dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM1_SPECIAL_MASK;
+  dframes->f[0].ctrl = (dframes->f[0].ctrl<<2) | STEIM1_SPECIAL_MASK;
   
   while (points_remaining > 0)
     {
+      points_packed = 0;
+      
       /* Pack the next available data into the most compact form */
-      if (BYTEPACK(ipt,points_remaining))
+      if (BYTEPACK(0,points_remaining))
 	{
 	  mask = STEIM1_BYTE_MASK;
-	  for (j=0; j<4; j++) dframes->f[fn].w[wn].byte[j] = diff[ipt++];
-	  points_remaining -= 4;
+	  for (j=0; j<4; j++) { dframes->f[fn].w[wn].byte[j] = diff[j]; }
+	  points_packed = 4;
 	}
-      else if (HALFPACK(ipt,points_remaining))
+      else if (HALFPACK(0,points_remaining))
 	{
 	  mask = STEIM1_HALFWORD_MASK;
 	  for (j=0; j<2; j++)
 	    {
-	      stmp = diff[ipt++];
+	      stmp = diff[j];
 	      if ( swapflag ) ms_gswap2 (&stmp);
 	      dframes->f[fn].w[wn].hw[j] = stmp;
 	    }
-	  points_remaining -= 2;
+	  points_packed = 2;
 	}
       else
 	{
 	  mask = STEIM1_FULLWORD_MASK;
-	  itmp = diff[ipt++];
+	  itmp = diff[0];
 	  if ( swapflag ) ms_gswap4 (&itmp);
 	  dframes->f[fn].w[wn].fw = itmp;
-	  points_remaining -= 1;
+	  points_packed = 1;
 	}
       
       /* Append mask for this word to current mask */
       dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | mask;
-    
+      
+      points_remaining -= points_packed;
+      ipt += points_packed;
+      
       /* Check for full frame or full block */
       if (++wn >= VALS_PER_FRAME)
 	{
@@ -395,15 +399,29 @@ int msr_pack_steim1
 	  if (++fn >= nf) break;
 	  dframes->f[fn].ctrl = 0;
 	}
+      
+      /* Shift and re-fill difference and minbits buffers */
+      for ( i=points_packed; i < 4; i++ )
+	{
+	  /* Shift remaining buffer entries */
+	  diff[i-points_packed] = diff[i];
+	  minbits[i-points_packed] = minbits[i];
+	}
+      for ( i=4-points_packed,j=ipt+(4-points_packed); i < 4 && j < ns; i++,j++ )
+	{
+	  /* Re-fill entries */
+	  diff[i] = data[j] - data[j-1];
+	  MINBITS(diff[i],minbits[i]);
+	}
     }
   
-  /* Set new XN value in first frame */
+  /* Update XN value in first frame */
   XN = data[(ns-1)-points_remaining];
   if ( swapflag ) ms_gswap4 (&XN);
   
   /* End of data.  Pad current frame and optionally rest of block */
   /* Do not pad and output a completely empty block */
-  if (! EMPTY_BLOCK(fn,wn))
+  if ( ! EMPTY_BLOCK(fn,wn) )
     {
       *pnframes = pad_steim_frame (dframes, fn, wn, nf, swapflag, pad);
     }
@@ -411,9 +429,8 @@ int msr_pack_steim1
     {
       *pnframes = 0;
     }
-
+  
   *pnsamples = ns - points_remaining;
-  free (minbits);
   
   return 0;
 }
@@ -429,7 +446,7 @@ int msr_pack_steim1
 int msr_pack_steim2
  (DFRAMES      *dframes,	/* ptr to data frames                   */
   int32_t      *data,		/* ptr to unpacked data array           */
-  int32_t      *diff,		/* ptr to unpacked diff array           */
+  int32_t       d0,		/* first difference value               */
   int		ns,		/* number of samples to pack            */
   int		nf,		/* total number of data frames to pack  */
   int		pad,		/* flag to specify padding to nf        */
@@ -438,88 +455,86 @@ int msr_pack_steim2
   int           swapflag)       /* if data should be swapped            */
 {
   int		points_remaining = ns;
-  int	       *minbits;	/* min bits for difference.		*/
+  int           points_packed = 0;
+  int32_t       diff[7];        /* array of differences                 */
+  uint8_t       minbits[7];     /* array of minimum bits for diffs      */
   int		i, j;
   int		mask;
   int		ipt = 0;	/* index of initial data to pack.	*/
   int		fn = 0;		/* index of initial frame to pack.	*/
   int		wn = 2;		/* index of initial word to pack.	*/
-  int		nb;		/* number of minbits to compute.	*/
   
-  nb = STEIM2_FRAME_MAX_SAMPLES * nf;
-  if (nb > points_remaining) nb = points_remaining;
-  
-  minbits = (int *) malloc (nb * sizeof(int));
-  
-  if (minbits == NULL)
+  /* Calculate initial difference and minbits buffers */
+  diff[0] = d0;
+  MINBITS(diff[0],minbits[0]);
+  for (i=1; i < 7 && i < ns; i++)
     {
-      ms_log (2, "msr_pack_steim2(%s): Cannot allocate memory\n",
-	      PACK_SRCNAME);
-      return -1;
+      diff[i] = data[i] - data[i-1];
+      MINBITS(diff[i],minbits[i]);
     }
-  
-  for (i=0; i<nb; i++) MINBITS(diff[i],minbits[i]);
   
   dframes->f[fn].ctrl = 0;
   
-  /* Set new X0 value in first frame */
+  /* Set X0 and XN values in first frame */
   X0 = data[0];
   if ( swapflag ) ms_gswap4 (&X0);
-  dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM2_SPECIAL_MASK;
+  dframes->f[0].ctrl = (dframes->f[0].ctrl<<2) | STEIM2_SPECIAL_MASK;
   XN = data[ns-1];
   if ( swapflag ) ms_gswap4 (&XN);
-  dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | STEIM2_SPECIAL_MASK;
+  dframes->f[0].ctrl = (dframes->f[0].ctrl<<2) | STEIM2_SPECIAL_MASK;
   
   while (points_remaining > 0)
     {
+      points_packed = 0;
+      
       /* Pack the next available datapoints into the most compact form */
-      if (BIT4PACK(ipt,points_remaining))
+      if (BIT4PACK(0,points_remaining))
 	{
 	  PACK(4,7,0x0000000f,02)
 	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
-	  points_remaining -= 7;
+	  points_packed = 7;
 	}
-      else if (BIT5PACK(ipt,points_remaining))
+      else if (BIT5PACK(0,points_remaining))
 	{
 	  PACK(5,6,0x0000001f,01)
-	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
+	    if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
-	  points_remaining -= 6;
+	  points_packed = 6;
 	}
-      else if (BIT6PACK(ipt,points_remaining))
+      else if (BIT6PACK(0,points_remaining))
 	{
 	  PACK(6,5,0x0000003f,00)
 	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_567_MASK;
-	  points_remaining -= 5;
+	  points_packed = 5;
 	}
-      else if (BYTEPACK(ipt,points_remaining))
+      else if (BYTEPACK(0,points_remaining))
 	{
 	  mask = STEIM2_BYTE_MASK;
-	  for (j=0; j<4; j++) dframes->f[fn].w[wn].byte[j] = diff[ipt++];
-	  points_remaining -= 4;
+	  for (j=0; j<4; j++) dframes->f[fn].w[wn].byte[j] = diff[j];
+	  points_packed = 4;
 	}
-      else if (BIT10PACK(ipt,points_remaining))
+      else if (BIT10PACK(0,points_remaining))
 	{
 	  PACK(10,3,0x000003ff,03)
 	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
-	  points_remaining -= 3;
+	  points_packed = 3;
 	}
-      else if (BIT15PACK(ipt,points_remaining))
+      else if (BIT15PACK(0,points_remaining))
 	{
 	  PACK(15,2,0x00007fff,02)
 	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
-	  points_remaining -= 2;
+	  points_packed = 2;
 	}
-      else if (BIT30PACK(ipt,points_remaining))
+      else if (BIT30PACK(0,points_remaining))
 	{
 	  PACK(30,1,0x3fffffff,01)
 	  if ( swapflag ) ms_gswap4 (&dframes->f[fn].w[wn].fw);
 	  mask = STEIM2_123_MASK;
-	  points_remaining -= 1;
+	  points_packed = 1;
 	}
       else
 	{
@@ -531,6 +546,9 @@ int msr_pack_steim2
       /* Append mask for this word to current mask */
       dframes->f[fn].ctrl = (dframes->f[fn].ctrl<<2) | mask;
       
+      points_remaining -= points_packed;
+      ipt += points_packed;
+      
       /* Check for full frame or full block */
       if (++wn >= VALS_PER_FRAME)
 	{
@@ -541,15 +559,29 @@ int msr_pack_steim2
 	  if (++fn >= nf) break;
 	  dframes->f[fn].ctrl = 0;
 	}
+      
+      /* Shift and re-fill difference and minbits buffers */
+      for ( i=points_packed; i < 7; i++ )
+	{
+	  /* Shift remaining buffer entries */
+	  diff[i-points_packed] = diff[i];
+	  minbits[i-points_packed] = minbits[i];
+	}
+      for ( i=7-points_packed,j=ipt+(7-points_packed); i < 7 && j < ns; i++,j++ )
+	{
+	  /* Re-fill entries */
+	  diff[i] = data[j] - data[j-1];
+	  MINBITS(diff[i],minbits[i]);
+	}
     }
   
-  /* Set new XN value in first frame */
+  /* Update XN value in first frame */
   XN = data[(ns-1)-points_remaining];
   if ( swapflag ) ms_gswap4 (&XN);
   
   /* End of data.  Pad current frame and optionally rest of block */
   /* Do not pad and output a completely empty block */
-  if (! EMPTY_BLOCK(fn,wn))
+  if ( ! EMPTY_BLOCK(fn,wn) )
     {
       *pnframes = pad_steim_frame (dframes, fn, wn, nf, swapflag, pad);
     }
@@ -559,7 +591,6 @@ int msr_pack_steim2
     }
   
   *pnsamples = ns - points_remaining;
-  free (minbits);
   
   return 0;
 }

@@ -30,12 +30,12 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "2.1.4"
-#define LIBMSEED_RELEASE "2007.228"
+#define LIBMSEED_VERSION "2.1.6"
+#define LIBMSEED_RELEASE "2008.220"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
-
+  
 /* SEED data encoding types */
 #define DE_ASCII       0
 #define DE_INT16       1
@@ -84,7 +84,7 @@ extern "C" {
  * if the memory contains a valid record.
  * 
  * Offset = Value
- * [0-5]  = Digits, SEED sequence number
+ * [0-5]  = Digits or NULL, SEED sequence number
  *     6  = Data record quality indicator
  *     7  = Space or NULL [not valid SEED]
  *     24 = Start hour (0-23)
@@ -94,16 +94,16 @@ extern "C" {
  * Usage:
  *   MS_ISVALIDHEADER ((char *)X)  X buffer must contain at least 27 bytes
  */
-#define MS_ISVALIDHEADER(X) (isdigit ((unsigned char) *(X)) &&              \
-			     isdigit ((unsigned char) *(X+1)) &&            \
-			     isdigit ((unsigned char) *(X+2)) &&            \
-			     isdigit ((unsigned char) *(X+3)) &&            \
-			     isdigit ((unsigned char) *(X+4)) &&            \
-			     isdigit ((unsigned char) *(X+5)) &&            \
-			     MS_ISDATAINDICATOR(*(X+6)) &&                  \
-			     (*(X+7) == ' ' || *(X+7) == '\0') &&           \
-			     (int)(*(X+24)) >= 0 && (int)(*(X+24)) <= 23 && \
-			     (int)(*(X+25)) >= 0 && (int)(*(X+25)) <= 59 && \
+#define MS_ISVALIDHEADER(X) ((isdigit ((unsigned char) *(X)) || !*(X) ) &&     \
+			     (isdigit ((unsigned char) *(X+1)) || !*(X+1) ) && \
+			     (isdigit ((unsigned char) *(X+2)) || !*(X+2) ) && \
+			     (isdigit ((unsigned char) *(X+3)) || !*(X+3) ) && \
+			     (isdigit ((unsigned char) *(X+4)) || !*(X+4) ) && \
+			     (isdigit ((unsigned char) *(X+5)) || !*(X+5) ) && \
+			     MS_ISDATAINDICATOR(*(X+6)) &&                     \
+			     (*(X+7) == ' ' || *(X+7) == '\0') &&              \
+			     (int)(*(X+24)) >= 0 && (int)(*(X+24)) <= 23 &&    \
+			     (int)(*(X+25)) >= 0 && (int)(*(X+25)) <= 59 &&    \
 			     (int)(*(X+26)) >= 0 && (int)(*(X+26)) <= 60)
 
 /* Macro to test memory for a blank/noise SEED data record signature
@@ -111,18 +111,18 @@ extern "C" {
  * to determine if the memory contains a valid blank/noise record.
  * 
  * Offset = Value
- * [0-5]  = Digits, SEED sequence number
+ * [0-5]  = Digits or NULL, SEED sequence number
  * [6-47] = Space character (ASCII 32), remainder of fixed header
  *
  * Usage:
  *   MS_ISVALIDBLANK ((char *)X)  X buffer must contain at least 27 bytes
  */
-#define MS_ISVALIDBLANK(X) (isdigit ((unsigned char) *(X)) &&                 \
-			    isdigit ((unsigned char) *(X+1)) &&		      \
-			    isdigit ((unsigned char) *(X+2)) &&		      \
-			    isdigit ((unsigned char) *(X+3)) &&		      \
-			    isdigit ((unsigned char) *(X+4)) &&		      \
-			    isdigit ((unsigned char) *(X+5)) &&	 	      \
+#define MS_ISVALIDBLANK(X) ((isdigit ((unsigned char) *(X)) || !*(X) ) &&     \
+			    (isdigit ((unsigned char) *(X+1)) || !*(X+1) ) && \
+			    (isdigit ((unsigned char) *(X+2)) || !*(X+2) ) && \
+			    (isdigit ((unsigned char) *(X+3)) || !*(X+3) ) && \
+			    (isdigit ((unsigned char) *(X+4)) || !*(X+4) ) && \
+			    (isdigit ((unsigned char) *(X+5)) || !*(X+5) ) && \
 			    (*(X+6)==' ')&&(*(X+7)==' ')&&(*(X+8)==' ') &&    \
 			    (*(X+9)==' ')&&(*(X+10)==' ')&&(*(X+11)==' ') &&  \
 			    (*(X+12)==' ')&&(*(X+13)==' ')&&(*(X+14)==' ') && \
@@ -570,11 +570,11 @@ typedef struct MSLogParam_s
 
 extern int    ms_log (int level, ...);
 extern int    ms_log_l (MSLogParam *logp, int level, ...);
-extern void   ms_loginit (void (*log_print)(const char*), const char *logprefix,
-			  void (*diag_print)(const char*), const char *errprefix);
+extern void   ms_loginit (void (*log_print)(char*), const char *logprefix,
+			  void (*diag_print)(char*), const char *errprefix);
 extern MSLogParam *ms_loginit_l (MSLogParam *logp,
-			         void (*log_print)(const char*), const char *logprefix,
-			         void (*diag_print)(const char*), const char *errprefix);
+			         void (*log_print)(char*), const char *logprefix,
+			         void (*diag_print)(char*), const char *errprefix);
 
 /* Generic byte swapping routines */
 extern void     ms_gswap2 ( void *data2 );

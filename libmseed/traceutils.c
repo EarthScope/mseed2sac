@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2007.228
+ * modified: 2008.161
  ***************************************************************************/
 
 #include <stdio.h>
@@ -13,6 +13,8 @@
 #include <string.h>
 
 #include "libmseed.h"
+
+static int mst_groupsort_cmp ( MSTrace *mst1, MSTrace *mst2, flag quality );
 
 
 /***************************************************************************
@@ -161,8 +163,8 @@ mst_freegroup ( MSTraceGroup **ppmstg )
 /***************************************************************************
  * mst_findmatch:
  *
- * Traverse the MSTrace chain starting at 'mst' until a MSTrace is
- * found that matches the given name identifiers.  If the dataquality
+ * Traverse the MSTrace chain starting at 'startmst' until a MSTrace
+ * is found that matches the given name identifiers.  If the dataquality
  * byte is not 0 it must also match.
  *
  * Return a pointer a matching MSTrace otherwise 0 if no match found.
@@ -171,6 +173,8 @@ MSTrace *
 mst_findmatch ( MSTrace *startmst, char dataquality,
 		char *network, char *station, char *location, char *channel )
 {
+  int idx;
+  
   if ( ! startmst )
     return 0;
   
@@ -181,15 +185,62 @@ mst_findmatch ( MSTrace *startmst, char dataquality,
 	  startmst = startmst->next;
 	  continue;
 	}
+
+      /* Compare network */
+      idx = 0;
+      while ( network[idx] == startmst->network[idx] )
+	{
+	  if ( network[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( network[idx] != '\0' || startmst->network[idx] != '\0' )
+	{
+	  startmst = startmst->next;
+	  continue;
+	}
+      /* Compare station */
+      idx = 0;
+      while ( station[idx] == startmst->station[idx] )
+	{
+	  if ( station[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( station[idx] != '\0' || startmst->station[idx] != '\0' )
+	{
+	  startmst = startmst->next;
+	  continue;
+	}
+      /* Compare location */
+      idx = 0;
+      while ( location[idx] == startmst->location[idx] )
+	{
+	  if ( location[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( location[idx] != '\0' || startmst->location[idx] != '\0' )
+	{
+	  startmst = startmst->next;
+	  continue;
+	}
+      /* Compare channel */
+      idx = 0;
+      while ( channel[idx] == startmst->channel[idx] )
+	{
+	  if ( channel[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( channel[idx] != '\0' || startmst->channel[idx] != '\0' )
+	{
+	  startmst = startmst->next;
+	  continue;
+	}
       
-      /* Check if this trace matches the record */
-      if ( ! strcmp (network, startmst->network) &&
-	   ! strcmp (station, startmst->station) &&
-	   ! strcmp (location, startmst->location) &&
-	   ! strcmp (channel, startmst->channel) )
-	break;
-      
-      startmst = startmst->next;
+      /* A match was found if we made it this far */
+      break;
     }
   
   return startmst;
@@ -806,108 +857,164 @@ mst_groupheal ( MSTraceGroup *mstg, double timetol, double sampratetol )
 /***************************************************************************
  * mst_groupsort:
  *
- * Sort a MSTraceGroup first on source name, then on start time, then
- * on descending endtime (longest trace first) and finally sample
- * rate.  The "bubble sort" algorithm herein is not terribly
- * efficient.
+ * Sort a MSTraceGroup using a mergesort algorithm.  MSTrace entries
+ * are compared using the mst_groupsort_cmp() function.
+ *
+ * The mergesort implementation was inspired by the listsort function
+ * published and copyright 2001 by Simon Tatham.
  *
  * Return 0 on success and -1 on error.
  ***************************************************************************/
 int
 mst_groupsort ( MSTraceGroup *mstg, flag quality )
 {
-  MSTrace *mst, *pmst;
-  char src1[50], src2[50];
-  int swap;
-  int swapped;
-  int strcmpval;
+  MSTrace *p, *q, *e, *top, *tail;
+  int nmerges;
+  int insize, psize, qsize, i;
   
   if ( ! mstg )
     return -1;
   
   if ( ! mstg->traces )
     return 0;
-
-  /* Bubble sort:
-   * Loop over the MSTrace chain until no more entries are swapped */
-  do
+  
+  top = mstg->traces;
+  insize = 1;
+  
+  for (;;)
     {
-      swapped = 0;
+      p = top;
+      top = NULL;
+      tail = NULL;
       
-      mst = mstg->traces;
-      pmst = mst;
+      nmerges = 0;  /* count number of merges we do in this pass */
       
-      while ( mst->next ) {
-	swap = 0;
-	
-	mst_srcname (mst, src1, quality);
-	mst_srcname (mst->next, src2, quality);
-	
-	strcmpval = strcmp (src1, src2);
-	
-	/* If the source names do not match make sure the "greater" string is 2nd,
-	 * otherwise, if source names do match, make sure the later start time is 2nd
-	 * otherwise, if start times match, make sure the earlier end time is 2nd
-	 * otherwise, if end times match, make sure the highest sample rate is 2nd
-	 */
-	if ( strcmpval > 0 )
-	  {
-	    swap = 1;
-	  }
-	else if ( strcmpval == 0 )
-	  {
-	    if ( mst->starttime > mst->next->starttime )
-	      {
-		swap = 1;
-	      }
-	    else if ( mst->starttime == mst->next->starttime )
-	      {
-		if ( mst->endtime < mst->next->endtime )
-		  {
-		    swap = 1;
-		  }
-		else if ( mst->endtime == mst->next->endtime )
-		  {
-		    if ( ! MS_ISRATETOLERABLE (mst->samprate, mst->next->samprate) &&
-			 mst->samprate > mst->next->samprate )
-		      {
-			swap = 1;
-		      }
-		  }
-	      }
-	  }
-	
-	/* If a swap condition was found swap the entries */
-	if ( swap )
-	  {
-	    swapped++;
-	    
-	    if ( mst == mstg->traces && pmst == mstg->traces )
-	      {
-		mstg->traces = mst->next;
-	      }
-	    else
-	      {
-		pmst->next = mst->next;
-	      }
-	    
-	    pmst = mst->next;
-	    mst->next = mst->next->next;
-	    pmst->next = mst;
-	  }
-	else
-	  {
-	    pmst = mst;
-	    mst = mst->next;
-	  }
-	
-	if ( ! mst )
-	  break;
-      }
-    } while ( swapped );
+      while ( p )
+        {
+          nmerges++;  /* there exists a merge to be done */
+	  
+          /* step `insize' places along from p */
+          q = p;
+          psize = 0;
+          for (i = 0; i < insize; i++)
+            {
+              psize++;
+              q = q->next;
+              if ( ! q )
+                break;
+            }
+          
+          /* if q hasn't fallen off end, we have two lists to merge */
+          qsize = insize;
+	  
+          /* now we have two lists; merge them */
+          while ( psize > 0 || (qsize > 0 && q) )
+            {
+              /* decide whether next element of merge comes from p or q */
+              if ( psize == 0 )
+                {  /* p is empty; e must come from q. */
+                  e = q; q = q->next; qsize--;
+                }
+              else if ( qsize == 0 || ! q )
+                {  /* q is empty; e must come from p. */
+                  e = p; p = p->next; psize--;
+                }
+              else if ( mst_groupsort_cmp (p, q, quality) <= 0 )
+                {  /* First element of p is lower (or same), e must come from p. */
+                  e = p; p = p->next; psize--;
+                }
+              else
+                {  /* First element of q is lower; e must come from q. */
+                  e = q; q = q->next; qsize--;
+                }
+	      
+              /* add the next element to the merged list */
+              if ( tail )
+                tail->next = e;
+              else
+                top = e;
+	      
+              tail = e;
+            }
+	  
+          /* now p has stepped `insize' places along, and q has too */
+          p = q;
+        }
+      
+      tail->next = NULL;
+      
+      /* If we have done only one merge, we're finished. */
+      if ( nmerges <= 1 )   /* allow for nmerges==0, the empty list case */
+        {
+          mstg->traces = top;
+          
+	  return 0;
+        }
+      
+      /* Otherwise repeat, merging lists twice the size */
+      insize *= 2;
+    }
+} /* End of mst_groupsort() */
+
+
+/***************************************************************************
+ * mst_groupsort_cmp:
+ *
+ * Compare two MSTrace entities for the purposes of sorting a
+ * MSTraceGroup.  Criteria for MSTrace comparison are (in order of
+ * testing): source name, start time, descending endtime (longest
+ * trace first) and sample rate.
+ *
+ * Return 1 if mst1 is "greater" than mst2, otherwise return 0.
+ ***************************************************************************/
+static int
+mst_groupsort_cmp ( MSTrace *mst1, MSTrace *mst2, flag quality )
+{
+  char src1[50], src2[50];
+  int strcmpval;
+  
+  if ( ! mst1 || ! mst2 )
+    return -1;
+  
+  mst_srcname (mst1, src1, quality);
+  mst_srcname (mst2, src2, quality);
+  
+  strcmpval = strcmp (src1, src2);
+  
+  /* If the source names do not match make sure the "greater" string is 2nd,
+   * otherwise, if source names do match, make sure the later start time is 2nd
+   * otherwise, if start times match, make sure the earlier end time is 2nd
+   * otherwise, if end times match, make sure the highest sample rate is 2nd
+   */
+  if ( strcmpval > 0 )
+    {
+      return 1;
+    }
+  else if ( strcmpval == 0 )
+    {
+      if ( mst1->starttime > mst2->starttime )
+	{
+	  return 1;
+	}
+      else if ( mst1->starttime == mst2->starttime )
+	{
+	  if ( mst1->endtime < mst2->endtime )
+	    {
+	      return 1;
+	    }
+	  else if ( mst1->endtime == mst2->endtime )
+	    {
+	      if ( ! MS_ISRATETOLERABLE (mst1->samprate, mst2->samprate) &&
+		   mst1->samprate > mst2->samprate )
+		{
+		  return 1;
+		}
+	    }
+	}
+    }
   
   return 0;
-} /* End of mst_groupsort() */
+} /* End of mst_groupsort_cmp() */
 
 
 /***************************************************************************
@@ -924,18 +1031,32 @@ mst_groupsort ( MSTraceGroup *mstg, flag quality )
 char *
 mst_srcname (MSTrace *mst, char *srcname, flag quality)
 {
-  if ( ! mst )
+  char *src = srcname;
+  char *cp = srcname;
+  
+  if ( ! mst || ! srcname )
     return NULL;
   
   /* Build the source name string */
-  if ( quality == 1 && mst->dataquality )
-    sprintf (srcname, "%s_%s_%s_%s_%c",
-	     mst->network, mst->station,
-	     mst->location, mst->channel, mst->dataquality);
-  else
-    sprintf (srcname, "%s_%s_%s_%s",
-	     mst->network, mst->station,
-	     mst->location, mst->channel);
+  cp = mst->network;
+  while ( *cp ) { *src++ = *cp++; }
+  *src++ = '_';
+  cp = mst->station;
+  while ( *cp ) { *src++ = *cp++; }  
+  *src++ = '_';
+  cp = mst->location;
+  while ( *cp ) { *src++ = *cp++; }  
+  *src++ = '_';
+  cp = mst->channel;
+  while ( *cp ) { *src++ = *cp++; }  
+  
+  if ( quality && mst->dataquality )
+    {
+      *src++ = '_';
+      *src++ = mst->dataquality;
+    }
+  
+  *src = '\0';
   
   return srcname;
 } /* End of mst_srcname() */

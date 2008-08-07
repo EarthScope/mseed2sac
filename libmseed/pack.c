@@ -7,7 +7,7 @@
  * Written by Chad Trabant,
  *   IRIS Data Management Center
  *
- * modified: 2007.227
+ * modified: 2008.220
  ***************************************************************************/
 
 #include <stdio.h>
@@ -884,7 +884,7 @@ msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
   int nframes;
   int npacked;
   int32_t *intbuff;
-  int32_t *diffbuff;
+  int32_t d0;
   
   /* Decide if this is a format that we can decode */
   switch (encoding)
@@ -961,13 +961,13 @@ msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
 		  PACK_SRCNAME, sampletype);
 	  return -1;
 	}
-
+      
       if ( verbose > 1 )
 	ms_log (1, "%s: Packing FLOAT-64 data samples\n", PACK_SRCNAME);
-            
+      
       retval = msr_pack_float_64 (dest, src, maxsamples, maxdatabytes, 1,
 				  &npacked, packsamples, swapflag);
-
+      
       break;
       
     case DE_STEIM1:
@@ -980,33 +980,21 @@ msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
       
       intbuff = (int32_t *) src;
       
-      /* Allocate and populate the difference buffer */
-      diffbuff = (int32_t *) malloc (maxsamples * sizeof(int32_t));
-
-      if ( diffbuff == NULL )
-	{
-	  ms_log (2, "msr_pack_data(%s): Cannot allocate diff buffer\n", PACK_SRCNAME);
-	  return -1;
-	}
-      
-      /* If a previous sample is supplied use it for compression history otherwise cold-start */      
-      diffbuff[0] = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
-      for (npacked=1; npacked < maxsamples; npacked++)
-	diffbuff[npacked] = intbuff[npacked] - intbuff[npacked-1];
+      /* If a previous sample is supplied use it for compression history otherwise cold-start */
+      d0 = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
       
       if ( verbose > 1 )
 	ms_log (1, "%s: Packing Steim-1 data frames\n", PACK_SRCNAME);
       
       nframes = maxdatabytes / 64;
       
-      retval = msr_pack_steim1 (dest, src, diffbuff, maxsamples, nframes, 1,
+      retval = msr_pack_steim1 (dest, src, d0, maxsamples, nframes, 1,
 				&npacked, packsamples, swapflag);
       
       /* If a previous sample is supplied update it with the last sample value */
       if ( lastintsample && retval == 0 )
 	*lastintsample = intbuff[*packsamples-1];
       
-      free (diffbuff);
       break;
       
     case DE_STEIM2:
@@ -1019,33 +1007,21 @@ msr_pack_data (void *dest, void *src, int maxsamples, int maxdatabytes,
       
       intbuff = (int32_t *) src;
       
-      /* Allocate and populate the difference buffer */
-      diffbuff = (int32_t *) malloc (maxsamples * sizeof(int32_t));
-      
-      if ( diffbuff == NULL )
-	{
-	  ms_log (2, "msr_pack_data(%s): Cannot allocate diff buffer\n", PACK_SRCNAME);
-	  return -1;
-	}
-      
       /* If a previous sample is supplied use it for compression history otherwise cold-start */
-      diffbuff[0] = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
-      for (npacked=1; npacked < maxsamples; npacked++)
-	diffbuff[npacked] = intbuff[npacked] - intbuff[npacked-1];
+      d0 = ( lastintsample && comphistory ) ? (intbuff[0] - *lastintsample) : 0;
       
       if ( verbose > 1 )
 	ms_log (1, "%s: Packing Steim-2 data frames\n", PACK_SRCNAME);
       
       nframes = maxdatabytes / 64;
       
-      retval = msr_pack_steim2 (dest, src, diffbuff, maxsamples, nframes, 1,
+      retval = msr_pack_steim2 (dest, src, d0, maxsamples, nframes, 1,
 				&npacked, packsamples, swapflag);
       
       /* If a previous sample is supplied update it with the last sample value */
       if ( lastintsample && retval == 0 )
 	*lastintsample = intbuff[*packsamples-1];
       
-      free (diffbuff);
       break;
       
     default:

@@ -3,9 +3,11 @@
  *
  * Generic routines to operate on Mini-SEED records.
  *
- * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
+ * Written by Chad Trabant
+ *   ORFEUS/EC-Project MEREDIAN
+ *   IRIS Data Management Center
  *
- * modified: 2007.228
+ * modified: 2008.161
  ***************************************************************************/
 
 #include <stdio.h>
@@ -623,20 +625,32 @@ msr_endtime (MSRecord *msr)
 char *
 msr_srcname (MSRecord *msr, char *srcname, flag quality)
 {
-  if ( msr == NULL )
+  char *src = srcname;
+  char *cp = srcname;
+  
+  if ( ! msr || ! srcname )
     return NULL;
   
-  /* Build the source name string including the quality indicator*/
-  if ( quality )
-    sprintf (srcname, "%s_%s_%s_%s_%c",
-	     msr->network, msr->station,
-	     msr->location, msr->channel, msr->dataquality);
+  /* Build the source name string */
+  cp = msr->network;
+  while ( *cp ) { *src++ = *cp++; }
+  *src++ = '_';
+  cp = msr->station;
+  while ( *cp ) { *src++ = *cp++; }  
+  *src++ = '_';
+  cp = msr->location;
+  while ( *cp ) { *src++ = *cp++; }  
+  *src++ = '_';
+  cp = msr->channel;
+  while ( *cp ) { *src++ = *cp++; }  
   
-  /* Build the source name string without the quality indicator*/
-  else
-    sprintf (srcname, "%s_%s_%s_%s",
-	     msr->network, msr->station,
-	     msr->location, msr->channel);
+  if ( quality )
+    {
+      *src++ = '_';
+      *src++ = msr->dataquality;
+    }
+  
+  *src = '\0';
   
   return srcname;
 } /* End of msr_srcname() */

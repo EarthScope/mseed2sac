@@ -4,7 +4,7 @@
  *
  * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
  *
- * modified: 2007.027
+ * modified: 2008.161
  ***************************************************************************/
 
 #include <stdio.h>
@@ -870,6 +870,9 @@ ms_readpackinfo (int packtype, FILE *stream)
     {
       return -1;
     }
+
+  /* Make sure header string is NULL terminated */
+  hdrstr[packtypes[packtype][0]] = '\0';
   
   /* Extract next section data size */
   sscanf (&hdrstr[packtypes[packtype][0] - packtypes[packtype][1]], " %d", &datasize);
