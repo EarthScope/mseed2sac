@@ -32,7 +32,7 @@ a different number of bits of representation.  The STEIM decompression
 produces 32-bit integers; likewise the compression routines require
 32-bit integers as input.  The following data encoding formats are
 supported for unpacking only: GEOSCOPE (24-bit, 16/3 and 16/4 gain
-ranged), SRO and DWWSSN.
+ranged), CDSN, SRO and DWWSSN.
 
 .SH DATA RECORDS
 
@@ -185,12 +185,29 @@ oriented state variables.  Memory for this only allocated when needed.
 
 .SH TRACES
 
-In order to manage continuous trace segments the library defines a
-MSTrace data structure and a MSTraceGroup data structure in which MSTrace
-structures can be grouped.  While a MSTrace structure is normally used
-to hold trace information and associated data samples it can also be
-used without data samples as a means to keep trace of data coverage
-without actual samples.
+The library includes two facilities to manage collections of
+continuous trace segments, each represented by their top most
+structure: MSTraceGroup and MSTraceList.  The MSTraceList facility is
+a next generation version of the MSTraceGroup facility.  Whereas the
+MSTraceGroup facility uses a single linked list of time segments the
+MSTraceList facility is slightly more complex with two levels of
+linked lists and common access pointers.  The advantages are that the
+MSTraceList structure is faster to populate, especially when there are
+many segments (gappy data), and the list is always maintained in a
+sorted order.
+
+.SH TRACE LISTS
+
+MSTraceList data structures allow the grouping of MSTraceID structures
+which are themselves the root of MSTraceSeg structures, see libmseed.h
+as a reference to these structures.
+
+.SH TRACE GROUPS
+
+MSTraceGroup data structures allow the grouping of MSTrace structures.
+While a MSTrace structure is normally used to hold trace information
+and associated data samples it can also be used without data samples
+as a means to keep trace of data coverage without actual samples.
 
 Numerous routines are provided for basic management of MSTrace
 structures, including the creation of new MSTrace structures, adding

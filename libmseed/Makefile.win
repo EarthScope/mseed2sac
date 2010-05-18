@@ -23,8 +23,10 @@ OBJS=	fileutils.obj	\
 	pack.obj	\
 	packdata.obj	\
 	traceutils.obj	\
+	tracelist.obj	\
 	unpack.obj	\
 	unpackdata.obj  \
+	selection.obj	\
 	logging.obj
 
 all: lib

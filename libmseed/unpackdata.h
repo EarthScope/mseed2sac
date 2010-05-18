@@ -4,7 +4,7 @@
  * Interface declarations for the Mini-SEED unpacking routines in
  * unpackdata.c
  *
- * modified: 2006.331
+ * modified: 2009.111
  ***************************************************************************/
 
 
@@ -29,6 +29,7 @@ extern int msr_unpack_steim1 (FRAME*, int, int, int, int32_t*, int32_t*,
 extern int msr_unpack_steim2 (FRAME*, int, int, int, int32_t*, int32_t*,
 			      int32_t*, int32_t*, int, int);
 extern int msr_unpack_geoscope (const char*, int, int, float*, int, int);
+extern int msr_unpack_cdsn (int16_t*, int, int, int32_t*, int);
 extern int msr_unpack_sro (int16_t*, int, int, int32_t*, int);
 extern int msr_unpack_dwwssn (int16_t*, int, int, int32_t*, int);
 

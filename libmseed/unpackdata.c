@@ -1,7 +1,7 @@
 /************************************************************************
  *  Routines for unpacking INT_16, INT_32, FLOAT_32, FLOAT_64,
- *  STEIM1, STEIM2, GEOSCOPE (24bit and gain ranged), SRO and
- *  DWWSSN encoded data records.
+ *  STEIM1, STEIM2, GEOSCOPE (24bit and gain ranged), CDSN, SRO
+ *  and DWWSSN encoded data records.
  *
  *  Some routines originated and were borrowed from qlib2 by:
  *
@@ -14,7 +14,7 @@
  *  (previously) ORFEUS/EC-Project MEREDIAN
  *  (currently) IRIS Data Management Center
  *
- *  modified: 2007.023
+ *  modified: 2010.012
  ************************************************************************/
 
 /*
@@ -53,6 +53,7 @@
 #include "unpackdata.h"
 
 #define MAX12 0x7ff         /* maximum 12 bit positive # */
+#define MAX14 0x1fff        /* maximum 14 bit positive # */
 #define MAX16 0x7fff        /* maximum 16 bit positive # */
 #define MAX24 0x7fffff      /* maximum 24 bit positive # */
 
@@ -77,7 +78,7 @@ int msr_unpack_int_16
   int		swapflag)       /* if data should be swapped.	        */
 {
   int		nd = 0;		/* # of data points in packet.		*/
-  uint16_t	stmp;
+  int16_t	stmp;
   
   if (num_samples < 0) return 0;
   if (req_samples < 0) return 0;
@@ -301,7 +302,7 @@ int msr_unpack_steim1
    */
   if ( nd != num_samples )
     {
-      ms_log (2, "msr_unpack_steim1(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
+      ms_log (1, "Warning: msr_unpack_steim1(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
 	      UNPACK_SRCNAME, num_samples, nd);
     }
   
@@ -341,7 +342,7 @@ int msr_unpack_steim1
   /* Verify that the last value is identical to xn = rev. int. constant */
   if (last_data != *pxn)
     {
-      ms_log (2, "%s: Data integrity check for Steim-1 failed, last_data=%d, xn=%d\n",
+      ms_log (1, "%s: Warning: Data integrity check for Steim-1 failed, last_data=%d, xn=%d\n",
 	      UNPACK_SRCNAME, last_data, *pxn);
     }
   
@@ -494,7 +495,7 @@ int msr_unpack_steim2
    */
   if ( nd != num_samples )
     {
-      ms_log (2, "msr_unpack_steim2(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
+      ms_log (1, "Warning: msr_unpack_steim2(%s): number of samples indicated in header (%d) does not equal data (%d)\n",
 	      UNPACK_SRCNAME, num_samples, nd);
     }
 
@@ -534,7 +535,7 @@ int msr_unpack_steim2
   /* Verify that the last value is identical to xn = rev. int. constant */
   if (last_data != *pxn)
     {
-      ms_log (2, "%s: Data integrity check for Steim-2 failed, last_data=%d, xn=%d\n",
+      ms_log (1, "%s: Warning: Data integrity check for Steim-2 failed, last_data=%d, xn=%d\n",
 	      UNPACK_SRCNAME, last_data, *pxn);
     }
   
@@ -666,6 +667,96 @@ int msr_unpack_geoscope
   
   return nd;
 }  /* End of msr_unpack_geoscope() */
+
+
+/* Defines for CDSN encoding */
+#define CDSN_MANTISSA_MASK 0x3fff   /* mask for mantissa */
+#define CDSN_GAINRANGE_MASK 0xc000  /* mask for gainrange factor */
+#define CDSN_SHIFT 14               /* # bits in mantissa */
+
+/************************************************************************
+ *  msr_unpack_cdsn:                                                    *
+ *                                                                      *
+ *  Unpack CDSN gain ranged data encoded miniSEED data and place in     *
+ *  supplied buffer.                                                    *
+ *                                                                      *
+ *  Notes from original rdseed routine:                                 *
+ *  CDSN data are compressed according to the formula                   *
+ *                                                                      *
+ *  sample = M * (2 exp G)                                              *
+ *                                                                      *
+ *  where                                                               *
+ *     sample = seismic data sample                                     *
+ *     M      = mantissa; biased mantissa B is written to tape          *
+ *     G      = exponent of multiplier (i.e. gain range factor);        *
+ *                      key K is written to tape                        *
+ *     exp    = exponentiation operation                                *
+ *     B      = M + 8191, biased mantissa, written to tape              *
+ *     K      = key to multiplier exponent, written to tape             *
+ *                      K may have any of the values 0 - 3, as follows: *
+ *                      0 => G = 0, multiplier = 2 exp 0 = 1            *
+ *                      1 => G = 2, multiplier = 2 exp 2 = 4            *
+ *                      2 => G = 4, multiplier = 2 exp 4 = 16           *
+ *                      3 => G = 7, multiplier = 2 exp 7 = 128          *
+ *     Data are stored on tape in two bytes as follows:                 *
+ *             fedc ba98 7654 3210 = bit number, power of two           *
+ *             KKBB BBBB BBBB BBBB = form of SEED data                  *
+ *             where K = key to multiplier exponent and B = biased mantissa *
+ *                                                                      *
+ *     Masks to recover key to multiplier exponent and biased mantissa  *
+ *     from tape are:                                                   *
+ *             fedc ba98 7654 3210 = bit number = power of two          *
+ *             0011 1111 1111 1111 = 0x3fff     = mask for biased mantissa *
+ *            1100 0000 0000 0000 = 0xc000     = mask for gain range key *
+ *                                                                      *
+ *  Return: # of samples returned.                                      *
+ ************************************************************************/
+int msr_unpack_cdsn
+ (int16_t      *edata,		/* ptr to encoded data.			*/
+  int		num_samples,	/* number of data samples in total.     */
+  int		req_samples,	/* number of data desired by caller.	*/
+  int32_t      *databuff,	/* ptr to unpacked data array.		*/
+  int		swapflag)	/* if data should be swapped.	        */
+{
+  int32_t nd = 0;	/* sample count */
+  int32_t mantissa;	/* mantissa */
+  int32_t gainrange;	/* gain range factor */
+  int32_t mult = -1;    /* multiplier for gain range */
+  uint16_t sint;
+  int32_t sample;
+  
+  if (num_samples < 0) return 0;
+  if (req_samples < 0) return 0;
+  
+  for (nd=0; nd<req_samples && nd<num_samples; nd++)
+    {
+      memcpy (&sint, &edata[nd], sizeof(int16_t));
+      if ( swapflag ) ms_gswap2a(&sint);
+      
+      /* Recover mantissa and gain range factor */
+      mantissa = (sint & CDSN_MANTISSA_MASK);
+      gainrange = (sint & CDSN_GAINRANGE_MASK) >> CDSN_SHIFT;
+      
+      /* Determine multiplier from the gain range factor and format definition
+       * because shift operator is used later, these are powers of two */
+      if ( gainrange == 0 ) mult = 0;
+      else if ( gainrange == 1 ) mult = 2;
+      else if ( gainrange == 2 ) mult = 4;
+      else if ( gainrange == 3 ) mult = 7;
+      
+      /* Unbias the mantissa */
+      mantissa -= MAX14;
+      
+      /* Calculate sample from mantissa and multiplier using left shift
+       * mantissa << mult is equivalent to mantissa * (2 exp (mult)) */
+      sample = (mantissa << mult);
+      
+      /* Save sample in output array */
+      databuff[nd] = sample;
+    }
+  
+  return nd;
+}  /* End of msr_unpack_cdsn() */
 
 
 /* Defines for SRO encoding */

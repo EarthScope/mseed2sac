@@ -1,3 +1,8 @@
+2010.138: 1.5
+	- Update to libmseed 2.5.1.
+	- Add -msi option to convert the component inclination in a supplied
+	metadata file from SEED (dip) to SAC convention by adding 90 degrees.
+
 2008.220: 1.4
 	- Update to libmseed 2.1.6.
 

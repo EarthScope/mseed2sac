@@ -32,7 +32,7 @@ a different number of bits of representation.  The STEIM decompression
 produces 32-bit integers; likewise the compression routines require
 32-bit integers as input.  The following data encoding formats are
 supported for unpacking only: GEOSCOPE (24-bit, 16/3 and 16/4 gain
-ranged), SRO and DWWSSN.
+ranged), CDSN, SRO and DWWSSN.
 
 
  -- Data Records --

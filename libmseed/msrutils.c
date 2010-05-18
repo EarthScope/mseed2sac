@@ -7,7 +7,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2008.161
+ * modified: 2009.175
  ***************************************************************************/
 
 #include <stdio.h>
@@ -16,9 +16,6 @@
 #include <time.h>
 
 #include "libmseed.h"
-
-/* A simple bitwise AND test to return 0 or 1 */
-#define bit(x,y) (x&y)?1:0
 
 
 /***************************************************************************
@@ -213,6 +210,7 @@ msr_addblockette (MSRecord *msr, char *blktdata, int length, int blkttype,
       blkt->next = 0;
     }
   
+  blkt->blktoffset = 0;
   blkt->blkt_type = blkttype;
   blkt->next_blkt = 0;
   
@@ -500,27 +498,10 @@ msr_samprate (MSRecord *msr)
 double
 msr_nomsamprate (MSRecord *msr)
 {
-  double samprate = 0.0;
-  int factor;
-  int multiplier;
-  
   if ( ! msr )
     return -1.0;
   
-  /* Calculate the nominal sample rate */
-  factor = msr->fsdh->samprate_fact;
-  multiplier = msr->fsdh->samprate_mult;
-  
-  if ( factor > 0 )
-    samprate = (double) factor;
-  else if ( factor < 0 )
-    samprate = -1.0 / (double) factor;
-  if ( multiplier > 0 )
-    samprate = samprate * (double) multiplier;
-  else if ( multiplier < 0 )
-    samprate = -1.0 * (samprate / (double) multiplier);
-  
-  return samprate;
+  return ms_nomsamprate (msr->fsdh->samprate_fact, msr->fsdh->samprate_mult);
 } /* End of msr_nomsamprate() */
 
 

@@ -17,7 +17,7 @@
  *
  * Modified by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2008.220
+ * modified: 2009.111
  ************************************************************************/
 
 /*
@@ -667,7 +667,7 @@ int msr_pack_text
   if (points_remaining > max_bytes)
     {
       /* Look for the last newline that will fit in output buffer */
-      for (i=points_remaining-1; i>=0; i--)
+      for (i=max_bytes-1; i>=0; i--)
 	{
 	  if (data[i] == '\n') {
 	    last = i;

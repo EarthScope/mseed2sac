@@ -13,7 +13,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2007.178
+ * modified: 2009.201
  ***************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,11 +83,12 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   char srcname[50];
   
   /* For blockette parsing */
-  BlktLink *blkt_link;
+  BlktLink *blkt_link = 0;
   uint16_t blkt_type;
   uint16_t next_blkt;
   uint32_t blkt_offset;
   uint32_t blkt_length;
+  int blkt_count = 0;
   
   if ( ! ppmsr )
     {
@@ -145,7 +146,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   
   /* Check to see if byte swapping is needed by testing the year */
   if ( (msr->fsdh->start_time.year < 1920) ||
-       (msr->fsdh->start_time.year > 2020) )
+       (msr->fsdh->start_time.year > 2050) )
     headerswapflag = dataswapflag = 1;
   
   /* Check if byte order is forced */
@@ -251,6 +252,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_100 = (struct blkt_100_s *) blkt_link->blktdata;
@@ -273,6 +275,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_200 = (struct blkt_200_s *) blkt_link->blktdata;
@@ -296,6 +299,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_201 = (struct blkt_201_s *) blkt_link->blktdata;
@@ -319,6 +323,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_300 = (struct blkt_300_s *) blkt_link->blktdata;
@@ -343,6 +348,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_310 = (struct blkt_310_s *) blkt_link->blktdata;
@@ -367,6 +373,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_320 = (struct blkt_320_s *) blkt_link->blktdata;
@@ -390,6 +397,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_390 = (struct blkt_390_s *) blkt_link->blktdata;
@@ -412,6 +420,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_395 = (struct blkt_395_s *) blkt_link->blktdata;
@@ -432,6 +441,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_400 = (struct blkt_400_s *) blkt_link->blktdata;
@@ -454,6 +464,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_405 = (struct blkt_405_s *) blkt_link->blktdata;
@@ -480,6 +491,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_500 = (struct blkt_500_s *) blkt_link->blktdata;
@@ -502,6 +514,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 
 	  blkt_1000 = (struct blkt_1000_s *) blkt_link->blktdata;
@@ -528,6 +541,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	}
       
@@ -548,6 +562,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	  if ( ! blkt_link )
 	    break;
 	  
+	  blkt_link->blktoffset = blkt_offset - 4;
 	  blkt_link->next_blkt = next_blkt;
 	  
 	  blkt_2000 = (struct blkt_2000_s *) blkt_link->blktdata;
@@ -571,15 +586,16 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	      if ( ! blkt_link )
 		break;
 	      
+	      blkt_link->blktoffset = blkt_offset - 4;
 	      blkt_link->next_blkt = next_blkt;
 	    }
 	}
       
-      /* Check that the offset increases */
-      if ( next_blkt && next_blkt <= blkt_offset )
+      /* Check that the next blockette offset is beyond the current blockette */
+      if ( next_blkt && next_blkt < (blkt_offset + blkt_length - 4) )
 	{
-	  ms_log (2, "msr_unpack(%s): Offset to next blockette (%d) from type %d did not increase\n",
-		  UNPACK_SRCNAME, next_blkt, blkt_type);
+	  ms_log (2, "msr_unpack(%s): Offset to next blockette (%d) is within current blockette ending at byte %d\n",
+		  UNPACK_SRCNAME, next_blkt, (blkt_offset + blkt_length - 4));
 	  
 	  blkt_offset = 0;
 	}
@@ -595,14 +611,31 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
 	{
 	  blkt_offset = next_blkt;
 	}
+      
+      blkt_count++;
     }  /* End of while looping through blockettes */
   
+  /* Check for a Blockette 1000 */
   if ( msr->Blkt1000 == 0 )
     {
       if ( verbose > 1 )
 	{
 	  ms_log (1, "%s: Warning: No Blockette 1000 found\n", UNPACK_SRCNAME);
 	}
+    }
+  
+  /* Check that the data offset is after the blockette chain */
+  if ( blkt_link && msr->fsdh->numsamples && msr->fsdh->data_offset < (blkt_link->blktoffset + blkt_link->blktdatalen + 4) )
+    {
+      ms_log (1, "%s: Warning: Data offset in fixed header (%d) is within the blockette chain ending at %d\n",
+	      UNPACK_SRCNAME, msr->fsdh->data_offset, (blkt_link->blktoffset + blkt_link->blktdatalen + 4));
+    }
+  
+  /* Check that the blockette count matches the number parsed */
+  if ( msr->fsdh->numblockettes != blkt_count )
+    {
+      ms_log (1, "%s: Warning: Number of blockettes in fixed header (%d) does not match the number parsed (%d)\n",
+	      UNPACK_SRCNAME, msr->fsdh->numblockettes, blkt_count);
     }
   
   /* Populate remaining common header fields */
@@ -728,6 +761,7 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
     case DE_GEOSCOPE24:
     case DE_GEOSCOPE163:
     case DE_GEOSCOPE164:
+    case DE_CDSN:
     case DE_SRO:
     case DE_DWWSSN:
       samplesize = 4; break;
@@ -877,6 +911,15 @@ msr_unpack_data ( MSRecord *msr, int swapflag, int verbose )
       nsamples = msr_unpack_geoscope (dbuf, msr->samplecnt, msr->samplecnt,
 				      msr->datasamples, msr->encoding, swapflag);
       msr->sampletype = 'f';
+      break;
+      
+    case DE_CDSN:
+      if ( verbose > 1 )
+	ms_log (1, "%s: Unpacking CDSN encoded data samples\n", UNPACK_SRCNAME);
+      
+      nsamples = msr_unpack_cdsn ((int16_t *)dbuf, msr->samplecnt, msr->samplecnt,
+				  msr->datasamples, swapflag);
+      msr->sampletype = 'i';
       break;
       
     case DE_SRO:

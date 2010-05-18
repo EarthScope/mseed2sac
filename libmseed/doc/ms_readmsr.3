@@ -1,4 +1,4 @@
-.TH MS_READMSR 3 2007/07/19 "Libmseed API"
+.TH MS_READMSR 3 2008/11/22 "Libmseed API"
 .SH DESCRIPTION
 Read Mini-SEED data from files
 
@@ -18,6 +18,11 @@ Read Mini-SEED data from files
 .BI "                    double " timetol ", double " sampratetol ","
 .BI "                    flag " dataquality ", flag " skipnotdata ","
 .BI "                    flag " dataflag ", flag " verbose " );"
+
+.BI "int \fBms_readtracelist\fP ( MSTraceList **ppmstl, char *" msfile ", int " reclen ", "
+.BI "                       double " timetol ", double " sampratetol ","
+.BI "                       flag " dataquality ", flag " skipnotdata ","
+.BI "                       flag " dataflag ", flag " verbose " );"
 .fi
 
 .SH DESCRIPTION
@@ -48,7 +53,10 @@ valid record length from 256 up to 8192 bytes in length.
 
 If the \fIfpos\fP pointer is not NULL the value will be set to the
 file position (offset from the beginning in bytes) from where the
-returned record was read.
+returned record was read.  As a special case, if \fIfpos\fP is not
+NULL and the value it points to is less than zero it will be
+interpreted as the (positive) offset in the file at which to begin
+reading data; this feauture does not work with packed files.
 
 If the \fIlast\fP pointer is not NULL the value will be set to 1 when
 the last record in the file is being returned, otherwise it will be 0.
@@ -71,18 +79,19 @@ Properly coded applications should reset the function when the end of
 file has been reached as described above and not rely on this
 behavior.
 
-\fBms_readtraces\fP simply reads all Mini-SEED records from a file
-using \fBms_readmsr_r\fP and adds each one to a MSTraceGroup using
-\fBmst_addmsrtogroup(3)\fP.  The \fImsfile\fP, \fIreclen\fP,
-\fIskipnotdata\fP and \fIdataflag\fP arguments are passed directly to
-\fBms_readmsr_r\fP.  The \fItimetol\fP, \fIsampratetol\fP and
-\fIdataquality\fP arguments are passed directly to
-\fBmst_addmsrtogroup(3)\fP.  If the MSTraceGroup struct at
-\fI*ppmstg\fP has not been initialized it must be set to NULL and it
-will be initialize it automatically.  The MSTraceGroup struct at
-\fI*ppmstg\fP may already contain entries before \fBms_readtraces\fP
-is called, in this case the MSTraceGroup is extended.
-\fBms_readtraces\fP is thread safe.
+The \fBms_readtraces\fP and \fBms_readtracelist\fP routines read all
+Mini-SEED records from a file using \fBms_readmsr_r\fP and adds each
+one to either a MSTraceGroup or MSTraceList using
+\fBmst_addmsrtogroup(3)\fP and \fBmstl_addmsr(3)\fP respectively.  The
+\fImsfile\fP, \fIreclen\fP, \fIskipnotdata\fP and \fIdataflag\fP
+arguments are passed directly to \fBms_readmsr_r\fP.  The
+\fItimetol\fP, \fIsampratetol\fP and \fIdataquality\fP arguments are
+passed directly to \fBmst_addmsrtogroup(3)\fP or \fBmstl_addmsr(3)\fP.
+If the pointer to the MSTraceGroup or MSTraceList struct has not been
+initialized it must be set to NULL and it will be initialize
+automatically.  The MSTraceGroup or MSTraceList structures may already
+contain entries and will be added to by these routines.  These
+routines are thread safe.
 
 .SH RETURN VALUES
 On the sucessful read and parsing of a record \fBms_readmsr\fP and
@@ -91,16 +100,17 @@ at \fI*ppmsr\fP.  Upon reaching the end of the input file these
 routines return MS_ENDOFFILE.  On error these routines return a
 libmseed error code (defined in libmseed.h)
 
-On the sucessful read and parsing of a file \fBms_readtraces\fP
-returns MS_NOERROR and populates the MSTraceGroup struct at
-\fI*ppmstg\fP.  On error \fBms_readtraces\fP returns a libmseed error
-code (defined in libmseed.h)
+On the sucessful read and parsing of a file \fBms_readtraces\fP and
+\fBms_readtracelist\fP return MS_NOERROR and populate the MSTraceGroup
+or MSTraceList struct.  On error these routines return a libmseed
+error code (defined in libmseed.h)
 
 .SH PACKED FILES
-\fBms_readmsr\fP and \fBms_readtraces\fP will read packed Mini-SEED
-files, but only when the record length is being autodetected.  Packed
-Mini-SEED is the indexed archive format used internally at the IRIS
-Data Management Center and probably not used anywhere else.
+\fBms_readmsr\fP, \fBms_readtraces\fP and \fBms_readtracelist\fP will
+read packed Mini-SEED files, but only when the record length is being
+autodetected.  Packed Mini-SEED is the indexed archive format used
+internally at the IRIS Data Management Center and probably not used
+anywhere else.
 
 .SH EXAMPLE
 Skeleton code for reading a file with \fBms_readmsr(3)\fP:
@@ -149,35 +159,35 @@ For reading a file with \fBms_readtraces(3)\fP:
 .nf
 
 main() {
-  MSTraceGroup *mstg = NULL;
+  MSTraceList *mstl = NULL;
   int retcode;
 
-  retcode = ms_readtraces (&mstg, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = ms_readtracelist (&mstl, filename, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( retcode != MS_NOERROR )
     ms_log (2, "Error reading input file %s: %s\\n", filename, ms_errorstr(retcode));
 
-  retcode = ms_readtraces (&mstg, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
+  retcode = ms_readtracelist (&mstl, filename2, 0, -1.0, -1.0, 0, 1, 0, verbose);
 
   if ( retcode != MS_NOERROR )
     ms_log (2, "Error reading input file %s: %s\\n", filename2, ms_errorstr(retcode));
 
-  if ( ! mstg )
+  if ( ! mstl )
     {
       ms_log (2, "Error reading file\\n");
       return -1;
     }
 
   /* Do something with the traces here, e.g. print */
-  mst_printtracelist (mstg, 0, verbose, 0);
+  mstl_printtracelist (mstl, 0, verbose, 0);
 
-  mst_freegroup (&mstg);
+  mstl_free (&mstl);
 }
 .fi
 
 .SH SEE ALSO
 \fBms_intro(3)\fP, \fBmsr_unpack(3)\fP, \fBmst_addmsrtogroup(3)\fP,
-\fBms_log(3)\fP and \fBms_errorstr(3)\fP.
+\fBmstl_addmsr(3)\fP, \fBms_log(3)\fP and \fBms_errorstr(3)\fP.
 
 .SH AUTHOR
 .nf

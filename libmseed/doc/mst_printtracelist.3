@@ -1,4 +1,4 @@
-.TH MST_PRINT 3 2007/03/24 "Libmseed API"
+.TH MST_PRINT 3 2008/11/21 "Libmseed API"
 .SH DESCRIPTION
 Printing of MSTrace information.
 
@@ -6,11 +6,14 @@ Printing of MSTrace information.
 .nf
 .B #include <libmseed.h>
 
-.BI "void   \fBmst_printtracelist\fP ( MSTraceGroup *" mstg ", flag " timeformat ",
-.BI "                            flag " details ", flag " gaps " );
+.BI "void   \fBmst_printtracelist\fP ( MSTraceGroup *" mstg ", flag " timeformat ","
+.BI "                            flag " details ", flag " gaps " );"
 
-.BI "void   \fBmst_printgaplist\fP ( MSTraceGroup *" msgt ", flag " timeformat ",
-.BI "                          double *" mingap ", double *" maxgap " );
+.BI "void   \fBmst_printsynclist\fP ( MSTraceGroup *" mstg ", char *" dccid ","
+.BI "                           flag " subsecond " );"
+
+.BI "void   \fBmst_printgaplist\fP ( MSTraceGroup *" mstg ", flag " timeformat ","
+.BI "                          double *" mingap ", double *" maxgap " );"
 .fi
 
 .SH DESCRIPTION
@@ -21,8 +24,16 @@ trace.  If the \fIgaps\fP flag is greater than zero the time gap from
 the previous MSTrace (if the source name matches) is printed.  All
 output is printed using \fBms_log(3)\fP at level 0.
 
+\fBmst_printsynclist\fP prints a formatted list of the MSTrace
+segments in the given MSTraceGroup similar to \fBmst_printtracelist\fP
+but the format is a SYNC listing.  If a \fIdccid\fP string is supplied
+it will be used along with the current system date to create the SYNC
+header line.  If the \fIsubsecond\fP flag is true (non-zero) the time
+values in the SYNC lines will include full libmseed precision,
+otherwise they will be truncted to integer second values.
+
 \fBmst_printgaplist\fP prints a formatted list of the gaps between
-MSTrace segments in the given MSTraceGroup to stdout.  If \fImingap\fP or
+MSTrace segments in the given MSTraceGroup.  If \fImingap\fP or
 \fImaxgap\fP is not NULL their values will be enforced and only
 gaps/overlaps matching their implied criteria will be printed.
 

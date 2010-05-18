@@ -5,12 +5,13 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2008.161
+ * modified: 2008.320
  ***************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "libmseed.h"
 
@@ -277,17 +278,67 @@ mst_findadjacent ( MSTraceGroup *mstg, flag *whence, char dataquality,
 		   hptime_t starttime, hptime_t endtime, double timetol )
 {
   MSTrace *mst = 0;
-  double pregap, postgap, delta;
+  hptime_t pregap;
+  hptime_t postgap;
+  hptime_t hpdelta;
+  hptime_t hptimetol = 0;
+  hptime_t nhptimetol = 0;
+  int idx;
   
   if ( ! mstg )
     return 0;
   
   *whence = 0;
   
+  /* Calculate high-precision sample period */
+  hpdelta = ( samprate ) ? (HPTMODULUS / samprate) : 0.0;
+  
+  /* Calculate high-precision time tolerance */
+  if ( timetol == -1.0 )
+    hptimetol = 0.5 * hpdelta;   /* Default time tolerance is 1/2 sample period */
+  else if ( timetol >= 0.0 )
+    hptimetol = (hptime_t) (timetol * HPTMODULUS);
+  
+  nhptimetol = ( hptimetol ) ? -hptimetol : 0;
+  
   mst = mstg->traces;
   
-  while ( (mst = mst_findmatch (mst, dataquality, network, station, location, channel)) )
+  while ( mst )
     {
+      /* post/pregap are negative when the record overlaps the trace
+       * segment and positive when there is a time gap. */
+      postgap = starttime - mst->endtime - hpdelta;
+      
+      pregap = mst->starttime - endtime - hpdelta;
+      
+      /* If not checking the time tolerance decide if beginning or end is a better fit */
+      if ( timetol == -2.0 )
+	{
+	  if ( ms_dabs(postgap) < ms_dabs(pregap) )
+	    *whence = 1;
+	  else
+	    *whence = 2;
+	}
+      else
+	{
+	  if ( postgap <= hptimetol && postgap >= nhptimetol )
+	    {
+              /* Span fits right at the end of the trace */
+	      *whence = 1;
+	    }
+	  else if ( pregap <= hptimetol && pregap >= nhptimetol )
+	    {
+              /* Span fits right at the beginning of the trace */
+	      *whence = 2;
+	    }
+          else
+            {
+	      /* Span does not fit with this Trace */
+	      mst = mst->next;
+	      continue;
+            }
+	}
+      
       /* Perform samprate tolerance check if requested */
       if ( sampratetol != -2.0 )
 	{ 
@@ -307,47 +358,71 @@ mst_findadjacent ( MSTraceGroup *mstg, flag *whence, char dataquality,
 	      continue;
 	    }
 	}
-      
-      /* post/pregap are negative when the record overlaps the trace
-       * segment and positive when there is a time gap.
-       */
-      delta = ( samprate ) ? (1.0 / samprate) : 0.0;
-      
-      postgap = ((double)(starttime - mst->endtime)/HPTMODULUS) - delta;
-      
-      pregap = ((double)(mst->starttime - endtime)/HPTMODULUS) - delta;
-      
-      /* If not checking the time tolerance decide if beginning or end is a better fit */
-      if ( timetol == -2.0 )
+
+       /* Compare data qualities */
+       if ( dataquality && dataquality != mst->dataquality )
 	{
-	  if ( ms_dabs(postgap) < ms_dabs(pregap) )
-	    *whence = 1;
-	  else
-	    *whence = 2;
-	  
-	  break;
+	  mst = mst->next;
+	  continue;
 	}
-      else
+
+      /* Compare network */
+      idx = 0;
+      while ( network[idx] == mst->network[idx] )
 	{
-	  /* Calculate default time tolerance (1/2 sample period) if needed */
-	  if ( timetol == -1.0 )
-	    timetol = 0.5 * delta;
-	  
-	  if ( ms_dabs(postgap) <= timetol ) /* Span fits right at the end of the trace */
-	    {
-	      *whence = 1;
-	      break;
-	    }
-	  else if ( ms_dabs(pregap) <= timetol ) /* Span fits right at the beginning of the trace */
-	    {
-	      *whence = 2;
-	      break;
-	    }
+	  if ( network[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( network[idx] != '\0' || mst->network[idx] != '\0' )
+	{
+	  mst = mst->next;
+	  continue;
+	}
+      /* Compare station */
+      idx = 0;
+      while ( station[idx] == mst->station[idx] )
+	{
+	  if ( station[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( station[idx] != '\0' || mst->station[idx] != '\0' )
+	{
+	  mst = mst->next;
+	  continue;
+	}
+      /* Compare location */
+      idx = 0;
+      while ( location[idx] == mst->location[idx] )
+	{
+	  if ( location[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( location[idx] != '\0' || mst->location[idx] != '\0' )
+	{
+	  mst = mst->next;
+	  continue;
+	}
+      /* Compare channel */
+      idx = 0;
+      while ( channel[idx] == mst->channel[idx] )
+	{
+	  if ( channel[idx] == '\0' )
+	    break;
+	  idx++;
+	}
+      if ( channel[idx] != '\0' || mst->channel[idx] != '\0' )
+	{
+	  mst = mst->next;
+	  continue;
 	}
       
-      mst = mst->next;
+      /* A match was found if we made it this far */
+      break;
     }
-  
+ 
   return mst;
 } /* End of mst_findadjacent() */
 
@@ -1205,9 +1280,63 @@ mst_printtracelist ( MSTraceGroup *mstg, flag timeformat,
     ms_log (2, "mst_printtracelist(): number of traces in trace group is inconsistent\n");
   
   if ( details > 0 )
-    ms_log (0, "Total: %d trace(s)\n", tracecnt);
+    ms_log (0, "Total: %d trace segment(s)\n", tracecnt);
   
 }  /* End of mst_printtracelist() */
+
+
+/***************************************************************************
+ * mst_printsynclist:
+ *
+ * Print SYNC trace list summary information for the specified MSTraceGroup.
+ *
+ * The SYNC header line will be created using the supplied dccid, if
+ * the pointer is NULL the string "DCC" will be used instead.
+ *
+ * If the subsecond flag is true the segment start and end times will
+ * include subsecond precision, otherwise they will be truncated to
+ * integer seconds.
+ *
+ ***************************************************************************/
+void
+mst_printsynclist ( MSTraceGroup *mstg, char *dccid, flag subsecond )
+{
+  MSTrace *mst = 0;
+  char stime[30];
+  char etime[30];
+  char yearday[10];
+  time_t now;
+  struct tm *nt;
+  
+  if ( ! mstg )
+    {
+      return;
+    }
+  
+  /* Generate current time stamp */
+  now = time (NULL);
+  nt = localtime ( &now ); nt->tm_year += 1900; nt->tm_yday += 1;
+  snprintf ( yearday, sizeof(yearday), "%04d,%03d", nt->tm_year, nt->tm_yday);
+  
+  /* Print SYNC header line */
+  ms_log (0, "%s|%s\n", (dccid)?dccid:"DCC", yearday);
+  
+  /* Loope through trace list */
+  mst = mstg->traces;
+  while ( mst )
+    {
+      ms_hptime2seedtimestr (mst->starttime, stime, subsecond);
+      ms_hptime2seedtimestr (mst->endtime, etime, subsecond);
+      
+      /* Print SYNC line */
+      ms_log (0, "%s|%s|%s|%s|%s|%s||%.2g|%d|||||||%s\n",
+	      mst->network, mst->station, mst->location, mst->channel,
+	      stime, etime, mst->samprate, mst->samplecnt,
+	      yearday);
+      
+      mst = mst->next;
+    }
+}  /* End of mst_printsynclist() */
 
 
 /***************************************************************************

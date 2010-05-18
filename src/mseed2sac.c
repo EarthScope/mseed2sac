@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2007.142
+ * modified 2010.138
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.4"
+#define VERSION "1.5"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -76,6 +76,7 @@ struct listnode *filelist = 0;
 
 /* A list of station and coordinates */
 struct listnode *metadata = 0;
+static int seedinc = 0;
 
 int
 main (int argc, char **argv)
@@ -252,7 +253,7 @@ writesac (MSTrace *mst)
 	  sh.baz = (float) backazimuth;
 	  sh.gcarc = (float) delta;
 	  sh.dist = (float) dist;
-
+	  
 	  if ( verbose )
 	    fprintf (stderr, "Inserting variables: AZ: %g, BAZ: %g, GCARC: %g, DIST: %g\n",
 		     sh.az, sh.baz, sh.gcarc, sh.dist);
@@ -595,7 +596,10 @@ insertmetadata (struct SACHeader *sh)
 	  if ( metafields[7] ) sh->stel = (float) strtod (metafields[7], &endptr);
 	  if ( metafields[8] ) sh->stdp = (float) strtod (metafields[8], &endptr);
 	  if ( metafields[9] ) sh->cmpaz = (float) strtod (metafields[9], &endptr);
-	  if ( metafields[10] ) sh->cmpinc = (float) strtod (metafields[10], &endptr);
+	  if ( metafields[10] ) {
+	    sh->cmpinc = (float) strtod (metafields[10], &endptr);
+	    if ( seedinc ) sh->cmpinc += 90;
+	  }
 	  if ( metafields[11] ) strncpy (sh->kinst, metafields[11], 8);
 	  
 	  break;
@@ -742,6 +746,10 @@ parameter_proc (int argcount, char **argvec)
       else if (strcmp (argvec[optind], "-m") == 0)
 	{
 	  metafile = getoptval(argcount, argvec, optind++, 0);
+	}
+      else if (strcmp (argvec[optind], "-msi") == 0)
+	{
+	  seedinc = 1;
 	}
       else if (strcmp (argvec[optind], "-E") == 0)
 	{
@@ -1282,6 +1290,7 @@ usage (void)
 	   " -i             Process each input file individually instead of merged\n"
 	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
 	   " -m metafile    File containing station metadata (coordinates, etc.)\n"
+	   " -msi           Convert component inclination/dip from SEED to SAC convention\n"
 	   " -E event       Specify event parameters as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"

@@ -30,8 +30,10 @@ OBJS=	fileutils.obj	&
 	pack.obj	&
 	packdata.obj	&
 	traceutils.obj	&
+	tracelist.obj	&
 	unpack.obj	&
 	unpackdata.obj  &
+	selection.obj	&
 	logging.obj
 
 all: lib
@@ -52,6 +54,7 @@ msrutils.obj:	msrutils.c libmseed.h
 pack.obj:	pack.c libmseed.h packdata.h steimdata.h
 packdata.obj:	packdata.c libmseed.h packdata.h steimdata.h
 traceutils.obj:	traceutils.c libmseed.h
+tracelist.obj:	tracelist.c libmseed.h
 unpack.obj:	unpack.c libmseed.h unpackdata.h steimdata.h
 unpackdata.obj:	unpackdata.c libmseed.h unpackdata.h steimdata.h
 logging.obj:	logging.c libmseed.h
