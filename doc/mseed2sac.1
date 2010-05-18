@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2007/05/22
+.TH MSEED2SAC 1 2010/05/18
 .SH NAME
 Mini-SEED to SAC converter
 
@@ -84,6 +84,10 @@ Specify a file containing metadata such as scaling factor,
 coordinates, elevation, component orientation, etc.  For each
 time-series written any matching metadata will be added to the SAC
 header.  see \fIMETADATA FILES\fP below.
+
+.IP "-msi       "
+Convert any component inclination values in a metadata file from SEED
+(dip) to SAC convention, this is a simple matter of adding 90 degrees.
 
 .IP "-E \fIevent\fP"
 Specify event parameters to add to the SAC file in the following
