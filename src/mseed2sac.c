@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2010.138
+ * modified 2010.305
  ***************************************************************************/
 
 #include <stdio.h>
@@ -230,8 +230,7 @@ writesac (MSTrace *mst)
   
   /* Set event parameters */
   if ( eventtime )
-    sh.o = (float) ( MS_HPTIME2EPOCH(eventtime) - 
-		     MS_HPTIME2EPOCH(mst->starttime) );
+    sh.o = (float) MS_HPTIME2EPOCH((eventtime - mst->starttime));
   if ( eventlat != DUNDEF )
     sh.evla = (float) eventlat;
   if ( eventlon != DUNDEF )
@@ -260,7 +259,7 @@ writesac (MSTrace *mst)
 	}
     }
   
-  /* Set start time */
+  /* Set reference time */
   ms_hptime2btime (mst->starttime, &btime);
   sh.nzyear = btime.year;
   sh.nzjday = btime.day;
