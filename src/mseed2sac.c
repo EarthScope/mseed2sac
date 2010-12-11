@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2010.305
+ * modified 2010.343
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,14 +19,14 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.5"
+#define VERSION "1.6"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
 #define DUNDEF -999.0
 
 /* Maximum number of metadata fields per line */
-#define MAXMETAFIELDS 12
+#define MAXMETAFIELDS 17
 
 /* Macro to test floating point number equality within 10 decimal places */
 #define FLTEQUAL(F1,F2) (fabs(F1-F2) < 1.0E-10 * (fabs(F1) + fabs(F2) + 1.0))
@@ -531,14 +531,19 @@ swapsacheader (struct SACHeader *sh)
  *  1:  Station (kstnm)
  *  2:  Location (khole)
  *  3:  Channel (kcmpnm)
- *  4:  Scale Factor (scale)
- *  5:  Latitude (stla)
- *  6:  Longitude (stlo)
- *  7:  Elevation (stel) [not currently used by SAC]
- *  8:  Depth (stdp) [not currently used by SAC]
- *  9:  Component Azimuth (cmpaz), degrees clockwise from north
- *  10: Component Incident Angle (cmpinc), degrees from vertical
- *  11: Instrument Name (kinst)
+ *  4:  Latitude (stla)
+ *  5:  Longitude (stlo)
+ *  6:  Elevation (stel) [not currently used by SAC]
+ *  7:  Depth (stdp) [not currently used by SAC]
+ *  8:  Component Azimuth (cmpaz), degrees clockwise from north
+ *  9:  Component Incident Angle (cmpinc), degrees from vertical
+ *  10: Instrument Name (kinst)
+ *  11: Scale Factor (scale)
+ *  12: Scale Frequency, unused
+ *  13: Scale Units, unused
+ *  14: Sampling rate, unused
+ *  15: Start time, used for matching
+ *  16: End time, used for matching
  *
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
@@ -578,28 +583,33 @@ insertmetadata (struct SACHeader *sh)
 	{
 	  fprintf (stderr, "insertmetadata(): error, source name fields not all present\n");
 	}
-      /* Test if network, station, location and channel match; also handle simple wildcards */
+      /* Test if network, station, location and channel; also handle simple wildcards */
       else if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
 		( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
 		( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
 		( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
 	{
+	  if ( metafields[15] ) 
+ 
+	  CHAD  and time window match
+
 	  if ( verbose )
-	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s'\n",
-		     sacnetwork, sacstation, saclocation, sacchannel);
+	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s' (%s - %s)\n",
+		     sacnetwork, sacstation, saclocation, sacchannel,
+		     (metafields[15])?metafields[15]:"NONE",  (metafields[16])?metafields[16]:"NONE");
 	  
 	  /* Insert metadata into SAC header */
-	  if ( metafields[4] ) sh->scale = (float) strtod (metafields[4], &endptr);
-	  if ( metafields[5] ) sh->stla = (float) strtod (metafields[5], &endptr);
-	  if ( metafields[6] ) sh->stlo = (float) strtod (metafields[6], &endptr);
-	  if ( metafields[7] ) sh->stel = (float) strtod (metafields[7], &endptr);
-	  if ( metafields[8] ) sh->stdp = (float) strtod (metafields[8], &endptr);
-	  if ( metafields[9] ) sh->cmpaz = (float) strtod (metafields[9], &endptr);
-	  if ( metafields[10] ) {
-	    sh->cmpinc = (float) strtod (metafields[10], &endptr);
+	  if ( metafields[4] ) sh->stla = (float) strtod (metafields[4], &endptr);
+	  if ( metafields[5] ) sh->stlo = (float) strtod (metafields[5], &endptr);
+	  if ( metafields[6] ) sh->stel = (float) strtod (metafields[6], &endptr);
+	  if ( metafields[7] ) sh->stdp = (float) strtod (metafields[7], &endptr);
+	  if ( metafields[8] ) sh->cmpaz = (float) strtod (metafields[8], &endptr);
+	  if ( metafields[9] ) {
+	    sh->cmpinc = (float) strtod (metafields[9], &endptr);
 	    if ( seedinc ) sh->cmpinc += 90;
 	  }
-	  if ( metafields[11] ) strncpy (sh->kinst, metafields[11], 8);
+	  if ( metafields[10] ) strncpy (sh->kinst, metafields[10], 8);
+	  if ( metafields[11] ) sh->scale = (float) strtod (metafields[11], &endptr);
 	  
 	  break;
 	}
@@ -1091,18 +1101,24 @@ readlistfile (char *listfile)
  * Read a file of metadata into a structured list, each line should
  * contain the following fields comma-separated in this order:
  *
+ * The metadata list should be populated with an array of pointers to:
  *  0:  Network (knetwk)
  *  1:  Station (kstnm)
  *  2:  Location (khole)
  *  3:  Channel (kcmpnm)
- *  4:  Scale Factor (scale)
- *  5:  Latitude (stla)
- *  6:  Longitude (stlo)
- *  7:  Elevation (stel) [not currently used by SAC]
- *  8:  Depth (stdp) [not currently used by SAC]
- *  9:  Component Azimuth (cmpaz), degrees clockwise from north
- *  10: Component Incident Angle (cmpinc), degrees from vertical
- *  11: Instrument Name (kinst)
+ *  4:  Latitude (stla)
+ *  5:  Longitude (stlo)
+ *  6:  Elevation (stel) [not currently used by SAC]
+ *  7:  Depth (stdp) [not currently used by SAC]
+ *  8:  Component Azimuth (cmpaz), degrees clockwise from north
+ *  9:  Component Incident Angle (cmpinc), degrees from vertical
+ *  10: Instrument Name (kinst)
+ *  11: Scale Factor (scale)
+ *  12: Scale Frequency, unused
+ *  13: Scale Units, unused
+ *  14: Sampling rate, unused
+ *  15: Start time, used for matching
+ *  16: End time, used for matching
  *
  * Any lines not containing at least 3 commas are skipped.  If fields
  * are not specified the values are set to NULL with the execption
