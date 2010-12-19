@@ -1,4 +1,4 @@
-2010.343: 1.6
+2010.352: 1.6
 	- Change format of metadata file and include new fields. A time
 	window can now be specified in the metadata file and is used to
 	match with appropriate data segments.

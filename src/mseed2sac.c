@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2010.343
+ * modified 2010.352
  ***************************************************************************/
 
 #include <stdio.h>
@@ -43,7 +43,7 @@ static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
 static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
 			  char *outfile);
 static int swapsacheader (struct SACHeader *sh);
-static int insertmetadata (struct SACHeader *sh);
+static int insertmetadata (struct SACHeader *sh, hptime_t sacstarttime);
 static int delaz (double lat1, double lon1, double lat2, double lon2,
 		  double *delta, double *dist, double *azimuth, double *backazimuth);
 static int parameter_proc (int argcount, char **argvec);
@@ -222,7 +222,7 @@ writesac (MSTrace *mst)
   
   /* Insert metadata */
   if ( metadata )
-    insertmetadata (&sh);
+    insertmetadata (&sh, mst->starttime);
   
   /* Set station coordinates specified on command line */
   if ( latitude != DUNDEF ) sh.stla = latitude;
@@ -548,7 +548,7 @@ swapsacheader (struct SACHeader *sh)
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
 static int
-insertmetadata (struct SACHeader *sh)
+insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
 {
   struct listnode *mlp = metadata;
   char *metafields[MAXMETAFIELDS];
@@ -558,6 +558,10 @@ insertmetadata (struct SACHeader *sh)
   char sacstation[9];
   char saclocation[9];
   char sacchannel[9];
+
+  hptime_t sacendtime;
+  hptime_t metastarttime = HPTERROR;
+  hptime_t metaendtime = HPTERROR;
   
   if ( ! mlp || ! sh )
     return -1;
@@ -572,6 +576,9 @@ insertmetadata (struct SACHeader *sh)
   else { saclocation[0] = '-'; saclocation[1] = '-'; saclocation[2] = '\0'; }
   if ( strncmp (sh->kcmpnm, SUNDEF, 8) ) ms_strncpclean (sacchannel, sh->kcmpnm, 8);
   else sacchannel[0] = '\0';
+  
+  /* Calculate end time of SAC data */
+  sacendtime = ((sh->npts - 1) * sh->delta) * HPTMODULUS;
   
   while ( mlp )
     {
@@ -589,10 +596,51 @@ insertmetadata (struct SACHeader *sh)
 		( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
 		( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
 	{
-	  if ( metafields[15] ) 
- 
-	  CHAD  and time window match
-
+	  /* Check time window match */
+	  if ( metafields[15] || metafields[16] )
+	    {
+	      /* Convert metadata start/end time strings */
+	      if ( metafields[15] && (metastarttime = ms_timestr2hptime (metafields[15])) == HPTERROR )
+		{
+		  fprintf (stderr, "insertmetadata(): error, cannot parse start time: '%s'\n", metafields[15]);
+		  return -1;
+		}
+	      
+	      if ( metafields[16] && (metaendtime = ms_timestr2hptime (metafields[16])) == HPTERROR )
+		{
+		  fprintf (stderr, "insertmetadata(): error, cannot parse end time: '%s'\n", metafields[16]);
+		  return -1;
+		}
+	      
+	      /* Check for overlap with metadata window */
+	      if ( metastarttime != HPTERROR && metaendtime != HPTERROR )
+		{
+		  if ( ! (sacendtime >= metastarttime && sacstarttime <= metaendtime) )
+		    {
+		      mlp = mlp->next;
+		      continue;
+		    }
+		}
+	      /* Check if data after start time */
+	      else if ( metastarttime != HPTERROR )
+		{
+		  if ( sacendtime < metastarttime )
+		    {
+		      mlp = mlp->next;
+		      continue;
+		    }
+		}
+	      /* Check if data before end time */
+	      else if ( metaendtime != HPTERROR )
+		{
+		  if ( sacstarttime > metaendtime )
+		    {
+		      mlp = mlp->next;
+		      continue;
+		    }
+		}
+	    }
+	  
 	  if ( verbose )
 	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s' (%s - %s)\n",
 		     sacnetwork, sacstation, saclocation, sacchannel,
