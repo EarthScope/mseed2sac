@@ -7,7 +7,7 @@
  * ORFEUS/EC-Project MEREDIAN
  * IRIS Data Management Center
  *
- * modified: 2009.353
+ * modified: 2010.355 (modified from libmseed release)
  ***************************************************************************/
 
 #include <stdio.h>
@@ -272,7 +272,7 @@ ms_strncpopen (char *dest, const char *source, int length)
  *
  * Compute the month and day-of-month from a year and day-of-year.
  *
- * Year is expected to be in the range 1900-2100, jday is expected to
+ * Year is expected to be in the range 1800-5000, jday is expected to
  * be in the range 1-366, month will be in the range 1-12 and mday
  * will be in the range 1-31.
  *
@@ -286,7 +286,7 @@ ms_doy2md(int year, int jday, int *month, int *mday)
   int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   
   /* Sanity check for the supplied year */
-  if ( year < 1900 || year > 2100 )
+  if ( year < 1800 || year > 5000 )
     {
       ms_log (2, "ms_doy2md(): year (%d) is out of range\n", year);
       return -1;
@@ -326,7 +326,7 @@ ms_doy2md(int year, int jday, int *month, int *mday)
  *
  * Compute the day-of-year from a year, month and day-of-month.
  *
- * Year is expected to be in the range 1900-2100, month is expected to
+ * Year is expected to be in the range 1800-5000, month is expected to
  * be in the range 1-12, mday is expected to be in the range 1-31 and
  * jday will be in the range 1-366.
  *
@@ -340,7 +340,7 @@ ms_md2doy(int year, int month, int mday, int *jday)
   int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   
   /* Sanity check for the supplied parameters */
-  if ( year < 1900 || year > 2100 )
+  if ( year < 1800 || year > 5000 )
     {
       ms_log (2, "ms_md2doy(): year (%d) is out of range\n", year);
       return -1;
@@ -420,7 +420,7 @@ ms_btime2hptime (BTime *btime)
   
   days = (365 * (shortyear - 70) + intervening_leap_days + (btime->day - 1));
   
-  hptime = (hptime_t ) (60 * (60 * (24 * days + btime->hour) + btime->min) + btime->sec) * HPTMODULUS
+  hptime = (hptime_t ) (60 * (60 * ((hptime_t) 24 * days + btime->hour) + btime->min) + btime->sec) * HPTMODULUS
     + (btime->fract * (HPTMODULUS / 10000));
     
   return hptime;
@@ -810,7 +810,7 @@ ms_time2hptime_int (int year, int day, int hour, int min, int sec, int usec)
  * checking for each input value.
  *
  * Expected ranges:
- * year : 1900 - 2100
+ * year : 1800 - 5000
  * day  : 1 - 366
  * hour : 0 - 23
  * min  : 0 - 59
@@ -822,7 +822,7 @@ ms_time2hptime_int (int year, int day, int hour, int min, int sec, int usec)
 hptime_t
 ms_time2hptime (int year, int day, int hour, int min, int sec, int usec)
 {
-  if ( year < 1900 || year > 2100 )
+  if ( year < 1800 || year > 5000 )
     {
       ms_log (2, "ms_time2hptime(): Error with year value: %d\n", year);
       return HPTERROR;
@@ -906,7 +906,7 @@ ms_seedtimestr2hptime (char *seedtimestr)
       return HPTERROR;
     }
   
-  if ( year < 1900 || year > 3000 )
+  if ( year < 1800 || year > 5000 )
     {
       ms_log (2, "ms_seedtimestr2hptime(): Error with year value: %d\n", year);
       return HPTERROR;
@@ -993,7 +993,7 @@ ms_timestr2hptime (char *timestr)
       return HPTERROR;
     }
   
-  if ( year < 1900 || year > 3000 )
+  if ( year < 1800 || year > 5000 )
     {
       ms_log (2, "ms_timestr2hptime(): Error with year value: %d\n", year);
       return HPTERROR;

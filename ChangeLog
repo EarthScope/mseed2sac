@@ -1,7 +1,10 @@
-2010.352: 1.6
+2010.355: 1.6
 	- Change format of metadata file and include new fields. A time
 	window can now be specified in the metadata file and is used to
 	match with appropriate data segments.
+	- Allow comment lines in metadata file beginning with '#'.
+	- Add warning when no metadata is available for inserting but a
+	metadata file was suppliled.
 
 2010.305:
 	- Fix conversion for event time to not trim subseconds.

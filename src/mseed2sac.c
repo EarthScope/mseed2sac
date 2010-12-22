@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2010.352
+ * modified 2010.355
  ***************************************************************************/
 
 #include <stdio.h>
@@ -35,6 +35,12 @@ struct listnode {
   char *key;
   char *data;
   struct listnode *next;
+};
+
+struct metanode {
+  char *metafields[MAXMETAFIELDS];
+  hptime_t starttime;
+  hptime_t endtime;
 };
 
 static int writesac (MSTrace *mst);
@@ -185,6 +191,7 @@ writesac (MSTrace *mst)
   int32_t *idata = 0;
   hptime_t submsec;
   int idx;
+  int rv;
   
   if ( ! mst )
     return -1;
@@ -219,10 +226,23 @@ writesac (MSTrace *mst)
   sh.nvhdr = 6;                 /* Header version = 6 */
   sh.leven = 1;                 /* Evenly spaced data */
   sh.iftype = ITIME;            /* Data is time-series */
+
+  /* Set sampling interval (seconds), sample count */
+  sh.delta = 1 / mst->samprate;
+  sh.npts = mst->numsamples;
   
   /* Insert metadata */
   if ( metadata )
-    insertmetadata (&sh, mst->starttime);
+    {
+      rv = insertmetadata (&sh, mst->starttime);
+      
+      if ( rv == -1 )
+	fprintf (stderr, "Error inserting metadata for %.8s.%.8s.%.8s.%.8s\n",
+		 sacnetwork, sacstation, saclocation, sacchannel);
+      else if ( rv == 1 )
+	fprintf (stderr, "No metadata found for %.8s.%.8s.%.8s.%.8s\n",
+		 sacnetwork, sacstation, saclocation, sacchannel);
+    }
   
   /* Set station coordinates specified on command line */
   if ( latitude != DUNDEF ) sh.stla = latitude;
@@ -277,10 +297,6 @@ writesac (MSTrace *mst)
    * any sub-millisecond start time is stored in these offsets. */
   sh.b = ((float)submsec / HPTMODULUS);
   sh.e = (mst->numsamples - 1) * (1 / mst->samprate) + ((float)submsec / HPTMODULUS);
-  
-  /* Set sampling interval (seconds), sample count */
-  sh.delta = 1 / mst->samprate;
-  sh.npts = mst->numsamples;
   
   /* Convert data buffer to floats */
   if ( mst->sampletype == 'f' )
@@ -545,23 +561,20 @@ swapsacheader (struct SACHeader *sh)
  *  15: Start time, used for matching
  *  16: End time, used for matching
  *
- * Returns 0 on sucess and -1 on failure.
+ * Returns 0 on sucess, 1 when no matching metadata found and -1 on failure.
  ***************************************************************************/
 static int
 insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
 {
   struct listnode *mlp = metadata;
-  char *metafields[MAXMETAFIELDS];
+  struct metanode *mn = NULL;
+  hptime_t sacendtime;
   char *endptr;
-  
   char sacnetwork[9];
   char sacstation[9];
   char saclocation[9];
   char sacchannel[9];
-
-  hptime_t sacendtime;
-  hptime_t metastarttime = HPTERROR;
-  hptime_t metaendtime = HPTERROR;
+  int retval = 1;
   
   if ( ! mlp || ! sh )
     return -1;
@@ -578,62 +591,49 @@ insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
   else sacchannel[0] = '\0';
   
   /* Calculate end time of SAC data */
-  sacendtime = ((sh->npts - 1) * sh->delta) * HPTMODULUS;
+  sacendtime = sacstarttime + (((sh->npts - 1) * sh->delta) * HPTMODULUS);
   
   while ( mlp )
     {
-      memcpy (metafields, mlp->data, sizeof(metafields));
+      mn = (struct metanode *) mlp->data;
       
       /* Sanity check that source name fields are present */
-      if ( ! metafields[0] || ! metafields[1] || 
-	   ! metafields[2] || ! metafields[3] )
+      if ( ! mn->metafields[0] || ! mn->metafields[1] || 
+	   ! mn->metafields[2] || ! mn->metafields[3] )
 	{
 	  fprintf (stderr, "insertmetadata(): error, source name fields not all present\n");
 	}
       /* Test if network, station, location and channel; also handle simple wildcards */
-      else if ( ( ! strncmp (sacnetwork, metafields[0], 8) || (*(metafields[0]) == '*') ) &&
-		( ! strncmp (sacstation, metafields[1], 8) || (*(metafields[1]) == '*') ) &&
-		( ! strncmp (saclocation, metafields[2], 8) || (*(metafields[2]) == '*') ) &&
-		( ! strncmp (sacchannel, metafields[3], 8) || (*(metafields[3]) == '*') ) )
+      else if ( ( ! strncmp (sacnetwork, mn->metafields[0], 8) || (*(mn->metafields[0]) == '*') ) &&
+		( ! strncmp (sacstation, mn->metafields[1], 8) || (*(mn->metafields[1]) == '*') ) &&
+		( ! strncmp (saclocation, mn->metafields[2], 8) || (*(mn->metafields[2]) == '*') ) &&
+		( ! strncmp (sacchannel, mn->metafields[3], 8) || (*(mn->metafields[3]) == '*') ) )
 	{
 	  /* Check time window match */
-	  if ( metafields[15] || metafields[16] )
+	  if ( mn->starttime != HPTERROR || mn->endtime != HPTERROR )
 	    {
-	      /* Convert metadata start/end time strings */
-	      if ( metafields[15] && (metastarttime = ms_timestr2hptime (metafields[15])) == HPTERROR )
-		{
-		  fprintf (stderr, "insertmetadata(): error, cannot parse start time: '%s'\n", metafields[15]);
-		  return -1;
-		}
-	      
-	      if ( metafields[16] && (metaendtime = ms_timestr2hptime (metafields[16])) == HPTERROR )
-		{
-		  fprintf (stderr, "insertmetadata(): error, cannot parse end time: '%s'\n", metafields[16]);
-		  return -1;
-		}
-	      
 	      /* Check for overlap with metadata window */
-	      if ( metastarttime != HPTERROR && metaendtime != HPTERROR )
+	      if ( mn->starttime != HPTERROR && mn->endtime != HPTERROR )
 		{
-		  if ( ! (sacendtime >= metastarttime && sacstarttime <= metaendtime) )
+		  if ( ! (sacendtime >= mn->starttime && sacstarttime <= mn->endtime) )
 		    {
 		      mlp = mlp->next;
 		      continue;
 		    }
 		}
 	      /* Check if data after start time */
-	      else if ( metastarttime != HPTERROR )
+	      else if ( mn->starttime != HPTERROR )
 		{
-		  if ( sacendtime < metastarttime )
+		  if ( sacendtime < mn->starttime )
 		    {
 		      mlp = mlp->next;
 		      continue;
 		    }
 		}
 	      /* Check if data before end time */
-	      else if ( metaendtime != HPTERROR )
+	      else if ( mn->endtime != HPTERROR )
 		{
-		  if ( sacstarttime > metaendtime )
+		  if ( sacstarttime > mn->endtime )
 		    {
 		      mlp = mlp->next;
 		      continue;
@@ -644,28 +644,30 @@ insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
 	  if ( verbose )
 	    fprintf (stderr, "Inserting metadata for N: '%s', S: '%s', L: '%s', C: '%s' (%s - %s)\n",
 		     sacnetwork, sacstation, saclocation, sacchannel,
-		     (metafields[15])?metafields[15]:"NONE",  (metafields[16])?metafields[16]:"NONE");
+		     (mn->metafields[15])?mn->metafields[15]:"NONE",
+		     (mn->metafields[16])?mn->metafields[16]:"NONE");
 	  
 	  /* Insert metadata into SAC header */
-	  if ( metafields[4] ) sh->stla = (float) strtod (metafields[4], &endptr);
-	  if ( metafields[5] ) sh->stlo = (float) strtod (metafields[5], &endptr);
-	  if ( metafields[6] ) sh->stel = (float) strtod (metafields[6], &endptr);
-	  if ( metafields[7] ) sh->stdp = (float) strtod (metafields[7], &endptr);
-	  if ( metafields[8] ) sh->cmpaz = (float) strtod (metafields[8], &endptr);
-	  if ( metafields[9] ) {
-	    sh->cmpinc = (float) strtod (metafields[9], &endptr);
+	  if ( mn->metafields[4] ) sh->stla = (float) strtod (mn->metafields[4], &endptr);
+	  if ( mn->metafields[5] ) sh->stlo = (float) strtod (mn->metafields[5], &endptr);
+	  if ( mn->metafields[6] ) sh->stel = (float) strtod (mn->metafields[6], &endptr);
+	  if ( mn->metafields[7] ) sh->stdp = (float) strtod (mn->metafields[7], &endptr);
+	  if ( mn->metafields[8] ) sh->cmpaz = (float) strtod (mn->metafields[8], &endptr);
+	  if ( mn->metafields[9] ) {
+	    sh->cmpinc = (float) strtod (mn->metafields[9], &endptr);
 	    if ( seedinc ) sh->cmpinc += 90;
 	  }
-	  if ( metafields[10] ) strncpy (sh->kinst, metafields[10], 8);
-	  if ( metafields[11] ) sh->scale = (float) strtod (metafields[11], &endptr);
+	  if ( mn->metafields[10] ) strncpy (sh->kinst, mn->metafields[10], 8);
+	  if ( mn->metafields[11] ) sh->scale = (float) strtod (mn->metafields[11], &endptr);
 	  
+	  retval = 0;
 	  break;
 	}
       
       mlp = mlp->next;
     }
   
-  return 0;
+  return retval;
 }  /* End of insertmetadata() */
 
 
@@ -1172,15 +1174,17 @@ readlistfile (char *listfile)
  * are not specified the values are set to NULL with the execption
  * that the first 4 fields (net, sta, loc & chan) cannot be empty.
  *
+ * Any lines beginning with '#' are skipped, think comments.
+ *
  * Returns 0 on sucess and -1 on failure.
  ***************************************************************************/
 static int
 readmetadata (char *metafile)
 {
+  struct metanode mn;
   FILE *mfp;
   char line[1024];
   char *lineptr;
-  char *metafields[MAXMETAFIELDS];
   char *fp;
   int idx, count;
   int linecount = 0;
@@ -1223,36 +1227,46 @@ readmetadata (char *metafile)
 	  continue;
 	}
       
+      /* Check for comment line beginning with '#' */
+      if ( line[0] == '#' )
+	{
+	  if ( verbose > 1 )
+	    fprintf (stderr, "Skipping comment line: %s\n", line);
+	  continue;
+	}
+      
       /* Create a copy of the line */
       lineptr = strdup (line);
       
-      metafields[0] = fp = lineptr;
+      mn.metafields[0] = fp = lineptr;
+      mn.starttime = HPTERROR;
+      mn.endtime = HPTERROR;
       
       /* Separate line on commas and index in metafields array */
       for (idx = 1; idx < MAXMETAFIELDS; idx++)
 	{
+	  mn.metafields[idx] = NULL;
+	  
 	  if ( fp )
 	    {
 	      if ( (fp = strchr (fp, ',')) )
 		{
 		  *fp++ = '\0';
 		  
-		  if ( *fp == ',' || *fp == '\0' )
-		    metafields[idx] = NULL;
-		  else
-		    metafields[idx] = fp;
+		  if ( *fp != ',' && *fp != '\0' )
+		    mn.metafields[idx] = fp;
 		}
 	    }
-	  else
-	    {
-	      metafields[idx] = NULL;
-	    }
 	}
+      
+      /* Trim last field if more fields exist */
+      if ( (fp = strchr (fp, ',')) )
+	*fp = '\0';
       
       /* Sanity check, source name fields must be populated */
       for (idx = 0; idx <= 3; idx++)
 	{
-	  if ( metafields[idx] == NULL )
+	  if ( mn.metafields[idx] == NULL )
 	    {
 	      fprintf (stderr, "Error, field %d cannot be empty in metadata file line %d\n",
 		       idx+1, linecount);
@@ -1262,13 +1276,33 @@ readmetadata (char *metafile)
 	    }
 	}
       
-      /* Add the metafields array to the metadata list */
-      if ( ! addnode (&metadata, NULL, 0, metafields, sizeof(metafields)) )
+      /* Parse and convert start time */
+      if ( mn.metafields[15] )
+	{
+	  if ( (mn.starttime = ms_timestr2hptime (mn.metafields[15])) == HPTERROR )
+	    {
+	      fprintf (stderr, "Error parsing metadata start time: '%s'\n", mn.metafields[15]);
+	      exit (1);
+	    }
+	}
+      
+      /* Parse and convert end time */
+      if ( mn.metafields[16] )
+	{
+	  if ( (mn.endtime = ms_timestr2hptime (mn.metafields[16])) == HPTERROR )
+	    {
+	      fprintf (stderr, "Error parsing metadata end time: '%s'\n", mn.metafields[16]);
+	      exit (1);
+	    }
+	}
+      
+      /* Add the metanode to the metadata list */
+      if ( ! addnode (&metadata, NULL, 0, &mn, sizeof(struct metanode)) )
 	{
 	  fprintf (stderr, "Error adding metadata fields to list\n");
 	}
     }
-   
+  
   fclose (mfp);
   
   return 0;
@@ -1278,7 +1312,7 @@ readmetadata (char *metafile)
 /***************************************************************************
  * addnode:
  *
- * Add node to the specified list.
+ * Add node to the specified list.  Copies of the key and data are created.
  *
  * Return a pointer to the added node on success and NULL on error.
  ***************************************************************************/
