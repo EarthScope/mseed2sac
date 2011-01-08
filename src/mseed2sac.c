@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.6"
+#define VERSION "1.7dev"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -480,12 +480,13 @@ writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
     }
   
   /* Write SAC header string variables to output file, 3 variables per line */
-  for (idx=0; idx < NUMSTRHDR; idx += 3)
+  for (idx=0; idx < (NUMSTRHDR+1); idx += 3)
     {
       if ( idx == 0 )
 	fprintf (ofp, "%-8.8s%-16.16s", shp, shp + 8);
       else
-	fprintf (ofp, "%-8.8s%-8.8s%-8.8s", shp+(idx*8), shp+((idx+1)*8), shp+((idx+2)*8));
+	for (fidx=idx; fidx < (idx+3) && fidx < (NUMSTRHDR+1); fidx++)
+	  fprintf (ofp, "%-8.8s", shp+(fidx*8));
       
       fprintf (ofp, "\n");
     }
