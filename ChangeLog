@@ -1,5 +1,5 @@
 2011.007:
-	- Rework loop in SAC Alpha writing to avoid warning in newwer GCCs.
+	- Rework loop in SAC Alpha writing to avoid warning in newer GCCs.
 
 2010.355: 1.6
 	- Change format of metadata file and include new fields. A time
