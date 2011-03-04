@@ -193,6 +193,10 @@ writesac (MSTrace *mst)
   int idx;
   int rv;
   
+#if defined (WIN32)
+  char *cp = 0;
+#endif
+  
   if ( ! mst )
     return -1;
   
@@ -348,6 +352,14 @@ writesac (MSTrace *mst)
 		mst->dataquality, btime.year, btime.day, btime.hour,
 		btime.min, btime.sec);
       
+      /* For Win32 replace colons with underscores and commas with dots */
+#if defined (WIN32)
+      cp = outfile;
+      while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
+      cp = outfile;
+      while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
+#endif
+      
       /* Byte swap the data header and data if needed */
       if ( (sacformat == 3 && ms_bigendianhost()) ||
 	   (sacformat == 4 && ! ms_bigendianhost()) )
@@ -376,7 +388,15 @@ writesac (MSTrace *mst)
 		sacnetwork, sacstation, saclocation, sacchannel,
 		mst->dataquality, btime.year, btime.day, btime.hour,
 		btime.min, btime.sec);
-
+      
+      /* For Win32 replace colons with underscores and commas with dots */
+#if defined (WIN32)
+      cp = outfile;
+      while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
+      cp = outfile;
+      while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
+#endif
+      
       if ( verbose > 1 )
 	fprintf (stderr, "Writing alphanumeric SAC file: %s\n", outfile);
       

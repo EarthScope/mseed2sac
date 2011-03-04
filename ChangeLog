@@ -1,4 +1,7 @@
 2011.063:
+	- Update to libmseed 2.6.
+	- Create alternate output file names for Win32 that do not include 
+	colon or comma characters, thanks to Claus Milkereit for reporting.
 	- Fix crash for incomplete metadata lines, thanks to John Nabelek
 	for reporting.
 
