@@ -1,3 +1,7 @@
+2011.063:
+	- Fix crash for incomplete metadata lines, thanks to John Nabelek
+	for reporting.
+
 2011.007:
 	- Rework loop in SAC Alpha writing to avoid warning in newer GCCs.
 

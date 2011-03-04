@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2010.355
+ * modified 2011.063
  ***************************************************************************/
 
 #include <stdio.h>
@@ -1261,7 +1261,7 @@ readmetadata (char *metafile)
 	}
       
       /* Trim last field if more fields exist */
-      if ( (fp = strchr (fp, ',')) )
+      if ( fp && (fp = strchr (fp, ',')) )
 	*fp = '\0';
       
       /* Sanity check, source name fields must be populated */
