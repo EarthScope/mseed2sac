@@ -58,7 +58,7 @@ static int readlistfile (char *listfile);
 static int readmetadata (char *metafile);
 static struct listnode *addnode (struct listnode **listroot, void *key, int keylen,
 				 void *data, int datalen);
-static void usage (void);
+static void usage (int level);
 
 static int   verbose      = 0;
 static int   reclen       = -1;
@@ -788,7 +788,12 @@ parameter_proc (int argcount, char **argvec)
 	}
       else if (strcmp (argvec[optind], "-h") == 0)
 	{
-	  usage();
+	  usage (0);
+	  exit (0);
+	}
+      else if (strcmp (argvec[optind], "-H") == 0)
+	{
+	  usage (1);
 	  exit (0);
 	}
       else if (strncmp (argvec[optind], "-v", 2) == 0)
@@ -1390,7 +1395,7 @@ addnode (struct listnode **listroot, void *key, int keylen,
  * Print the usage message and exit.
  ***************************************************************************/
 static void
-usage (void)
+usage (int level)
 {
   fprintf (stderr, "%s version: %s\n\n", PACKAGE, VERSION);
   fprintf (stderr, "Convert Mini-SEED data to SAC\n\n");
@@ -1399,20 +1404,30 @@ usage (void)
 	   " ## Options ##\n"
 	   " -V             Report program version\n"
 	   " -h             Show this usage message\n"
+	   " -H             Print an extended usage message\n"
 	   " -v             Be more verbose, multiple flags can be used\n"
-	   " -n network     Specify the network code, overrides any value in the SEED\n"
-	   " -s station     Specify the station code, overrides any value in the SEED\n"
-	   " -l location    Specify the location code, overrides any value in the SEED\n"
-	   " -c channel     Specify the channel code, overrides any value in the SEED\n"
-	   " -r bytes       Specify SEED record length in bytes, default: 4096\n"
-	   " -i             Process each input file individually instead of merged\n"
-	   " -k lat/lon     Specify coordinates as 'Latitude/Longitude' in degrees\n"
-	   " -m metafile    File containing station metadata (coordinates, etc.)\n"
+	   "\n"
+	   " -k lat/lon     Specify station coordinates as 'Latitude/Longitude' in degrees\n"
+	   " -m metafile    File containing station metadata (coordinates and more)\n"
 	   " -msi           Convert component inclination/dip from SEED to SAC convention\n"
 	   " -E event       Specify event parameters as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
+	   "\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
            "                  3=binary (little-endian), 4=binary (big-endian)\n"
 	   "\n");
+  
+  if ( level >= 1 )
+    {
+      fprintf (stderr,
+	       " -n network     Specify the network code, overrides any value in the SEED\n"
+	       " -s station     Specify the station code, overrides any value in the SEED\n"
+	       " -l location    Specify the location code, overrides any value in the SEED\n"
+	       " -c channel     Specify the channel code, overrides any value in the SEED\n"
+	       " -r bytes       Specify SEED record length in bytes, default: 4096\n"
+	       " -i             Process each input file individually instead of merged\n"
+	       "\n");
+    }
+  
 }  /* End of usage() */

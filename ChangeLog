@@ -4,6 +4,8 @@
 	colon or comma characters, thanks to Claus Milkereit for reporting.
 	- Fix crash for incomplete metadata lines, thanks to John Nabelek
 	for reporting.
+	- Reorganize help/usage message to common and extended versions, 
+	use -h to get only common options and -H to get extended options.
 
 2011.007:
 	- Rework loop in SAC Alpha writing to avoid warning in newer GCCs.
