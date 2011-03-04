@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2011/01/25
+.TH MSEED2SAC 1 2011/03/04
 .SH NAME
 Mini-SEED to SAC converter
 
@@ -26,6 +26,9 @@ For example:
 "TA.ELFS..LHZ.R.2006,123,15:36:19.SAC"
 .fi
 
+Under Windows the colon (:) and comma (,) characters will be replaced
+with underscore (_) and dot (.) characters respectively.
+
 If the input file name is "-" input Mini-SEED records will be read
 from standard input.
 
@@ -41,41 +44,16 @@ Print program version and exit.
 .IP "-h         "
 Print program usage and exit.
 
+.IP "-H         "
+Print extended program usage with all options and exit.
+
 .IP "-v         "
 Be more verbose.  This flag can be used multiple times ("-v -v" or
 "-vv") for more verbosity.
 
-.IP "-n \fInetcode\fP"
-Specify the network code to use, overriding any network code in the
-input Mini-SEED.
-
-.IP "-s \fIstation\fP"
-Specify the station code to use, overriding any station code in the
-input Mini-SEED.
-
-.IP "-l \fIlocation\fP"
-Specify the location code to use, overriding any location code in the
-input Mini-SEED.
-
-.IP "-c \fIchannel\fP"
-Specify the channel code to use, overriding any channel code in the
-input Mini-SEED.
-
-.IP "-r \fIbytes\fP"
-Specify the Mini-SEED record length in \fIbytes\fP, by default this is
-autodetected.
-
-.IP "-i         "
-Process each input file individually.  By default all input files are
-read and all data is buffered in memory before SAC files are written.
-This allows time-series spanning mutilple input files to be merged and
-written in a single SAC file.  The intention is to use this option
-when processing large amounts of data in order to keep memory usage
-within reasonable limits.
-
 .IP "-k \fIlat/lon\fP"
-Specify coordinates to put into the resulting SAC file(s).  The
-argument format is "Latitude/Longitude" e.g. "47.66/-122.31".
+Specify station coordinates to put into the output SAC file(s).
+The argument format is "Latitude/Longitude" e.g. "47.66/-122.31".
 Coordinates specified with this option override any coordinates found
 in the metadata file.
 
@@ -113,6 +91,34 @@ file:
 3 : Binary SAC format, little-endian
 4 : Binary SAC format, big-endian
 .fi
+
+.IP "-n \fInetcode\fP"
+Specify the network code to use, overriding any network code in the
+input Mini-SEED.
+
+.IP "-s \fIstation\fP"
+Specify the station code to use, overriding any station code in the
+input Mini-SEED.
+
+.IP "-l \fIlocation\fP"
+Specify the location code to use, overriding any location code in the
+input Mini-SEED.
+
+.IP "-c \fIchannel\fP"
+Specify the channel code to use, overriding any channel code in the
+input Mini-SEED.
+
+.IP "-r \fIbytes\fP"
+Specify the Mini-SEED record length in \fIbytes\fP, by default this is
+autodetected.
+
+.IP "-i         "
+Process each input file individually.  By default all input files are
+read and all data is buffered in memory before SAC files are written.
+This allows time-series spanning mutilple input files to be merged and
+written in a single SAC file.  The intention is to use this option
+when processing large amounts of data in order to keep memory usage
+within reasonable limits.
 
 .SH METADATA FILES
 A metadata file contains a list of station parameters, some of which
