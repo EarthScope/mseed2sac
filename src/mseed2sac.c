@@ -197,7 +197,7 @@ main (int argc, char **argv)
 static int
 writesac (MSTrace *mst)
 {
-  struct SACHeader sh = NullSACHeader;
+  struct SACHeader sh;
   BTime btime;
   
   char outfile[1024];
@@ -222,6 +222,9 @@ writesac (MSTrace *mst)
   
   if ( mst->numsamples == 0 || mst->samprate == 0.0 )
     return 0;
+  
+  /* Initialize SAC heaer */
+  memcpy (sh, NullSACHeader, sizeof(SACHeader));
   
   sacnetwork = ( network ) ? network : mst->network;
   sacstation = ( station ) ? station : mst->station;
