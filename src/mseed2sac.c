@@ -5,10 +5,8 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2011.064
+ * modified 2011.066
  ***************************************************************************/
-
-CHAD: Add -m to use selection file
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +19,7 @@ CHAD: Add -m to use selection file
 
 #include "sacformat.h"
 
-#define VERSION "1.7dev"
+#define VERSION "1.7"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -87,13 +85,16 @@ static int seedinc = 0;             /* SEED component inclination flag */
 int
 main (int argc, char **argv)
 {
-  MSFileParam *msfp = 0;
   MSTraceGroup *mstg = 0;
   MSTrace *mst = 0;
   MSRecord *msr = 0;
   
   struct listnode *flp;
 
+  char srcname[50];
+  char starttime[50];
+  hptime_t recendtime;
+  
   int retcode;
   int totalrecs = 0;
   int totalsamps = 0;
@@ -113,10 +114,28 @@ main (int argc, char **argv)
       if ( verbose )
         fprintf (stderr, "Reading %s\n", flp->data);
       
-      while ( (retcode = ms_readmsr_main (&msfp, &msr, flp->infilename, reclen, NULL, NULL,
-					  1, 0, selections, verbose-1)) == MS_NOERROR )
+      while ( (retcode = ms_readmsr(&msr, flp->data, reclen, NULL, NULL,
+                                    1, 1, verbose-1)) == MS_NOERROR )
 	{
-	  if ( verbose > 1)
+	  /* Check if record is matched by selection */
+          if ( selections )
+            {
+	      msr_srcname (msr, srcname, 1);
+	      recendtime = msr_endtime (msr);
+	      
+              if ( ! ms_matchselect (selections, srcname, msr->starttime, recendtime, NULL) )
+                {
+                  if ( verbose >= 2 )
+                    {
+                      ms_hptime2seedtimestr (msr->starttime, starttime, 1);
+                      ms_log (1, "Skipping (selection) %s, %s\n", srcname, starttime);
+                    }
+		  
+		  continue;
+                }
+            }
+	  
+	  if ( verbose >= 2 )
 	    msr_print (msr, verbose - 2);
 	  
 	  mst_addmsrtogroup (mstg, msr, 1, -1.0, -1.0);
@@ -129,7 +148,7 @@ main (int argc, char **argv)
 	fprintf (stderr, "Error reading %s: %s\n", flp->data, ms_errorstr(retcode));
       
       /* Make sure everything is cleaned up */
-      ms_readmsr_main (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, NULL, 0);
+      ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
       
       /* If processing each file individually, write SAC and reset */
       if ( indifile )
@@ -777,6 +796,7 @@ parameter_proc (int argcount, char **argvec)
   char *coorstr = 0;
   char *metafile = 0;
   char *eventstr = 0;
+  char *selectfile = 0;
   int optind;
   
   /* Process all command line arguments */
@@ -801,30 +821,6 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  verbose += strspn (&argvec[optind][1], "v");
 	}
-      else if (strcmp (argvec[optind], "-n") == 0)
-	{
-	  network = getoptval(argcount, argvec, optind++, 0);
-	}
-      else if (strcmp (argvec[optind], "-s") == 0)
-	{
-	  station = getoptval(argcount, argvec, optind++, 0);
-	}
-      else if (strcmp (argvec[optind], "-l") == 0)
-	{
-	  location = getoptval(argcount, argvec, optind++, 0);
-	}
-      else if (strcmp (argvec[optind], "-c") == 0)
-	{
-	  channel = getoptval(argcount, argvec, optind++, 0);
-	}
-      else if (strcmp (argvec[optind], "-r") == 0)
-	{
-	  reclen = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
-	}
-      else if (strcmp (argvec[optind], "-i") == 0)
-	{
-	  indifile = 1;
-	}
       else if (strcmp (argvec[optind], "-k") == 0)
 	{
 	  coorstr = getoptval(argcount, argvec, optind++, 1);
@@ -841,9 +837,37 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  eventstr = getoptval(argcount, argvec, optind++, 0);
 	}
+      else if (strcmp (argvec[optind], "-l") == 0)
+	{
+	  selectfile = getoptval(argcount, argvec, optind++, 0);
+	}
       else if (strcmp (argvec[optind], "-f") == 0)
 	{
 	  sacformat = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
+	}
+      else if (strcmp (argvec[optind], "-N") == 0)
+	{
+	  network = getoptval(argcount, argvec, optind++, 0);
+	}
+      else if (strcmp (argvec[optind], "-S") == 0)
+	{
+	  station = getoptval(argcount, argvec, optind++, 0);
+	}
+      else if (strcmp (argvec[optind], "-L") == 0)
+	{
+	  location = getoptval(argcount, argvec, optind++, 0);
+	}
+      else if (strcmp (argvec[optind], "-C") == 0)
+	{
+	  channel = getoptval(argcount, argvec, optind++, 0);
+	}
+      else if (strcmp (argvec[optind], "-r") == 0)
+	{
+	  reclen = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
+	}
+      else if (strcmp (argvec[optind], "-i") == 0)
+	{
+	  indifile = 1;
 	}
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
                strlen (argvec[optind]) > 1 )
@@ -1017,7 +1041,20 @@ parameter_proc (int argcount, char **argvec)
 	if ( *ename )
 	  eventname = ename;
     }
-
+  
+  /* Read data selection file */
+  if ( selectfile )
+    {
+      if ( ms_readselectionsfile (&selections, selectfile) < 0 )
+        {
+          fprintf (stderr, "Cannot read data selection file\n");
+          return -1;
+	}
+      
+      if ( verbose > 1 )
+	ms_printselections (selections);
+    }
+  
   /* Read metadata file if specified */
   if ( metafile )
     {
@@ -1027,7 +1064,7 @@ parameter_proc (int argcount, char **argvec)
 	  return -1;
 	}
     }
-
+  
   return 0;
 }  /* End of parameter_proc() */
 
@@ -1413,6 +1450,7 @@ usage (int level)
 	   " -msi           Convert component inclination/dip from SEED to SAC convention\n"
 	   " -E event       Specify event parameters as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
 	   "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
+	   " -l selectfile  Read a list of selections from file, used for subsetting\n"
 	   "\n"
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
@@ -1422,11 +1460,11 @@ usage (int level)
   if ( level >= 1 )
     {
       fprintf (stderr,
-	       " -n network     Specify the network code, overrides any value in the SEED\n"
-	       " -s station     Specify the station code, overrides any value in the SEED\n"
-	       " -l location    Specify the location code, overrides any value in the SEED\n"
-	       " -c channel     Specify the channel code, overrides any value in the SEED\n"
-	       " -r bytes       Specify SEED record length in bytes, default: 4096\n"
+	       " -N network     Specify the network code, overrides any value in the SEED\n"
+	       " -S station     Specify the station code, overrides any value in the SEED\n"
+	       " -L location    Specify the location code, overrides any value in the SEED\n"
+	       " -C channel     Specify the channel code, overrides any value in the SEED\n"
+	       " -r bytes       Specify SEED record length in bytes, autodetected by default\n"
 	       " -i             Process each input file individually instead of merged\n"
 	       "\n");
     }

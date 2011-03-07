@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2011/03/04
+.TH MSEED2SAC 1 2011/03/07
 .SH NAME
 Mini-SEED to SAC converter
 
@@ -11,10 +11,11 @@ mseed2sac [options] file1 [file2 file3 ...]
 \fBmseed2sac\fP converts Mini-SEED waveform data to SAC format.  The
 output SAC file can be either ASCII or binary (either byte-order), the
 default is binary with the same byte-order as the host computer.  By
-default all aspects of the input files are automatically detected.  If
-an input file name is prefixed with an '@' character the file is
-assumed to contain a list of input data files, see \fILIST FILES\fP
-below.
+default all aspects of the input files are automatically detected.
+
+If an input file name is prefixed with an '@' character the file is
+assumed to contain a list of input data files, see \fIINPUT LIST
+FILES\fP below.
 
 A separate output file is written for each continuous time-series in
 the input data.  Output file names are of the form:
@@ -80,6 +81,14 @@ For example:
 
 The parameters later in the string are optional.
 
+.IP "-l \fIselectfile\fP"
+Limit to Mini-SEED records that match a selection in the specified
+file.  The selection file contains parameters to match the network,
+station, location, channel, quality and time range for input records.
+This option only trims data to SEED record granularity, not sample
+granularity.  For more details see the \fBSELECTION FILE\fR section
+below.
+
 .IP "-f \fIformat\fP"
 The default output format is binary SAC with the same byte order as
 the host computer.  This option forces the format for every output
@@ -92,19 +101,19 @@ file:
 4 : Binary SAC format, big-endian
 .fi
 
-.IP "-n \fInetcode\fP"
+.IP "-N \fInetcode\fP"
 Specify the network code to use, overriding any network code in the
 input Mini-SEED.
 
-.IP "-s \fIstation\fP"
+.IP "-S \fIstation\fP"
 Specify the station code to use, overriding any station code in the
 input Mini-SEED.
 
-.IP "-l \fIlocation\fP"
+.IP "-L \fIlocation\fP"
 Specify the location code to use, overriding any location code in the
 input Mini-SEED.
 
-.IP "-c \fIchannel\fP"
+.IP "-C \fIchannel\fP"
 Specify the channel code to use, overriding any channel code in the
 input Mini-SEED.
 
@@ -120,7 +129,7 @@ written in a single SAC file.  The intention is to use this option
 when processing large amounts of data in order to keep memory usage
 within reasonable limits.
 
-.SH METADATA FILES
+.SH "METADATA FILES"
 A metadata file contains a list of station parameters, some of which
 can be stored in SAC but not in Mini-SEED.  Each line in a metadata
 file should be a comma-separated list of parameters in the following
@@ -175,8 +184,26 @@ metadata lines above, for example, can be (almost) summarized as:
 IU,ANMO,*,BHZ,34.9459,-106.4571,1671,145,0,0,Geotech KS-54000,3456610000,0.02,M/S,20,2008-06-30T20:00:00,2599-12-31T23:59:59
 .fi
 
+.SH "SELECTION FILE"
+A selection file is used to match input data records based on network,
+station, location and channel information.  Optionally a quality and
+time range may also be specified for more refined selection.  The
+non-time fields may use the '*' wildcard to match multiple characters
+and the '?' wildcard to match single characters.  Character sets may
+also be used, for example '[ENZ]' will match either E, N or Z.
+The '#' character indicates the remaining portion of the line will be
+ignored.
 
-.SH LIST FILES
+Example selection file entires (the first four fields are required)
+.nf
+#net sta  loc  chan  qual  start             end
+IU   ANMO *    BH?
+II   *    *    *     Q     
+IU   COLA 00   LH[ENZ] R
+IU   COLA 00   LHZ   *     2008,100,10,00,00 2008,100,10,30,00
+.fi
+
+.SH "INPUT LIST FILES"
 If an input file is prefixed with an '@' character the file is assumed
 to contain a list of file for input.  Multiple list files can be
 combined with multiple input files on the command line.  The last,
