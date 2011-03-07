@@ -5,8 +5,10 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2011.063
+ * modified 2011.064
  ***************************************************************************/
+
+CHAD: Add -m to use selection file
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,20 +79,19 @@ static double eventlon    = DUNDEF;
 static double eventdepth  = DUNDEF;
 static char  *eventname   = 0;
 
-/* A list of input files */
-struct listnode *filelist = 0;
-
-/* A list of station and coordinates */
-struct listnode *metadata = 0;
-static int seedinc = 0;
+struct listnode *filelist = 0;      /* List of input files */
+static Selections *selections = 0;  /* List of data selections */
+struct listnode *metadata = 0;      /* List of stations and coordinates, etc. */
+static int seedinc = 0;             /* SEED component inclination flag */
 
 int
 main (int argc, char **argv)
 {
+  MSFileParam *msfp = 0;
   MSTraceGroup *mstg = 0;
-  MSTrace *mst;
+  MSTrace *mst = 0;
   MSRecord *msr = 0;
-
+  
   struct listnode *flp;
 
   int retcode;
@@ -112,8 +113,8 @@ main (int argc, char **argv)
       if ( verbose )
         fprintf (stderr, "Reading %s\n", flp->data);
       
-      while ( (retcode = ms_readmsr(&msr, flp->data, reclen, NULL, NULL,
-				    1, 1, verbose-1)) == MS_NOERROR )
+      while ( (retcode = ms_readmsr_main (&msfp, &msr, flp->infilename, reclen, NULL, NULL,
+					  1, 0, selections, verbose-1)) == MS_NOERROR )
 	{
 	  if ( verbose > 1)
 	    msr_print (msr, verbose - 2);
@@ -128,7 +129,7 @@ main (int argc, char **argv)
 	fprintf (stderr, "Error reading %s: %s\n", flp->data, ms_errorstr(retcode));
       
       /* Make sure everything is cleaned up */
-      ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
+      ms_readmsr_main (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, NULL, 0);
       
       /* If processing each file individually, write SAC and reset */
       if ( indifile )
