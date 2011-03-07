@@ -1,9 +1,6 @@
 #
 # Nmake file - Windows version
 # Use 'nmake -f Makefile.win'
-#
-# THIS HAS NEVER BEEN TESTED
-# Some modification might be required.
 
 NODEBUG=1
 
@@ -22,7 +19,7 @@ $(BIN):	mseed2sac.obj
 	link.exe /nologo /out:$(BIN) $(LIBS) mseed2sac.obj
 
 .c.obj:
-   $(cc) /nologo $(cflags) $(cdebug) $(cvarsmt) $(tflags) $(INCS) $<
+	$(cc) /nologo $(cflags) $(cdebug) $(cvarsmt) $(tflags) $(INCS) $<
 
 # Clean-up directives
 clean:

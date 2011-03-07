@@ -1,6 +1,7 @@
 2011.066: 1.7
 	- Change SEED naming override options to upper case (-N, -S, -L, -C).
 	- Add -l option to take a selection list file to limit input data.
+	- Add Makefile.win for MSVC Nmake.
 
 2011.063:
 	- Update to libmseed 2.6.
