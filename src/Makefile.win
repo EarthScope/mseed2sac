@@ -8,6 +8,7 @@ NODEBUG=1
 
 INCS = /I..\libmseed
 LIBS = ..\libmseed\libmseed.lib
+OPTS = -D_CRT_SECURE_NO_WARNINGS
 
 BIN = ..\mseed2sac.exe
 
@@ -19,7 +20,7 @@ $(BIN):	mseed2sac.obj
 	link.exe /nologo /out:$(BIN) $(LIBS) mseed2sac.obj
 
 .c.obj:
-	$(cc) /nologo $(cflags) $(cdebug) $(cvarsmt) $(tflags) $(INCS) $<
+	$(cc) /nologo $(cflags) $(cdebug) $(cvarsmt) $(tflags) $(INCS) $(OPTS) $<
 
 # Clean-up directives
 clean:
