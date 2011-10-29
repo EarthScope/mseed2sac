@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2011.066
+ * modified 2011.301
  ***************************************************************************/
 
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "sacformat.h"
 
-#define VERSION "1.7"
+#define VERSION "1.8dev"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -367,7 +367,7 @@ writesac (MSTrace *mst)
   if ( sacformat >= 2 && sacformat <= 4 )
     {
       /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SAC */
-      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%d,%d,%d:%d:%d.SAC",
+      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d.SAC",
 		sacnetwork, sacstation, saclocation, sacchannel,
 		mst->dataquality, btime.year, btime.day, btime.hour,
 		btime.min, btime.sec);
@@ -404,7 +404,7 @@ writesac (MSTrace *mst)
   else if ( sacformat == 1 )
     {
       /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SACA */
-      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%d,%d,%d:%d:%d.SACA",
+      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d.SACA",
 		sacnetwork, sacstation, saclocation, sacchannel,
 		mst->dataquality, btime.year, btime.day, btime.hour,
 		btime.min, btime.sec);
