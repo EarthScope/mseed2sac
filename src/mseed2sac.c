@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2011.301
+ * modified 2012.111
  ***************************************************************************/
 
 #include <stdio.h>
@@ -431,7 +431,7 @@ writesac (MSTrace *mst)
   if ( fdata && mst->sampletype != 'f' )
     free (fdata);
   
-  fprintf (stderr, "Wrote %d samples to %s\n", mst->numsamples, outfile);
+  fprintf (stderr, "Wrote %lld samples to %s\n", (long long int)mst->numsamples, outfile);
   
   return mst->numsamples;
 }  /* End of writesac() */
