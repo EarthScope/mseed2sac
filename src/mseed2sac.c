@@ -23,7 +23,7 @@
   #define access _access
 #endif
 
-#define VERSION "1.8dev"
+#define VERSION "1.8"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -1239,7 +1239,7 @@ readlistfile (char *listfile)
  * readmetadata:
  *
  * Read a file of metadata into a structured list, each line should
- * contain the following fields comma-separated in this order:
+ * contain the following fields (comma or bar separated) in this order:
  *
  * The metadata list should be populated with an array of pointers to:
  *  0:  Network (knetwk)
@@ -1260,9 +1260,15 @@ readlistfile (char *listfile)
  *  15: Start time, used for matching
  *  16: End time, used for matching
  *
- * Any lines not containing at least 3 commas are skipped.  If fields
- * are not specified the values are set to NULL with the execption
- * that the first 4 fields (net, sta, loc & chan) cannot be empty.
+ * Any lines not containing at least 3 separators (commas or vertical
+ * bars) are skipped.  If fields are not specified the values are set
+ * to NULL with the execption that the first 4 fields (net, sta, loc &
+ * chan) cannot be empty.
+ *
+ * If the separators are commas the component inclination is assumed
+ * to be in the SAC convention.  If the separators are vertical bars
+ * (|) the component inclination is assumed to be a SEED dip and the
+ * seedinc variable will be set to 1.
  *
  * Any lines beginning with '#' are skipped, think comments.
  *
@@ -1276,7 +1282,10 @@ readmetadata (char *metafile)
   char line[1024];
   char *lineptr;
   char *fp;
-  int idx, count;
+  char delim;
+  int commas = 0;
+  int bars = 0;
+  int idx;
   int linecount = 0;
   
   if ( ! metafile )
@@ -1301,16 +1310,32 @@ readmetadata (char *metafile)
 	*fp = '\0';
       
       /* Count the number of commas */
-      count = 0;
       fp = line;
       while ( (fp = strchr (fp, ',')) )
 	{
-	  count++;
+	  commas++;
+	  fp++;
+	}
+      /* Count the number of vertical bars */
+      fp = line;
+      while ( (fp = strchr (fp, '|')) )
+	{
+	  bars++;
 	  fp++;
 	}
       
-      /* Must have at least 3 commas for Net, Sta, Loc, Chan ... */
-      if ( count < 3 )
+      if ( bars > 0 )
+	{
+	  delim = '|';
+	  seedinc = 1;
+	}
+      else
+	{
+	  delim = ',';
+	}
+      
+      /* Must have at least 3 separators for Net, Sta, Loc, Chan ... */
+      if ( (( delim == '|' ) ? bars : commas) < 3 )
 	{
 	  if ( verbose > 1 )
 	    fprintf (stderr, "Skipping metadata line: %s\n", line);
@@ -1339,7 +1364,7 @@ readmetadata (char *metafile)
 	  
 	  if ( fp )
 	    {
-	      if ( (fp = strchr (fp, ',')) )
+	      if ( (fp = strchr (fp, delim)) )
 		{
 		  *fp++ = '\0';
 		  

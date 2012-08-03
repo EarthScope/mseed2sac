@@ -140,9 +140,15 @@ within reasonable limits.
 .SH "METADATA FILES"
 A metadata file contains a list of station parameters, some of which
 can be stored in SAC but not in Mini-SEED.  Each line in a metadata
-file should be a comma-separated list of parameters in the following
-order:
+file should be a list of parameters in the order shown below.  Each
+parameter should be separated with a comma or a vertical bar (|).
+\fbDIP CONVENTION:\fP When comma separators are used the dip field
+(CMPINC) is assumed to be in the SAC convention (degrees from
+vertical), if vertical bars are used the dip field is assumed to be in
+the SEED convention (degrees from horizontal) and converted to SAC
+convention.
 
+\fBMetdata fields\fP:
 .nf
 Network (KNETWK)
 Station (KSTNM)
@@ -162,8 +168,8 @@ Sampling rate, unused
 Start time, used for matching
 End time, used for matching
 
+Example with comma separators (with SAC convention dip):
 
-For example:
 ------------------
 #net,sta,loc,chan,lat,lon,elev,depth,azimuth,SACdip,instrument,scale,scalefreq,scaleunits,samplerate,start,end
 IU,ANMO,00,BH1,34.945981,-106.457133,1671,145,328,90,Geotech KS-54000,3456610000,0.02,M/S,20,2008-06-30T20:00:00,2599-12-31T23:59:59
@@ -172,6 +178,15 @@ IU,ANMO,00,BHZ,34.945981,-106.457133,1671,145,0,0,Geotech KS-54000,3275080000,0.
 IU,ANMO,10,BH1,34.945913,-106.457122,1767.2,48.8,64,90,Guralp CMG3-T,32805600000,0.02,M/S,40,2008-06-30T20:00:00,2599-12-31T23:59:59
 IU,ANMO,10,BH2,34.945913,-106.457122,1767.2,48.8,154,90,Guralp CMG3-T,32655000000,0.02,M/S,40,2008-06-30T20:00:00,2599-12-31T23:59:59
 IU,ANMO,10,BHZ,34.945913,-106.457122,1767.2,48.8,0,0,Guralp CMG3-T,33067200000,0.02,M/S,40,2008-06-30T20:00:00,2599-12-31T23:59:59
+------------------
+
+Example with vertical bar separators (with SEED convention dip):
+
+------------------
+#net|sta|loc|chan|lat|lon|elev|depth|azimuth|SEEDdip|instrument|scale|scalefreq|scaleunits|samplerate|start|end
+IU|ANMO|00|BH1|34.945981|-106.457133|1671|145|328|0|Geotech KS-54000|3456610000|0.02|M/S|20|2008-06-30T20:00:00|2599-12-31T23:59:59
+IU|ANMO|00|BH2|34.945981|-106.457133|1671|145|58|0|Geotech KS-54000|3344370000|0.02|M/S|20|2008-06-30T20:00:00|2599-12-31T23:59:59
+IU|ANMO|00|BHZ|34.945981|-106.457133|1671|145|0|-90|Geotech KS-54000|3275080000|0.02|M/S|20|2008-06-30T20:00:00|2599-12-31T23:59:59
 ------------------
 
 As a special case '--' can be used to match a blank (space, space)

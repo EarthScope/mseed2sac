@@ -1,4 +1,8 @@
 2012.216:
+	- Allow metadata files to be delimited with vertical bars (|) in 
+	addition to commas.
+	- When metadata files are delimited with vertical bars, assume the
+	inclination is in SEED dip convention and convert to a SAC inclination.
 	- Add logic to avoid overwriting existing file names, allows traces
 	with the same start time to be converted.
 	- Add -O option to explicitly overwrite existing files to support
