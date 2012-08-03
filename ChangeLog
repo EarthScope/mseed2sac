@@ -1,3 +1,9 @@
+2012.216:
+	- Add logic to avoid overwriting existing file names, allows traces
+	with the same start time to be converted.
+	- Add -O option to explicitly overwrite existing files to support
+	previous behavior.
+
 2011.301:
 	- Change time values in file names to be zero padded.
 

@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2011/03/07
+.TH MSEED2SAC 1 2012/08/03
 .SH NAME
 Mini-SEED to SAC converter
 
@@ -27,6 +27,11 @@ For example:
 "TA.ELFS..LHZ.R.2006,123,15:36:19.SAC"
 .fi
 
+Files that would have the same file name due to having the same start
+time will be kept separate by adding a digit to file name.  The
+\fI-O\fP argument changes this behavior to allow overwriting of
+existing file names.
+
 Under Windows the colon (:) and comma (,) characters will be replaced
 with underscore (_) and dot (.) characters respectively.
 
@@ -51,6 +56,9 @@ Print extended program usage with all options and exit.
 .IP "-v         "
 Be more verbose.  This flag can be used multiple times ("-v -v" or
 "-vv") for more verbosity.
+
+.IP "-O         "
+Overwrite an existing files instead of generating new file names.
 
 .IP "-k \fIlat/lon\fP"
 Specify station coordinates to put into the output SAC file(s).

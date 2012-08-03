@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2012.111
+ * modified 2012.216
  ***************************************************************************/
 
 #include <stdio.h>
@@ -18,6 +18,10 @@
 #include <libmseed.h>
 
 #include "sacformat.h"
+
+#if defined(_MSC_VER)
+  #define access _access
+#endif
 
 #define VERSION "1.8dev"
 #define PACKAGE "mseed2sac"
@@ -62,6 +66,7 @@ static void usage (int level);
 
 static int   verbose      = 0;
 static int   reclen       = -1;
+static int   overwrite    = 0;
 static int   indifile     = 0;
 static int   sacformat    = 2;
 static double latitude    = DUNDEF;
@@ -201,6 +206,7 @@ writesac (MSTrace *mst)
   BTime btime;
   
   char outfile[1024];
+  char baseoutfile[1024];
   char *sacnetwork;
   char *sacstation;
   char *saclocation;
@@ -359,34 +365,64 @@ writesac (MSTrace *mst)
     }
   else
     {
-      fprintf (stderr, "Error, unrecognized sample type: '%c'\n",
-	       mst->sampletype);
+      fprintf (stderr, "Error, unrecognized sample type: '%c'\n", mst->sampletype);
       return -1;
+    }
+  
+  /* Create base output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec */
+  snprintf (baseoutfile, sizeof(baseoutfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d",
+	    sacnetwork, sacstation, saclocation, sacchannel,
+	    mst->dataquality, btime.year, btime.day, btime.hour,
+	    btime.min, btime.sec);
+  
+  /* For Win32 replace colons with underscores and commas with dots */
+#if defined (WIN32)
+  cp = outfile;
+  while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
+  cp = outfile;
+  while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
+#endif
+  
+  /* Find unused file name */
+#define MAXDUPBASE 1000
+  for ( idx = 0; idx <= MAXDUPBASE; idx++ )
+    {
+      if ( idx == MAXDUPBASE )
+	{
+	  fprintf (stderr, "Error, over %d files with a base of %s ????, giving up...\n", MAXDUPBASE, baseoutfile);
+	  return -1;
+	}
+      
+      if ( idx == 0 )
+	snprintf (outfile, sizeof(outfile), "%s.SAC%s", baseoutfile, (sacformat==1)?"A":"");
+      else
+	snprintf (outfile, sizeof(outfile), "%s-%d.SAC%s", baseoutfile, idx, (sacformat==1)?"A":"");
+      
+      if ( access(outfile, F_OK) )
+	{
+	  if ( errno == ENOENT )
+	    break;
+	  else
+	    {
+	      fprintf (stderr, "Error, Cannot write output file %s: %s\n", outfile, strerror(errno));
+	      return -1;
+	    }
+	}
+      else if ( overwrite )
+	{
+	  break;
+	}
     }
   
   if ( sacformat >= 2 && sacformat <= 4 )
     {
-      /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SAC */
-      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d.SAC",
-		sacnetwork, sacstation, saclocation, sacchannel,
-		mst->dataquality, btime.year, btime.day, btime.hour,
-		btime.min, btime.sec);
-      
-      /* For Win32 replace colons with underscores and commas with dots */
-#if defined (WIN32)
-      cp = outfile;
-      while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
-      cp = outfile;
-      while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
-#endif
-      
       /* Byte swap the data header and data if needed */
       if ( (sacformat == 3 && ms_bigendianhost()) ||
 	   (sacformat == 4 && ! ms_bigendianhost()) )
 	{
 	  if ( verbose )
 	    fprintf (stderr, "Byte swapping SAC header and data\n");
-
+	  
 	  swapsacheader (&sh);
 	  
 	  for (idx=0; idx < mst->numsamples; idx++)
@@ -394,29 +430,15 @@ writesac (MSTrace *mst)
 	      ms_gswap4 (fdata + idx);
 	    }
 	}
-	   
+      
       if ( verbose > 1 )
 	fprintf (stderr, "Writing binary SAC file: %s\n", outfile);
-
+      
       if ( writebinarysac (&sh, fdata, mst->numsamples, outfile) )
 	return -1;
     }
   else if ( sacformat == 1 )
     {
-      /* Create output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec.SACA */
-      snprintf (outfile, sizeof(outfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d.SACA",
-		sacnetwork, sacstation, saclocation, sacchannel,
-		mst->dataquality, btime.year, btime.day, btime.hour,
-		btime.min, btime.sec);
-      
-      /* For Win32 replace colons with underscores and commas with dots */
-#if defined (WIN32)
-      cp = outfile;
-      while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
-      cp = outfile;
-      while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
-#endif
-      
       if ( verbose > 1 )
 	fprintf (stderr, "Writing alphanumeric SAC file: %s\n", outfile);
       
@@ -820,6 +842,10 @@ parameter_proc (int argcount, char **argvec)
       else if (strncmp (argvec[optind], "-v", 2) == 0)
 	{
 	  verbose += strspn (&argvec[optind][1], "v");
+	}
+      else if (strcmp (argvec[optind], "-O") == 0)
+	{
+	  overwrite = 1;
 	}
       else if (strcmp (argvec[optind], "-k") == 0)
 	{
@@ -1444,6 +1470,7 @@ usage (int level)
 	   " -h             Show this usage message\n"
 	   " -H             Print an extended usage message\n"
 	   " -v             Be more verbose, multiple flags can be used\n"
+	   " -O             Overwrite existing output files, default creates new file names\n"
 	   "\n"
 	   " -k lat/lon     Specify station coordinates as 'Latitude/Longitude' in degrees\n"
 	   " -m metafile    File containing station metadata (coordinates and more)\n"
