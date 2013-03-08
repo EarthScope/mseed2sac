@@ -1310,6 +1310,7 @@ readmetadata (char *metafile)
 	*fp = '\0';
       
       /* Count the number of commas */
+      commas = 0;
       fp = line;
       while ( (fp = strchr (fp, ',')) )
 	{
@@ -1317,6 +1318,7 @@ readmetadata (char *metafile)
 	  fp++;
 	}
       /* Count the number of vertical bars */
+      bars = 0;
       fp = line;
       while ( (fp = strchr (fp, '|')) )
 	{
@@ -1333,7 +1335,7 @@ readmetadata (char *metafile)
 	{
 	  delim = ',';
 	}
-      
+
       /* Must have at least 3 separators for Net, Sta, Loc, Chan ... */
       if ( (( delim == '|' ) ? bars : commas) < 3 )
 	{
@@ -1357,7 +1359,7 @@ readmetadata (char *metafile)
       mn.starttime = HPTERROR;
       mn.endtime = HPTERROR;
       
-      /* Separate line on commas and index in metafields array */
+      /* Separate line on delimiter and index in metafields array */
       for (idx = 1; idx < MAXMETAFIELDS; idx++)
 	{
 	  mn.metafields[idx] = NULL;
