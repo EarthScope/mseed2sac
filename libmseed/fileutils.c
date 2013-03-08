@@ -5,7 +5,7 @@
  * Written by Chad Trabant
  *   IRIS Data Management Center
  *
- * modified: 2011.039
+ * modified: 2011.129
  ***************************************************************************/
 
 #include <stdio.h>
@@ -544,7 +544,13 @@ ms_readmsr_main (MSFileParam **ppmsfp, MSRecord **ppmsr, char *msfile,
       /* Attempt to parse record from buffer */
       if ( MSFPBUFLEN(msfp) >= MINRECLEN )
 	{
-	  parseval = msr_parse (MSFPREADPTR(msfp), MSFPBUFLEN(msfp), ppmsr, reclen, dataflag, verbose);
+	  int parselen = MSFPBUFLEN(msfp);
+	  
+	  /* Limit the parse length to offset of pack header if present in the buffer */
+	  if ( msfp->packhdroffset && msfp->packhdroffset < (msfp->filepos + MSFPBUFLEN(msfp)) )
+	    parselen = msfp->packhdroffset - msfp->filepos;
+	  
+ 	  parseval = msr_parse (MSFPREADPTR(msfp), parselen, ppmsr, reclen, dataflag, verbose);
 	  
 	  /* Record detected and parsed */
 	  if ( parseval == 0 )
@@ -606,11 +612,27 @@ ms_readmsr_main (MSFileParam **ppmsfp, MSRecord **ppmsr, char *msfile,
 	      /* Determine implied record length if needed */
 	      int32_t impreclen = reclen;
 	      
-	      /* Pack header check, if pack header offset is within buffer */
-	      if ( impreclen <= 0 && msfp->packhdroffset &&
-		   msfp->packhdroffset < (msfp->filepos + MSFPBUFLEN(msfp)) )
+	      /* Check for parse hints that are larger than MAXRECLEN */
+	      if ( (MSFPBUFLEN(msfp) + parseval) > MAXRECLEN )
 		{
-		  impreclen =  msfp->packhdroffset - msfp->filepos;
+		  if ( skipnotdata )
+		    {
+		      /* Skip MINRECLEN bytes, update reading offset and file position */
+		      msfp->readoffset += MINRECLEN;
+		      msfp->filepos += MINRECLEN;
+		    }
+		  else
+		    {
+		      retcode = MS_OUTOFRANGE;
+		      break;
+		    }
+		}
+	      
+	      /* Pack header check, if pack header offset is within buffer */
+	      else if ( impreclen <= 0 && msfp->packhdroffset &&
+			msfp->packhdroffset < (msfp->filepos + MSFPBUFLEN(msfp)) )
+		{
+		  impreclen = msfp->packhdroffset - msfp->filepos;
 		  
 		  /* Check that record length is within range and a power of 2.
 		   * Power of two if (X & (X - 1)) == 0 */
@@ -620,10 +642,17 @@ ms_readmsr_main (MSFileParam **ppmsfp, MSRecord **ppmsr, char *msfile,
 		      /* Set the record length implied by the next pack header */
 		      reclen = impreclen;
 		    }
+		  else
+		    {
+		      ms_log (1, "Implied record length (%d) is invalid\n", impreclen);
+		      
+		      retcode = MS_NOTSEED;
+		      break;
+		    }
 		}
 	      
 	      /* End of file check */
-	      if ( impreclen <= 0 && feof (msfp->fp) )
+	      else if ( impreclen <= 0 && feof (msfp->fp) )
 		{
 		  impreclen = msfp->filesize - msfp->filepos;
 		  
@@ -1023,7 +1052,7 @@ msr_writemseed ( MSRecord *msr, char *msfile, flag overwrite, int reclen,
       if ( packedrecords < 0 )
         {
 	  msr_srcname (msr, srcname, 1);
-          fprintf (stderr, "Error writing Mini-SEED for %s\n", srcname);
+          ms_log (1, "Cannot write Mini-SEED for %s\n", srcname);
         }
     }
   
@@ -1075,7 +1104,7 @@ mst_writemseed ( MSTrace *mst, char *msfile, flag overwrite, int reclen,
       if ( packedrecords < 0 )
         {
 	  mst_srcname (mst, srcname, 1);
-          fprintf (stderr, "Error writing Mini-SEED for %s\n", srcname);
+          ms_log (1, "Cannot write Mini-SEED for %s\n", srcname);
         }
     }
   
@@ -1136,7 +1165,7 @@ mst_writemseedgroup ( MSTraceGroup *mstg, char *msfile, flag overwrite,
       if ( trpackedrecords < 0 )
         {
 	  mst_srcname (mst, srcname, 1);
-          fprintf (stderr, "Error writing Mini-SEED for %s\n", srcname);
+          ms_log (1, "Cannot write Mini-SEED for %s\n", srcname);
         }
       else
         {

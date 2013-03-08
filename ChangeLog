@@ -1,3 +1,6 @@
+2013.066: 
+	- Update to libmseed 2.10.
+
 2012.216: 1.8
 	- Allow metadata files to be delimited with vertical bars (|) in 
 	addition to commas.

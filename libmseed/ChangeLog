@@ -1,3 +1,123 @@
+2013.056: 2.10
+	- Add more sanity checks to msr_unpack_data() to catch bad/corrupted
+	data records and avoid crashes due to impossible pointer construction.
+
+2013.053: 2.9
+	- Extend parsing of day-of-year style time strings to allow parsing
+	of time fields separated by dashes in addition to allowing the day
+	and time fields to be separated by a 'T' or space.  Modifications 
+	were made to ms_seedtimestr2hptime().
+	- Extend parsing of year-month-day style time strings to allow parsing
+	of time fields separated by commas.  Modifications were made to
+	ms_timestr2hptime().
+
+2013.050:
+	- Add MS_ISVALIDYEARDAY() macro to test range for year and day values,
+	years between 1900 and 2100 and days between 1 and 366.
+	- Use new macro to determine when byte swapping is needed.  This test
+	leaves a non-determination of byte order for days 1, 256 and 257 in
+	the year 2056, beware future data users.
+
+2013.007: 2.8 (again)
+	- Add msr_parse_selection() to libmseed.def for Windows builds.
+	- Fix errors in pseudo code in doc/msr_parse.3.
+
+2012.363: 2.8
+	- Implement msr_parse_selection() which is a wrapper of msr_parse()
+	that searches for the first parsable miniSEED record in a memory
+	buffer and returns it.  Optionally a Selections list may be specified
+	to limit the returned data to records matching specific criteria.
+
+2012.357:
+	- Fix corruption of float sample types when opposite byte order than
+	host in certain architecture combinations.  By not addressing
+	individual float samples directly as floats prior to byte swapping
+	we avoid the values being placed into the FPU where they may be
+	corrupted.  Thanks to Moritz Beyreuther and Lion Krischer for discovery
+	and testing.
+	- Expose the msr_unpack_data() function for use by removing the static
+	declaration.  Change verbose flag type to match others and document.
+	- Fix some logging messages, typos, etc.
+
+2012.138: 2.7
+	Add define for MINGW32 to use _fstat and _stat.
+
+2012.114: 2.7rc2
+	- Change record parsing code to trim trailing spaces from network,
+	station, location and channel parameters.  Spaces in between non-space
+	characters remain.
+
+2012.111:
+	- Update example/test.mseed to new data with an earthquake to make it
+	more recognizable compared to ambient noise in the previous example.
+
+2012.105: 2.7rc1
+	- Add many type casts to quiet newer GCC and MSVC compilers.
+	For 32-bit programs there are some places, mostly in packing routines,
+	where 64-bit integers are converted to 32-bit values for sample buffer
+	sizes and counts leaving the potential for overflow.  This will become
+	a problem when byte counts for sample buffers are beyond 2^31, for
+	32-bit integer sample values that is more than 536 million samples.
+	So programmer beware if using such buffer sizes for packing miniSEED.
+
+2012.088:
+	- When parsing records copy the ASCII string fields (sequence number,
+	network, station, location, channel) directly without removing spaces.
+	This makes the parser more lenient to unallowed characters and
+	synchronizes read and write capabilities.
+
+	- For sampling rates above 32,767 Hz only print a warning for high
+	verbosity settings and set the sample rate factor and multipler to zero.
+	Previously an error was printed during rational approximation.
+	The expectation is that a record with such a high sample rate will
+	include a blockette 100 to specify the actual sample rate.
+	This is not an official convention for SEED, but is a kludge to
+	support extremly high sample rates without printing errors.
+
+	- Fix conversion to doubles in examples/msrepack.c.
+
+2011.304: 2.6.2
+	- Increase precision of sample rate in SYNC printing routines to
+	avoid trucation of rate values.
+
+2011.262:
+	- Add '_lm' suffix to declaration of pivotal_gmtime_r_stamp in
+	genutils.c to avoid conflicts with other libraries.  Thanks to Doug
+	Neuhauser for the tip.
+
+2011.164:
+	- example/msrepack.c: add -N option to specify network code for output
+	data records.
+
+2011.160:
+	- example/msrepack.c: make sure input buffer is flushed/packed, retain
+	good input data when the end of the file contains bad data.
+
+2011.158:
+	- example/msrepack.c: convert samples to needed type for specified
+	output encoding, e.g. integers to floats.
+	- example/msrepack.c: do not open output file until after all options
+	have been parsed to avoid clobbering the output file unnecessarily.
+
+2011.144: 2.6.1
+	- Update dynamic library version.
+	- Add notes to the users guide and intro about functions useful for
+	detecting and parsing records in a memory buffer.
+
+2011.129:
+	- Correctly determine record lengths implied by presence of pack header
+	by avoiding record header searches in buffer beyond pack header.
+	- Fix ms_parse to return correct hint of how many more bytes are needed
+	when record length has not been determined.
+	- Change the samplecnt and numsamples elements of the MSRecord, MSTrace
+	and MSTraceSeg structures to 64-bit integers to avoid overflow.
+
+2011.124:
+	- Allow lowercase 't' in ISO time string parsing.
+
+2011.090:
+	- Add check for invalid blockette offset in ms_detect().
+
 2011.056: 2.6
 	- Fix handling of sample data in internal MSTraceList routines.
 	- Cleanup WIN32 defines, make MSVC and Open Watcom play nicely.
@@ -82,7 +202,7 @@
 	- Add check for log parameters in ms_log_main().
 
 2010.129:
-	- Fix small priting bug in diagnostic ms_printselections().
+	- Fix small printing bug in diagnostic ms_printselections().
 
 2010.068: 2.5.1
 	- Allow file name for ms_readselectionfile() to be "-" and read

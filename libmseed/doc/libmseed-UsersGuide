@@ -80,13 +80,13 @@ typedef struct MSRecord_s {
   char            channel[11];       /* Channel designation, NULL terminated */
   hptime_t        starttime;         /* Record start time, corrected (first sample) */
   double          samprate;          /* Nominal sample rate (Hz) */
-  int32_t         samplecnt;         /* Number of samples in record */
+  int64_t         samplecnt;         /* Number of samples in record */
   int8_t          encoding;          /* Data encoding format */
   int8_t          byteorder;         /* Byte order of record */
   
   /* Data sample fields */
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
-  int32_t         numsamples;        /* Number of data samples in datasamples */
+  int64_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
 
   /* Stream oriented state information */
@@ -220,9 +220,9 @@ typedef struct MSTrace_s {
   hptime_t        starttime;       /* Time of first sample */
   hptime_t        endtime;         /* Time of last sample */
   double          samprate;        /* Nominal sample rate (Hz) */
-  int32_t         samplecnt;       /* Number of samples in trace coverage */
+  int64_t         samplecnt;       /* Number of samples in trace coverage */
   void           *datasamples;     /* Data samples, 'numsamples' of type 'sampletype'*/
-  int32_t         numsamples;      /* Number of data samples in datasamples */
+  int64_t         numsamples;      /* Number of data samples in datasamples */
   char            sampletype;      /* Sample type code: a, i, f, d */
   void           *prvtptr;         /* Private pointer for general use */
   StreamState    *ststate;         /* Stream processing state information */
@@ -359,6 +359,12 @@ ms_readtraces(3) routine will do the same except add all the data read
 to a MSTraceGroup, this is ideal for quickly reading data for
 processing.  Both of these routines are able to automatically detect
 record length.
+
+If your application is not designed to read Mini-SEED from files the
+library also provides functions to detect and parse Mini-SEED records
+in memory buffers.  For more information see ms_detect(3) and
+msr_parse(3).
+
 
 Skeleton code for reading a file with ms_readmsr(3):
 

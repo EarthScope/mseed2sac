@@ -7,9 +7,9 @@
  * opionally re-packs the data records and saves them to a specified
  * output file.
  *
- * Written by Chad Trabant, ORFEUS/EC-Project MEREDIAN
+ * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2007.118
+ * modified 2012.105
  ***************************************************************************/
 
 #include <stdio.h>
@@ -28,17 +28,19 @@
 #define VERSION "[libmseed " LIBMSEED_VERSION " example]"
 #define PACKAGE "msrepack"
 
-static short int verbose   = 0;
-static short int ppackets  = 0;
-static short int tracepack = 1;
+static flag  verbose       = 0;
+static flag  ppackets      = 0;
+static flag  tracepack     = 1;
 static int   reclen        = 0;
 static int   packreclen    = -1;
 static char *encodingstr   = 0;
+static char *netcode       = 0;
 static int   packencoding  = -1;
 static int   byteorder     = -1;
 static char *inputfile     = 0;
 static FILE *outfile       = 0;
 
+static int convertsamples (MSRecord *msr, int packencoding);
 static int parameter_proc (int argcount, char **argvec);
 static void record_handler (char *record, int reclen, void *ptr);
 static void usage (void);
@@ -52,10 +54,8 @@ main (int argc, char **argv)
   MSTrace *mst;
   int retcode;
 
-  int totalrecs  = 0;
-  int totalsamps = 0;
-  int packedsamples;
-  int packedrecords;
+  int64_t packedsamples;
+  int64_t packedrecords;
   int lastrecord;
   int iseqnum = 1;
   
@@ -101,10 +101,17 @@ main (int argc, char **argv)
   while ( (retcode = ms_readmsr (&msr, inputfile, reclen, NULL, &lastrecord,
 				 1, 1, verbose)) == MS_NOERROR )
     {
-      totalrecs++;
-      totalsamps += msr->samplecnt;
-      
       msr_print (msr, ppackets);
+      
+      /* Convert sample type as needed for packencoding */
+      if ( packencoding >= 0 && packencoding != msr->encoding )
+	{
+	  if ( convertsamples (msr, packencoding) )
+	    {
+	      ms_log (2, "Error converting samples for encoding %d\n", packencoding);
+	      break;
+	    }
+	}
       
       if ( packreclen >= 0 )
 	msr->reclen = packreclen;
@@ -131,6 +138,10 @@ main (int argc, char **argv)
 		  msr->network, msr->station, msr->location, msr->channel);
 	  msr->fsdh->act_flags |= 0x02;
 	}
+      
+      /* Replace network code */
+      if ( netcode )
+	strncpy (msr->network, netcode, sizeof(msr->network));
       
       /* If no samples in the record just pack the header */
       if ( outfile && msr->numsamples == 0 )
@@ -198,7 +209,7 @@ main (int argc, char **argv)
 		{
 		  packedrecords += mst_pack (mst, &record_handler, NULL, packreclen,
 					     packencoding, byteorder, &packedsamples,
-					     lastrecord, verbose, (MSRecord *)mst->prvtptr);
+					     0, verbose, (MSRecord *)mst->prvtptr);
 		  mst = mst->next;
 		}
 	      
@@ -211,13 +222,30 @@ main (int argc, char **argv)
 		{
 		  packedrecords += mst_pack (mst, &record_handler, NULL, packreclen,
 					     packencoding, byteorder, &packedsamples,
-					     lastrecord, verbose, (MSRecord *)mst->prvtptr);
+					     1, verbose, (MSRecord *)mst->prvtptr);
 		  mst = mst->next;
 		}
 	      
 	      ms_log (1, "Packed %d records\n", packedrecords);
 	    }
 	}
+    }
+  
+  /* Make sure buffer of input data is flushed */
+  packedrecords = 0;
+  if ( tracepack )
+    {
+      mst = mstg->traces;
+      while ( mst )
+	{
+	  packedrecords += mst_pack (mst, &record_handler, NULL, packreclen,
+				     packencoding, byteorder, &packedsamples,
+				     1, verbose, (MSRecord *)mst->prvtptr);
+	  mst = mst->next;
+	}
+      
+      if ( packedrecords )
+	ms_log (1, "Packed %d records\n", packedrecords);
     }
   
   if ( retcode != MS_ENDOFFILE )
@@ -235,6 +263,165 @@ main (int argc, char **argv)
 
 
 /***************************************************************************
+ * convertsamples:
+ *
+ * Convert samples to type needed for the specified pack encoding.
+ *
+ * Returns 0 on success, and -1 on failure
+ ***************************************************************************/
+static int
+convertsamples (MSRecord *msr, int packencoding)
+{
+  char encodingtype;
+  int32_t *idata;
+  float *fdata;
+  double *ddata;
+  int idx;
+  
+  if ( ! msr )
+    {
+      ms_log (2, "convertsamples: Error, no MSRecord specified!\n");
+      return -1;
+    }
+  
+  /* Determine sample type needed for pack encoding */
+  switch (packencoding)
+    {
+    case DE_ASCII:
+      encodingtype = 'a';
+      break;
+    case DE_INT16:
+    case DE_INT32:
+    case DE_STEIM1:
+    case DE_STEIM2:
+      encodingtype = 'i';
+      break;
+    case DE_FLOAT32:
+      encodingtype = 'f';
+      break;
+    case DE_FLOAT64:
+      encodingtype = 'd';
+      break;
+    default:
+      encodingtype = msr->encoding;
+      break;
+    }
+  
+  idata = (int32_t *) msr->datasamples;
+  fdata = (float *) msr->datasamples;
+  ddata = (double *) msr->datasamples;
+  
+  /* Convert sample type if needed */
+  if ( msr->sampletype != encodingtype )
+    {
+      if ( msr->sampletype == 'a' || encodingtype == 'a' )
+	{
+	  ms_log (2, "Error, cannot convert ASCII samples to/from numeric type\n");
+	  return -1;
+	}
+      
+      /* Convert to integers */
+      else if ( encodingtype == 'i' )
+	{
+	  if ( msr->sampletype == 'f' )      /* Convert floats to integers with simple rounding */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		{
+		  /* Check for loss of sub-integer */
+		  if ( (fdata[idx] - (int32_t)fdata[idx]) > 0.000001 )
+		    {
+		      ms_log (2, "Warning, Loss of precision when converting floats to integers, loss: %g\n",
+			      (fdata[idx] - (int32_t)fdata[idx]));
+		      return -1;
+		    }
+		  
+		  idata[idx] = (int32_t) (fdata[idx] + 0.5);
+		}
+	    }
+	  else if ( msr->sampletype == 'd' ) /* Convert doubles to integers with simple rounding */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		{
+		  /* Check for loss of sub-integer */
+		  if ( (ddata[idx] - (int32_t)ddata[idx]) > 0.000001 )
+		    {
+		      ms_log (2, "Warning, Loss of precision when converting doubles to integers, loss: %g\n",
+			      (ddata[idx] - (int32_t)ddata[idx]));
+		      return -1;
+		    }
+
+		  idata[idx] = (int32_t) (ddata[idx] + 0.5);
+		}
+	      
+	      /* Reallocate buffer for reduced size needed */
+	      if ( ! (msr->datasamples = realloc (msr->datasamples,(size_t)(msr->numsamples * sizeof(int32_t)))) )
+		{
+		  ms_log (2, "Error, cannot re-allocate buffer for sample conversion\n");
+		  return -1;
+		}
+	    }
+	  
+	  msr->sampletype = 'i';
+	}
+      
+      /* Convert to floats */
+      else if ( encodingtype == 'f' )
+	{
+	  if ( msr->sampletype == 'i' )      /* Convert integers to floats */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		fdata[idx] = (float) idata[idx];
+	    }
+	  else if ( msr->sampletype == 'd' ) /* Convert doubles to floats */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		fdata[idx] = (float) ddata[idx];
+	      
+	      /* Reallocate buffer for reduced size needed */
+	      if ( ! (msr->datasamples = realloc (msr->datasamples, (size_t)(msr->numsamples * sizeof(float)))) )
+		{
+		  ms_log (2, "Error, cannot re-allocate buffer for sample conversion\n");
+		  return -1;
+		}
+	    }
+	  
+	  msr->sampletype = 'f';
+	}
+      
+      /* Convert to doubles */
+      else if ( encodingtype == 'd' )
+	{
+	  if ( ! (ddata = (double *) malloc ((size_t)(msr->numsamples * sizeof(double)))) )
+	    {
+	      ms_log (2, "Error, cannot allocate buffer for sample conversion to doubles\n");
+	      return -1;
+	    }
+	  
+	  if ( msr->sampletype == 'i' )      /* Convert integers to doubles */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		ddata[idx] = (double) idata[idx];
+	      
+	      free (idata);
+	    }
+	  else if ( msr->sampletype == 'f' ) /* Convert floats to doubles */
+	    {
+	      for (idx = 0; idx < msr->numsamples; idx++)
+		ddata[idx] = (double) fdata[idx];
+	      
+	      free (fdata);
+	    }
+	  
+	  msr->datasamples = ddata;
+	  msr->sampletype = 'd';
+	}
+    }
+  
+  return 0;
+}  /* End of convertsamples() */
+
+
+/***************************************************************************
  * parameter_proc:
  *
  * Process the command line parameters.
@@ -245,7 +432,8 @@ static int
 parameter_proc (int argcount, char **argvec)
 {
   int optind;
-
+  char *outputfile = 0;
+  
   /* Process all command line arguments */
   for (optind = 1; optind < argcount; optind++)
     {
@@ -299,14 +487,13 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  byteorder = strtol (argvec[++optind], NULL, 10);
 	}
+      else if (strcmp (argvec[optind], "-N") == 0)
+	{
+	  netcode = argvec[++optind];
+	}
       else if (strcmp (argvec[optind], "-o") == 0)
 	{
-	  if ( (outfile = fopen(argvec[++optind], "wb")) == NULL )
-	    {
-	      ms_log (2, "Error opening output file: %s\n",
-		      argvec[++optind]);
-	      exit (0);
-	    }	       
+	  outputfile = argvec[++optind];
 	}
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
 	       strlen (argvec[optind]) > 1 )
@@ -333,15 +520,30 @@ parameter_proc (int argcount, char **argvec)
       ms_log (1, "Try %s -h for usage\n", PACKAGE);
       exit (1);
     }
-
+  
   /* Make sure an outputfile was specified */
-  if ( ! outfile )
+  if ( ! outputfile )
     {
       ms_log (2, "No output file was specified\n\n");
       ms_log (1, "Try %s -h for usage\n", PACKAGE);
       exit (1);
     }
+  else if ( (outfile = fopen(outputfile, "wb")) == NULL )
+    {
+      ms_log (2, "Error opening output file: %s\n", outputfile);
+      exit (1);
+    }
   
+  /* Make sure network code is valid */
+  if ( netcode )
+    {
+      if ( strlen(netcode) > 2 || strlen(netcode) < 1 )
+	{
+	  ms_log (2, "Error, invalid output network code: '%s'\n", netcode);
+	  exit (1);
+	}
+    }
+
   /* Report the program version */
   if ( verbose )
     ms_log (1, "%s version: %s\n", PACKAGE, VERSION);
@@ -387,6 +589,7 @@ usage (void)
 	   " -R bytes       Specify record length in bytes for packing\n"
 	   " -E encoding    Specify encoding format for packing\n"
 	   " -b byteorder   Specify byte order for packing, MSBF: 1, LSBF: 0\n"
+	   " -N netcode     Specify network code for output data\n"
 	   "\n"
 	   " -o outfile     Specify the output file, required\n"
 	   "\n"

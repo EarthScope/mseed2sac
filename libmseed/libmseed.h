@@ -30,8 +30,8 @@ extern "C" {
 
 #include "lmplatform.h"
 
-#define LIBMSEED_VERSION "2.6"
-#define LIBMSEED_RELEASE "2011.056"
+#define LIBMSEED_VERSION "2.10"
+#define LIBMSEED_RELEASE "2013.056"
 
 #define MINRECLEN   256      /* Minimum Mini-SEED record length, 2^8 bytes */
 #define MAXRECLEN   1048576  /* Maximum Mini-SEED record length, 2^20 bytes */
@@ -79,6 +79,17 @@ extern "C" {
 
 /* Macro to test default sample rate tolerance: abs(1-sr1/sr2) < 0.0001 */
 #define MS_ISRATETOLERABLE(A,B) (ms_dabs (1.0 - (A / B)) < 0.0001)
+
+/* Macro to test for sane year and day values, used primarily to
+ * determine if byte order swapping is needed.
+ * 
+ * Year : between 1900 and 2100
+ * Day  : between 1 and 366
+ *
+ * This test is non-unique (non-deterministic) for days 1, 256 and 257
+ * in the year 2056 because the swapped values are also within range.
+ */
+#define MS_ISVALIDYEARDAY(Y,D) (Y >= 1900 && Y <= 2100 && D >= 1 && D <= 366)
 
 /* Macro to test memory for a SEED data record signature by checking
  * SEED data record header values at known byte offsets to determine
@@ -165,24 +176,24 @@ BTime;
 /* Fixed section data of header */
 struct fsdh_s
 {
-  char           sequence_number[6];
-  char           dataquality;
-  char           reserved;
-  char           station[5];
-  char           location[2];
-  char           channel[3];
-  char           network[2];
-  BTime          start_time;
-  uint16_t       numsamples;
-  int16_t        samprate_fact;
-  int16_t        samprate_mult;
-  uint8_t        act_flags;
-  uint8_t        io_flags;
-  uint8_t        dq_flags;
-  uint8_t        numblockettes;
-  int32_t        time_correct;
-  uint16_t       data_offset;
-  uint16_t       blockette_offset;
+  char      sequence_number[6];
+  char      dataquality;
+  char      reserved;
+  char      station[5];
+  char      location[2];
+  char      channel[3];
+  char      network[2];
+  BTime     start_time;
+  uint16_t  numsamples;
+  int16_t   samprate_fact;
+  int16_t   samprate_mult;
+  uint8_t   act_flags;
+  uint8_t   io_flags;
+  uint8_t   dq_flags;
+  uint8_t   numblockettes;
+  int32_t   time_correct;
+  uint16_t  data_offset;
+  uint16_t  blockette_offset;
 } LMP_PACKED;
 
 /* Blockette 100, Sample Rate (without header) */
@@ -386,13 +397,13 @@ typedef struct MSRecord_s {
   char            dataquality;       /* Data quality indicator */
   hptime_t        starttime;         /* Record start time, corrected (first sample) */
   double          samprate;          /* Nominal sample rate (Hz) */
-  int32_t         samplecnt;         /* Number of samples in record */
+  int64_t         samplecnt;         /* Number of samples in record */
   int8_t          encoding;          /* Data encoding format */
   int8_t          byteorder;         /* Original/Final byte order of record */
   
   /* Data sample fields */
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
-  int32_t         numsamples;        /* Number of data samples in datasamples */
+  int64_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
   
   /* Stream oriented state information */
@@ -411,9 +422,9 @@ typedef struct MSTrace_s {
   hptime_t        starttime;         /* Time of first sample */
   hptime_t        endtime;           /* Time of last sample */
   double          samprate;          /* Nominal sample rate (Hz) */
-  int32_t         samplecnt;         /* Number of samples in trace coverage */
-  void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
-  int32_t         numsamples;        /* Number of data samples in datasamples */
+  int64_t         samplecnt;         /* Number of samples in trace coverage */
+  void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype' */
+  int64_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
   void           *prvtptr;           /* Private pointer for general use, unused by libmseed */
   StreamState    *ststate;           /* Stream processing state information */
@@ -433,9 +444,9 @@ typedef struct MSTraceSeg_s {
   hptime_t        starttime;         /* Time of first sample */
   hptime_t        endtime;           /* Time of last sample */
   double          samprate;          /* Nominal sample rate (Hz) */
-  int32_t         samplecnt;         /* Number of samples in trace coverage */
+  int64_t         samplecnt;         /* Number of samples in trace coverage */
   void           *datasamples;       /* Data samples, 'numsamples' of type 'sampletype'*/
-  int32_t         numsamples;        /* Number of data samples in datasamples */
+  int64_t         numsamples;        /* Number of data samples in datasamples */
   char            sampletype;        /* Sample type code: a, i, f, d */
   void           *prvtptr;           /* Private pointer for general use, unused by libmseed */
   struct MSTraceSeg_s *prev;         /* Pointer to previous segment */
@@ -510,13 +521,19 @@ extern int unpackencodingfallback;
 extern int           msr_parse (char *record, int recbuflen, MSRecord **ppmsr, int reclen,
 				flag dataflag, flag verbose);
 
+extern int           msr_parse_selection ( char *recbuf, int recbuflen, int64_t *offset,
+					   MSRecord **ppmsr, int reclen,
+					   Selections *selections, flag dataflag, flag verbose );
+
 extern int           msr_unpack (char *record, int reclen, MSRecord **ppmsr,
 				 flag dataflag, flag verbose);
 
 extern int           msr_pack (MSRecord *msr, void (*record_handler) (char *, int, void *),
-		 	       void *handlerdata, int *packedsamples, flag flush, flag verbose );
+		 	       void *handlerdata, int64_t *packedsamples, flag flush, flag verbose );
 
 extern int           msr_pack_header (MSRecord *msr, flag normalize, flag verbose);
+
+extern int           msr_unpack_data (MSRecord *msr, int swapflag, flag verbose);
 
 extern MSRecord*     msr_init (MSRecord *msr);
 extern void          msr_free (MSRecord **ppmsr);
@@ -551,7 +568,7 @@ extern MSTrace*      mst_findadjacent (MSTraceGroup *mstg, flag *whence, char da
 				       hptime_t starttime, hptime_t endtime, double timetol);
 extern int           mst_addmsr (MSTrace *mst, MSRecord *msr, flag whence);
 extern int           mst_addspan (MSTrace *mst, hptime_t starttime,  hptime_t endtime,
-				  void *datasamples, int numsamples,
+				  void *datasamples, int64_t numsamples,
 				  char sampletype, flag whence);
 extern MSTrace*      mst_addmsrtogroup (MSTraceGroup *mstg, MSRecord *msr, flag dataquality,
 					double timetol, double sampratetol);
@@ -566,11 +583,11 @@ extern void          mst_printgaplist (MSTraceGroup *mstg, flag timeformat,
 				       double *mingap, double *maxgap);
 extern int           mst_pack (MSTrace *mst, void (*record_handler) (char *, int, void *),
 			       void *handlerdata, int reclen, flag encoding, flag byteorder,
-			       int *packedsamples, flag flush, flag verbose,
+			       int64_t *packedsamples, flag flush, flag verbose,
 			       MSRecord *mstemplate);
 extern int           mst_packgroup (MSTraceGroup *mstg, void (*record_handler) (char *, int, void *),
 				    void *handlerdata, int reclen, flag encoding, flag byteorder,
-				    int *packedsamples, flag flush, flag verbose,
+				    int64_t *packedsamples, flag flush, flag verbose,
 				    MSRecord *mstemplate);
 
 /* MSTraceList related functions */
@@ -629,6 +646,7 @@ extern int      mst_writemseedgroup ( MSTraceGroup *mstg, char *msfile, flag ove
 extern char*    ms_recsrcname (char *record, char *srcname, flag quality);
 extern int      ms_splitsrcname (char *srcname, char *net, char *sta, char *loc, char *chan, char *qual);
 extern int      ms_strncpclean (char *dest, const char *source, int length);
+extern int      ms_strncpcleantail (char *dest, const char *source, int length);
 extern int      ms_strncpopen (char *dest, const char *source, int length);
 extern int      ms_doy2md (int year, int jday, int *month, int *mday);
 extern int      ms_md2doy (int year, int month, int mday, int *jday);
