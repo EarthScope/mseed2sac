@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2012.216
+ * modified 2013.066
  ***************************************************************************/
 
 #include <stdio.h>
@@ -23,7 +23,7 @@
   #define access _access
 #endif
 
-#define VERSION "1.8"
+#define VERSION "1.9"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -291,12 +291,12 @@ writesac (MSTrace *mst)
     strncpy (sh.kevnm, eventname, 16);
   
   /* Calculate delta, distance and azimuths if both event and station coordiantes are known */
-  if ( eventlat != DUNDEF && eventlon != DUNDEF &&
-       latitude != DUNDEF && longitude != DUNDEF )
+  if ( sh.evla != FUNDEF && sh.evlo != FUNDEF &&
+       sh.stla != FUNDEF && sh.stlo != FUNDEF )
     {
       double delta, dist, azimuth, backazimuth;
       
-      if ( ! delaz (eventlat, eventlon, latitude, longitude, &delta, &dist, &azimuth, &backazimuth) )
+      if ( ! delaz (sh.evla, sh.evlo, sh.stla, sh.stlo, &delta, &dist, &azimuth, &backazimuth) )
 	{
 	  sh.az = (float) azimuth;
 	  sh.baz = (float) backazimuth;

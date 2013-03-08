@@ -1,5 +1,9 @@
 2013.066: 
 	- Update to libmseed 2.10.
+	- Change code to caluclate and populate station-event relative headers
+	(az, baz, gcarc, dist) when a metadata file is used, previously this
+	only worked when the station coordinates were supplied as command line
+	options.
 
 2012.216: 1.8
 	- Allow metadata files to be delimited with vertical bars (|) in 
