@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2013.066
+ * modified 2013.221
  ***************************************************************************/
 
 #include <stdio.h>
@@ -23,7 +23,7 @@
   #define access _access
 #endif
 
-#define VERSION "1.9"
+#define VERSION "2.0dev"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -68,6 +68,7 @@ static int   verbose      = 0;
 static int   reclen       = -1;
 static int   overwrite    = 0;
 static int   indifile     = 0;
+static int   indichannel  = 0;
 static int   sacformat    = 2;
 static double latitude    = DUNDEF;
 static double longitude   = DUNDEF;
@@ -97,6 +98,7 @@ main (int argc, char **argv)
   struct listnode *flp;
 
   char srcname[50];
+  char prevsrcname[50];
   char starttime[50];
   hptime_t recendtime;
   
@@ -122,10 +124,15 @@ main (int argc, char **argv)
       while ( (retcode = ms_readmsr(&msr, flp->data, reclen, NULL, NULL,
                                     1, 1, verbose-1)) == MS_NOERROR )
 	{
+	  /* Generate source name if needed for tests */
+          if ( selections || indichannel )
+            {
+	      msr_srcname (msr, srcname, 1);
+	    }
+	  
 	  /* Check if record is matched by selection */
           if ( selections )
             {
-	      msr_srcname (msr, srcname, 1);
 	      recendtime = msr_endtime (msr);
 	      
               if ( ! ms_matchselect (selections, srcname, msr->starttime, recendtime, NULL) )
@@ -139,6 +146,31 @@ main (int argc, char **argv)
 		  continue;
                 }
             }
+	  
+	  /* If this is a new channel write previous data (if individual channel writing) */
+	  if ( indichannel )
+	    {
+	      if ( totalrecs > 0 )
+		{
+		  if ( strncmp (prevsrcname, srcname, sizeof(prevsrcname)) )
+		    {
+		      mst = mstg->traces;
+		      while ( mst )
+			{
+			  writesac (mst);
+			  mst = mst->next;
+			}
+		      
+		      mstg = mst_initgroup (mstg);
+		      
+		      strncpy (prevsrcname, srcname, sizeof (prevsrcname));
+		    }
+		}
+	      else
+		{ 
+		  strncpy (prevsrcname, srcname, sizeof (prevsrcname));
+		}
+	    }
 	  
 	  if ( verbose >= 2 )
 	    msr_print (msr, verbose - 2);
@@ -218,10 +250,6 @@ writesac (MSTrace *mst)
   hptime_t submsec;
   int idx;
   int rv;
-  
-#if defined (WIN32)
-  char *cp = 0;
-#endif
   
   if ( ! mst )
     return -1;
@@ -369,20 +397,12 @@ writesac (MSTrace *mst)
       return -1;
     }
   
-  /* Create base output file name: Net.Sta.Loc.Chan.Qual.Year.Day.Hour.Min.Sec */
-  snprintf (baseoutfile, sizeof(baseoutfile), "%s.%s.%s.%s.%c.%04d,%03d,%02d:%02d:%02d",
+  /* Create base output file name: Net.Sta.Loc.Chan.Qual.Year.Day.HourMinSec */
+  snprintf (baseoutfile, sizeof(baseoutfile), "%s.%s.%s.%s.%c.%04d.%03d.%02d%02d%02d",
 	    sacnetwork, sacstation, saclocation, sacchannel,
 	    mst->dataquality, btime.year, btime.day, btime.hour,
 	    btime.min, btime.sec);
-  
-  /* For Win32 replace colons with underscores and commas with dots */
-#if defined (WIN32)
-  cp = outfile;
-  while ( *cp ) { if ( *cp == ':' ) *cp = '_'; cp++; }
-  cp = outfile;
-  while ( *cp ) { if ( *cp == ',' ) *cp = '.'; cp++; }
-#endif
-  
+    
   /* Find unused file name */
 #define MAXDUPBASE 1000
   for ( idx = 0; idx <= MAXDUPBASE; idx++ )
@@ -894,6 +914,10 @@ parameter_proc (int argcount, char **argvec)
       else if (strcmp (argvec[optind], "-i") == 0)
 	{
 	  indifile = 1;
+	}
+      else if (strcmp (argvec[optind], "-ic") == 0)
+	{
+	  indichannel = 1;
 	}
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
                strlen (argvec[optind]) > 1 )
@@ -1520,6 +1544,7 @@ usage (int level)
 	       " -C channel     Specify the channel code, overrides any value in the SEED\n"
 	       " -r bytes       Specify SEED record length in bytes, autodetected by default\n"
 	       " -i             Process each input file individually instead of merged\n"
+	       " -ic            Process each channel individually, data should be well ordered\n"
 	       "\n");
     }
   

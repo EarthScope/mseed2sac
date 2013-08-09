@@ -1,3 +1,16 @@
+2013.221:
+	- Change generated output file names to (no colons or commas):
+	  Net.Sta.Loc.Chan.Qual.YYYY.DDD.HHMMSS.SAC
+	which is consistent between between various operating systems.
+	The previously generated file name patterns were:
+	  Net.Sta.Loc.Chan.Qual.YYYY,DDD,HH:MM:SS.SAC (non-Windows)
+	  Net.Sta.Loc.Chan.Qual.YYYY.DDD.HH_MM_SS.SAC (Windows)
+
+	- Add -ic option to process each input channel individually.  When a
+	new channel is detected all data previously read will be written.
+	Input miniSEED data should be well ordered, with all records for a
+	channel contiguous in the file, when using this option.
+
 2013.066: 1.9
 	- Update to libmseed 2.10.
 	- Change code to caluclate and populate station-event relative headers
