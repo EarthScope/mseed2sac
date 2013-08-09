@@ -1,4 +1,5 @@
 2013.221:
+	- Update to libmseed 2.11.
 	- Change generated output file names to (no colons or commas):
 	  Net.Sta.Loc.Chan.Qual.YYYY.DDD.HHMMSS.SAC
 	which is consistent between between various operating systems.
