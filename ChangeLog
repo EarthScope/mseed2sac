@@ -1,3 +1,8 @@
+2013.242:
+	- Add check of derived sample rate versus reported sample rate.
+	- Add -dr option to use the derived sample rate over the reported rate,
+	this assumes that the timing is more accurate than the sampling rate.
+
 2013.221:
 	- Update to libmseed 2.11.
 	- Change generated output file names to (no colons or commas):
@@ -7,10 +12,12 @@
 	  Net.Sta.Loc.Chan.Qual.YYYY,DDD,HH:MM:SS.SAC (non-Windows)
 	  Net.Sta.Loc.Chan.Qual.YYYY.DDD.HH_MM_SS.SAC (Windows)
 
-	- Add -ic option to process each input channel individually.  When a
-	new channel is detected all data previously read will be written.
-	Input miniSEED data should be well ordered, with all records for a
-	channel contiguous in the file, when using this option.
+	- Add -ic option to process each input channel individually.  When
+	a new channel is detected all data previously read will be
+	written.  Allows processing of very large input files without
+	holding all of the data in memory.  Input miniSEED data should be
+	well ordered, with all records for a channel contiguous in the
+	file, when using this option.
 
 2013.066: 1.9
 	- Update to libmseed 2.10.
@@ -21,7 +28,7 @@
 	- Fix detection of bad or incomplete lines in metadata file.
 
 2012.216: 1.8
-	- Allow metadata files to be delimited with vertical bars (|) in 
+	- Allow metadata files to be delimited with vertical bars (|) in
 	addition to commas.
 	- When metadata files are delimited with vertical bars, assume the
 	inclination is in SEED dip convention and convert to a SAC inclination.

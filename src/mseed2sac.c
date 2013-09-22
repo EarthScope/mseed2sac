@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2013.221
+ * modified 2013.265
  ***************************************************************************/
 
 #include <stdio.h>
@@ -67,6 +67,7 @@ static void usage (int level);
 static int   verbose      = 0;
 static int   reclen       = -1;
 static int   overwrite    = 0;
+static int   deriverate   = 0;
 static int   indifile     = 0;
 static int   indichannel  = 0;
 static int   sacformat    = 2;
@@ -256,6 +257,44 @@ writesac (MSTrace *mst)
   
   if ( mst->numsamples == 0 || mst->samprate == 0.0 )
     return 0;
+  
+  /* Check reported versus derived sampling rates */
+  if ( mst->starttime < mst->endtime )
+    {
+      hptime_t hptimeshift;
+      hptime_t hpdelta;
+      double samprate;
+      
+      /* Calculate difference between end time of last miniSEED record and the end time
+       * as calculated based on the start time, reported sample rate and number of samples. */
+      hptimeshift = llabs (mst->endtime - mst->starttime - (hptime_t)((mst->numsamples - 1) * HPTMODULUS / mst->samprate));
+      
+      /* Calculate high-precision sample period using reported sample rate */
+      hpdelta = (hptime_t)(( mst->samprate ) ? (HPTMODULUS / mst->samprate) : 0.0);
+      
+      /* Test if time shift is beyond half a sample period */
+      if ( hptimeshift > (hpdelta * 0.5) )
+	{
+	  /* Derive sample rate from start and end times and number of samples */
+	  samprate = (double) (mst->numsamples - 1) * HPTMODULUS / (mst->endtime - mst->starttime);
+	  
+	  if ( deriverate )
+	    {
+	      if ( verbose )
+		fprintf (stderr, "Using derived sample rate of %g over reported rate of %g\n",
+			 samprate, mst->samprate);
+	      
+	      mst->samprate = samprate;
+	    }
+	  else
+	    {
+	      fprintf (stderr, "[%s.%s.%s.%s] Reported sample rate different than derived rate (%g versus %g)\n",
+		       mst->network, mst->station, mst->location, mst->channel,
+		       mst->samprate, samprate);
+	      fprintf (stderr, "   Consider using the -dr option to use the sample rate derived from the series\n");
+	    }
+	}
+    }
   
   sacnetwork = ( network ) ? network : mst->network;
   sacstation = ( station ) ? station : mst->station;
@@ -910,6 +949,10 @@ parameter_proc (int argcount, char **argvec)
       else if (strcmp (argvec[optind], "-r") == 0)
 	{
 	  reclen = strtoul (getoptval(argcount, argvec, optind++, 0), NULL, 10);
+	}
+      else if (strcmp (argvec[optind], "-dr") == 0)
+	{
+	  deriverate = 1;
 	}
       else if (strcmp (argvec[optind], "-i") == 0)
 	{
