@@ -1576,6 +1576,8 @@ usage (int level)
 	   " -f format      Specify SAC file format (default is 2:binary):\n"
            "                  1=alpha, 2=binary (host byte order),\n"
            "                  3=binary (little-endian), 4=binary (big-endian)\n"
+	   "\n"
+	   " More options are available, to see their description use the -H option\n"
 	   "\n");
   
   if ( level >= 1 )
@@ -1588,6 +1590,8 @@ usage (int level)
 	       " -r bytes       Specify SEED record length in bytes, autodetected by default\n"
 	       " -i             Process each input file individually instead of merged\n"
 	       " -ic            Process each channel individually, data should be well ordered\n"
+	       " -dr            Use the sampling rate derived from the time stamps instead\n"
+	       "                  of the sample rate denoted in the input data\n"
 	       "\n");
     }
   
