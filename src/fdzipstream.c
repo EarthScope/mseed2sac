@@ -974,7 +974,7 @@ zs_htolx ( void *data, int size )
       le = (*((int8_t *)(&host)));
     }
   
-  /* Swap bytes if not little-endian, requires memory-aligned qualities */
+  /* Swap bytes if not little-endian, requires memory-aligned quantities */
   if ( le == 0 )
     {
       switch ( size )
