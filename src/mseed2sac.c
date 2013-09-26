@@ -19,8 +19,13 @@
 
 #include "sacformat.h"
 
+#ifndef NOFDZIP
+  #include "fdzipstream.h"
+#endif
+
 #if defined(_MSC_VER)
   #define access _access
+  #define fileno _fileno
 #endif
 
 #define VERSION "2.0dev"
@@ -83,6 +88,13 @@ static double eventlat    = DUNDEF;
 static double eventlon    = DUNDEF;
 static double eventdepth  = DUNDEF;
 static char  *eventname   = 0;
+
+static char *zipfile      = 0;
+static int zipfd          = -1;
+static int zipmethod      = -1;
+#ifndef NOFDZIP
+static ZIPstream *zstream = 0;
+#endif
 
 struct listnode *filelist = 0;      /* List of input files */
 static Selections *selections = 0;  /* List of data selections */
@@ -436,12 +448,49 @@ writesac (MSTrace *mst)
       return -1;
     }
   
+#ifndef NOFDZIP
+  /* Open output ZIP archive file if not initialized */
+  if ( zipfile && (zipfd < 0) )
+    {
+      if ( ! strcmp (zipfile, "-") )
+	{
+          zipfd = fileno(stdout);
+	}
+      else
+	{
+  
+  //CHAD, use zipfile as a trigger for later testing of ZIP output 
+
+  // CHAD DO AN open() here.
+    
+  /* Open output ZIP file */
+	  if ( (ofp = fopen (zipfile, "wb")) == NULL )
+	    {
+	      fprintf (stderr, "Cannot open output file: %s (%s)\n",
+		       zipfile, strerror(errno));
+	      return -1;
+	    }
+	  
+	  /* Initialize ZIP container, skip options */
+	  if ( (zstream = zs_init (fileno(o, zstream)) == NULL )
+	    {
+	      fprintf (stderr, "Error in zs_init()\n");
+	      return 1;
+	    }
+
+	  //CHAD
+	}
+    }
+#endif
+
+
+
   /* Create base output file name: Net.Sta.Loc.Chan.Qual.Year.Day.HourMinSec */
   snprintf (baseoutfile, sizeof(baseoutfile), "%s.%s.%s.%s.%c.%04d.%03d.%02d%02d%02d",
 	    sacnetwork, sacstation, saclocation, sacchannel,
 	    mst->dataquality, btime.year, btime.day, btime.hour,
 	    btime.min, btime.sec);
-    
+  
   /* Find unused file name */
 #define MAXDUPBASE 1000
   for ( idx = 0; idx <= MAXDUPBASE; idx++ )
@@ -962,6 +1011,18 @@ parameter_proc (int argcount, char **argvec)
 	{
 	  indichannel = 1;
 	}
+#ifndef NOFDZIP
+      else if (strcmp (argvec[optind], "-z") == 0)
+	{
+	  zipfile = getoptval(argcount, argvec, optind++, 0);
+	  zipmethod = ZS_DEFLATE;
+	}
+      else if (strcmp (argvec[optind], "-z0") == 0)
+	{
+	  zipfile = getoptval(argcount, argvec, optind++, 0);
+	  zipmethod = ZS_STORE;
+	}
+#endif
       else if (strncmp (argvec[optind], "-", 1) == 0 &&
                strlen (argvec[optind]) > 1 )
         {
@@ -1591,8 +1652,14 @@ usage (int level)
 	       " -i             Process each input file individually instead of merged\n"
 	       " -ic            Process each channel individually, data should be well ordered\n"
 	       " -dr            Use the sampling rate derived from the time stamps instead\n"
-	       "                  of the sample rate denoted in the input data\n"
-	       "\n");
+	       "                  of the sample rate denoted in the input data\n");
+#ifndef NOFDZIP
+      fprintf (stderr,
+	       " -z zipfile     Write all SAC files to a ZIP archive, use '-' for stdout\n"
+	       " -z0 zipfile    Same as -z but do not compress archive entries\n");
+#endif
+      
+      fprintf (stderr, "\n");
     }
   
 }  /* End of usage() */
