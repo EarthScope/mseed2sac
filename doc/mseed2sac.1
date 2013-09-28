@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2012/08/03
+.TH MSEED2SAC 1 2013/09/28
 .SH NAME
 Mini-SEED to SAC converter
 
@@ -21,19 +21,16 @@ A separate output file is written for each continuous time-series in
 the input data.  Output file names are of the form:
 
 .nf
-"Net.Sta.Loc.Chan.Qual.YYYY,DDD,HH:MM:SS.SAC"
+"Net.Sta.Loc.Chan.Qual.YYYY,DDD,HHMMSS.SAC"
 
 For example:
-"TA.ELFS..LHZ.R.2006,123,15:36:19.SAC"
+"TA.ELFS..LHZ.R.2006,123,153619.SAC"
 .fi
 
 Files that would have the same file name due to having the same start
 time will be kept separate by adding a digit to file name.  The
 \fI-O\fP argument changes this behavior to allow overwriting of
 existing file names.
-
-Under Windows the colon (:) and comma (,) characters will be replaced
-with underscore (_) and dot (.) characters respectively.
 
 If the input file name is "-" input Mini-SEED records will be read
 from standard input.
@@ -136,6 +133,29 @@ This allows time-series spanning mutilple input files to be merged and
 written in a single SAC file.  The intention is to use this option
 when processing large amounts of data in order to keep memory usage
 within reasonable limits.
+
+.IP "-ic        "
+Process each input channel individually.  Similar to the \fI-i\fP
+option, except this instructs the program to create write SAC files
+for each channel (determined when the input channel changes).  Data
+should be well ordered by channel for best results.  This option can
+be used to reduce memory usage for very large input files containing
+many channels.
+
+.IP "-dr        "
+Use the sampling rate derived from the start and end times and the
+number of samples instead of the rate specified in the input data.
+This is useful when the sample rate in the input data does not have
+enough resolution to represent the true rate.
+
+.IP "-z \fIzipfile\fP"
+Create a ZIP archive containing all SAC files instead of writing
+individual files.  Each file is compressed with the deflate method.
+Specify \fB-\fP (dash) to write ZIP archive to stdout.
+
+.IP "-z0 \fIzipfile\fP"
+Same as \fI-z\P execpt do not compress the SAC files.  Specify \fB-\fP
+(dash) to write ZIP archive to stdout.
 
 .SH "METADATA FILES"
 A metadata file contains a list of station parameters, some of which
