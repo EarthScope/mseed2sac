@@ -866,7 +866,7 @@ zs_deflatedata ( ZIPstream *zstream, ZIPentry *zentry, int flush,
   int64_t outputcount = 0;
   int deflatelength;
   int compresslength;
-  int rv;
+  int rv = Z_OK;
   int flushflag;
   
   if ( ! zstream || ! zentry || ! input || ! output)
