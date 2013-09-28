@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2013.265
+ * modified 2013.271
  ***************************************************************************/
 
 #include <stdio.h>
@@ -90,9 +90,8 @@ static double eventdepth  = DUNDEF;
 static char  *eventname   = 0;
 
 static char *zipfile      = 0;
-static int zipfd          = -1;
-static int zipmethod      = -1;
 #ifndef NOFDZIP
+static int zipmethod      = -1;
 static ZIPstream *zstream = 0;
 #endif
 
@@ -109,7 +108,7 @@ main (int argc, char **argv)
   MSRecord *msr = 0;
   
   struct listnode *flp;
-
+  
   char srcname[50];
   char prevsrcname[50];
   char starttime[50];
@@ -120,12 +119,52 @@ main (int argc, char **argv)
   int totalsamps = 0;
   int totalfiles = 0;
   
+#ifndef NOFDZIP
+  FILE *zipfp;
+  int zipfd;
+  ssize_t writestatus = 0;
+#endif  /* NOFDZIP */
+  
   /* Process given parameters (command line and parameter file) */
   if (parameter_proc (argc, argv) < 0)
     return -1;
   
   /* Init MSTraceGroup */
   mstg = mst_initgroup (mstg);
+  
+#ifndef NOFDZIP
+  /* Open & intialize output ZIP archive if needed */
+  if ( zipfile )
+    {
+      if ( ! strcmp (zipfile, "-") ) /* Write ZIP to stdout */
+	{
+	  if ( verbose )
+	    fprintf (stderr, "Writing ZIP archive to stdout\n");
+	  
+          zipfd = fileno(stdout);
+	}
+      else if ( (zipfp = fopen (zipfile, "wb")) == NULL ) /* Open output ZIP file */
+	{
+	  fprintf (stderr, "Cannot open output file: %s (%s)\n",
+		   zipfile, strerror(errno));
+	  return -1;
+	}
+      else
+	{
+	  if ( verbose )
+	    fprintf (stderr, "Writing ZIP archive to %s\n", zipfile);
+	  
+	  zipfd = fileno(zipfp);
+	}
+      
+      /* Initialize ZIP container */
+      if ( (zstream = zs_init (zipfd, zstream)) == NULL )
+	{
+	  fprintf (stderr, "Error in zs_init()\n");
+	  return 1;
+	}
+    }
+#endif  /* NOFDZIP */
   
   /* Read input miniSEED files into MSTraceGroup */
   flp = filelist;
@@ -227,11 +266,26 @@ main (int argc, char **argv)
 	}
     }
   
+#ifndef NOFDZIP
+  /* Finish output ZIP archive if needed */
+  if ( zipfile )
+    {
+      if ( zs_finish (zstream, &writestatus) )
+	{
+	  fprintf (stderr, "Error finishing ZIP archive, write status: %lld\n",
+		   (long long int) writestatus);
+	}
+      
+      zs_free (zstream);
+    }
+#endif  /* NOFDZIP */
+  
   /* Make sure everything is cleaned up */
   mst_freegroup (&mstg);
   
   if ( verbose )
-    printf ("Files: %d, Records: %d, Samples: %d\n", totalfiles, totalrecs, totalsamps);
+    fprintf (stderr, "Files: %d, Records: %d, Samples: %d\n",
+    totalfiles, totalrecs, totalsamps);
   
   return 0;
 }  /* End of main() */
@@ -448,43 +502,6 @@ writesac (MSTrace *mst)
       return -1;
     }
   
-#ifndef NOFDZIP
-  /* Open output ZIP archive file if not initialized */
-  if ( zipfile && (zipfd < 0) )
-    {
-      if ( ! strcmp (zipfile, "-") )
-	{
-          zipfd = fileno(stdout);
-	}
-      else
-	{
-  
-  //CHAD, use zipfile as a trigger for later testing of ZIP output 
-
-  // CHAD DO AN open() here.
-    
-  /* Open output ZIP file */
-	  if ( (ofp = fopen (zipfile, "wb")) == NULL )
-	    {
-	      fprintf (stderr, "Cannot open output file: %s (%s)\n",
-		       zipfile, strerror(errno));
-	      return -1;
-	    }
-	  
-	  /* Initialize ZIP container, skip options */
-	  if ( (zstream = zs_init (fileno(o, zstream)) == NULL )
-	    {
-	      fprintf (stderr, "Error in zs_init()\n");
-	      return 1;
-	    }
-
-	  //CHAD
-	}
-    }
-#endif
-
-
-
   /* Create base output file name: Net.Sta.Loc.Chan.Qual.Year.Day.HourMinSec */
   snprintf (baseoutfile, sizeof(baseoutfile), "%s.%s.%s.%s.%c.%04d.%03d.%02d%02d%02d",
 	    sacnetwork, sacstation, saclocation, sacchannel,
@@ -497,7 +514,8 @@ writesac (MSTrace *mst)
     {
       if ( idx == MAXDUPBASE )
 	{
-	  fprintf (stderr, "Error, over %d files with a base of %s ????, giving up...\n", MAXDUPBASE, baseoutfile);
+	  fprintf (stderr, "Error, over %d files with a base of %s ????, giving up...\n",
+		   MAXDUPBASE, baseoutfile);
 	  return -1;
 	}
       
@@ -505,6 +523,9 @@ writesac (MSTrace *mst)
 	snprintf (outfile, sizeof(outfile), "%s.SAC%s", baseoutfile, (sacformat==1)?"A":"");
       else
 	snprintf (outfile, sizeof(outfile), "%s-%d.SAC%s", baseoutfile, idx, (sacformat==1)?"A":"");
+      
+      if ( zipfile )  /* Trap door for ZIP output, first file name always used */
+	break;
       
       if ( access(outfile, F_OK) )
 	{
@@ -577,30 +598,77 @@ static int
 writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 {
   FILE *ofp;
+
+#ifndef NOFDZIP
+  ZIPentry *zentry = 0;
+  ssize_t writestatus = 0;
+#endif  /* NOFDZIP */
   
-  /* Open output file */
-  if ( (ofp = fopen (outfile, "wb")) == NULL )
+  if ( ! zipfile )
     {
-      fprintf (stderr, "Cannot open output file: %s (%s)\n",
-	       outfile, strerror(errno));
-      return -1;
+      /* Open output file */
+      if ( (ofp = fopen (outfile, "wb")) == NULL )
+	{
+	  fprintf (stderr, "Cannot open output file: %s (%s)\n",
+		   outfile, strerror(errno));
+	  return -1;
+	}
+      
+      /* Write SAC header to output file */
+      if ( fwrite (sh, sizeof(struct SACHeader), 1, ofp) != 1 )
+	{
+	  fprintf (stderr, "Error writing SAC header to output file\n");
+	  return -1;
+	}
+      
+      /* Write float data to output file */
+      if ( fwrite (fdata, sizeof(float), npts, ofp) != npts )
+	{
+	  fprintf (stderr, "Error writing SAC data to output file\n");
+	  return -1;
+	}
+      
+      fclose (ofp);
     }
-  
-  /* Write SAC header to output file */
-  if ( fwrite (sh, sizeof(struct SACHeader), 1, ofp) != 1 )
+  else
     {
-      fprintf (stderr, "Error writing SAC header to output file\n");
-      return -1;
+#ifndef NOFDZIP
+      /* Begin ZIP entry */
+      if ( ! (zentry = zs_entrybegin (zstream, outfile, time(NULL),
+				      zipmethod, &writestatus)) )
+	{
+	  fprintf (stderr, "Cannot begin ZIP entry, write status: %lld\n",
+		   (long long int) writestatus);
+	  return -1;
+	}
+      
+      /* Write SAC header to ZIP */
+      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) sh,
+			   sizeof(struct SACHeader), 0, &writestatus) )
+	{
+	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
+		   outfile, (long long int) writestatus);
+	  return -1;
+	}
+      
+      /* Write float data to ZIP */
+      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) fdata,
+			   npts * sizeof(float), 1, &writestatus) )
+	{
+	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
+		   outfile, (long long int) writestatus);
+	  return -1;
+	}
+      
+      /* End ZIP entry */
+      if ( ! zs_entryend (zstream, zentry, &writestatus) )
+	{
+	  fprintf (stderr, "Error ending ZIP entry for %s, write status: %lld\n",
+		   outfile, (long long int) writestatus);
+	  return 1;
+	}
+#endif  /* NOFDZIP */
     }
-  
-  /* Write float data to output file */
-  if ( fwrite (fdata, sizeof(float), npts, ofp) != npts )
-    {
-      fprintf (stderr, "Error writing SAC data to output file\n");
-      return -1;
-    }
-  
-  fclose (ofp);
   
   return 0;
 }  /* End of writebinarysac() */
@@ -616,6 +684,8 @@ static int
 writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 {
   FILE *ofp;
+  char buffer[2000];
+  char *bp;
   int idx, fidx;
   
   /* Declare and set up pointers to header variable type sections */
@@ -623,54 +693,146 @@ writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
   int32_t *ihp = (int32_t *) sh + (NUMFLOATHDR);
   char    *shp = (char *) sh + (NUMFLOATHDR * 4 + NUMINTHDR * 4);
   
-  /* Open output file */
-  if ( (ofp = fopen (outfile, "wb")) == NULL )
-    {
-      fprintf (stderr, "Cannot open output file: %s (%s)\n",
-	       outfile, strerror(errno));
-      return -1;
-    }
+#ifndef NOFDZIP
+  ZIPentry *zentry = 0;
+  ssize_t writestatus = 0;
+  int flush;
+#endif  /* NOFDZIP */
+  
+  /* Generate header in buffer */
+  bp = buffer;
   
   /* Write SAC header float variables to output file, 5 variables per line */
   for (idx=0; idx < NUMFLOATHDR; idx += 5)
     {
       for (fidx=idx; fidx < (idx+5) && fidx < NUMFLOATHDR; fidx++)
-	fprintf (ofp, "%#15.7g", *(fhp + fidx));
+	{
+	  sprintf (bp, "%#15.7g", *(fhp + fidx));
+	  bp += 15;
+	}
       
-      fprintf (ofp, "\n");
+      sprintf (bp, "\n");
+      bp += 1;
     }
   
   /* Write SAC header integer variables to output file, 5 variables per line */
   for (idx=0; idx < NUMINTHDR; idx += 5)
     {
       for (fidx=idx; fidx < (idx+5) && fidx < NUMINTHDR; fidx++)
-	fprintf (ofp, "%10d", *(ihp + fidx));
+	{
+	  sprintf (bp, "%10d", *(ihp + fidx));
+	  bp += 10;
+	}
       
-      fprintf (ofp, "\n");
+      sprintf (bp, "\n");
+      bp += 1;
     }
   
   /* Write SAC header string variables to output file, 3 variables per line */
   for (idx=0; idx < (NUMSTRHDR+1); idx += 3)
     {
       if ( idx == 0 )
-	fprintf (ofp, "%-8.8s%-16.16s", shp, shp + 8);
+	{
+	  sprintf (bp, "%-8.8s%-16.16s", shp, shp + 8);
+	  bp += 24;
+	}
       else
-	for (fidx=idx; fidx < (idx+3) && fidx < (NUMSTRHDR+1); fidx++)
-	  fprintf (ofp, "%-8.8s", shp+(fidx*8));
+	{
+	  for (fidx=idx; fidx < (idx+3) && fidx < (NUMSTRHDR+1); fidx++)
+	    {
+	      sprintf (bp, "%-8.8s", shp+(fidx*8));
+	      bp += 8;
+	    }
+	}
       
-      fprintf (ofp, "\n");
+      sprintf (bp, "\n");
+      bp += 1;
     }
   
-  /* Write float data to output file, 5 values per line */
-  for (idx=0; idx < npts; idx += 5)
+  if ( ! zipfile )
     {
-      for (fidx=idx; fidx < (idx+5) && fidx < npts && fidx >= 0; fidx++)
-	fprintf (ofp, "%#15.7g", *(fdata + fidx));
+      /* Open output file */
+      if ( (ofp = fopen (outfile, "wb")) == NULL )
+	{
+	  fprintf (stderr, "Cannot open output file: %s (%s)\n",
+		   outfile, strerror(errno));
+	  return -1;
+	}
       
-      fprintf (ofp, "\n");
+      /* Write SAC header to output file */
+      if ( fwrite (buffer, (bp-buffer), 1, ofp) != 1 )
+	{
+	  fprintf (stderr, "Error writing SAC header to output file\n");
+	  return -1;
+	}
+      
+      /* Write float data to output file, 5 values per line */
+      for (idx=0; idx < npts; idx += 5)
+	{
+	  for (fidx=idx; fidx < (idx+5) && fidx < npts && fidx >= 0; fidx++)
+	    fprintf (ofp, "%#15.7g", *(fdata + fidx));
+	  
+	  fprintf (ofp, "\n");
+	}
+      
+      fclose (ofp);
     }
-  
-  fclose (ofp);
+  else
+    {
+#ifndef NOFDZIP
+      /* Begin ZIP entry */
+      if ( ! (zentry = zs_entrybegin (zstream, outfile, time(NULL),
+	                              zipmethod, &writestatus)) )
+	{
+	  fprintf (stderr, "Cannot begin ZIP entry, write status: %lld\n",
+		   (long long int) writestatus);
+	  return -1;
+	}
+      
+      /* Write SAC header to ZIP */
+      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) buffer,
+	                   (bp-buffer), 0, &writestatus) )
+	{
+	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
+		   outfile, (long long int) writestatus);
+	  return -1;
+	}
+      
+      /* Write float data to buffer and then to ZIP */
+      bp = buffer;
+      for (idx=0; idx < npts; idx += 5)
+	{
+          for (fidx=idx; fidx < (idx+5) && fidx < npts && fidx >= 0; fidx++)
+	    {
+	      sprintf (bp, "%#15.7g", *(fdata + fidx));
+	      bp += 15;
+	    }
+	  
+	  sprintf (bp, "\n");
+	  bp += 1;
+	  
+	  /* Write float data to ZIP */
+	  flush = (idx+5 < npts) ? 0 : 1;
+	  if ( ! zs_entrydata (zstream, zentry, (unsigned char *) buffer,
+			       (bp-buffer), flush, &writestatus) )
+	    {
+	      fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
+		       outfile, (long long int) writestatus);
+	      return -1;
+	    }
+	  
+	  bp = buffer;
+	}
+      
+      /* End ZIP entry */
+      if ( ! zs_entryend (zstream, zentry, &writestatus) )
+	{
+	  fprintf (stderr, "Error ending ZIP entry for %s, write status: %lld\n",
+		   outfile, (long long int) writestatus);
+	  return 1;
+	}
+#endif  /* NOFDZIP */
+    }
   
   return 0;
 }  /* End of writealphasac() */
@@ -1014,12 +1176,12 @@ parameter_proc (int argcount, char **argvec)
 #ifndef NOFDZIP
       else if (strcmp (argvec[optind], "-z") == 0)
 	{
-	  zipfile = getoptval(argcount, argvec, optind++, 0);
+	  zipfile = getoptval(argcount, argvec, optind++, 1);
 	  zipmethod = ZS_DEFLATE;
 	}
       else if (strcmp (argvec[optind], "-z0") == 0)
 	{
-	  zipfile = getoptval(argcount, argvec, optind++, 0);
+	  zipfile = getoptval(argcount, argvec, optind++, 1);
 	  zipmethod = ZS_STORE;
 	}
 #endif

@@ -47,7 +47,7 @@
  *
  * Written by CTrabant
  *
- * Modified 2013.9.22
+ * Modified 2013.9.28
  ***************************************************************************/
 /* Allow this code to be skipped by declaring NOFDZIP */
 #ifndef NOFDZIP
@@ -180,8 +180,6 @@ static void packuint64 (ZIPstream *ZS, int *O, uint64_t V)
  *   Z_STORE - no compression
  *   Z_DEFLATE - deflate compression
  *
- * Each entry is prefixed with a Local File Header.
- *
  * The entry modified time (modtime) is stored in UTC.
  *
  * If specified, writestatus will be set to the output of write() when
@@ -269,8 +267,8 @@ zs_writeentry ( ZIPstream *zstream, unsigned char *entry, int64_t entrysize,
       zentry->zlstream.total_out = 0;
       zentry->zlstream.data_type = Z_BINARY;
       
-      if ( deflateInit2(&zentry->zlstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-			-MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK )
+      if ( deflateInit2 (&zentry->zlstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+			 -MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK )
 	{
 	  fprintf (stderr, "zs_writeentry: Error with deflateInit2()\n");
 	  return NULL;
@@ -485,7 +483,14 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int method,
 /***************************************************************************
  * zs_entrydata:
  *
- * Write a chunk of entry data, of size entrysize, to the output stream.
+ * Write a chunk of entry data, of size entrysize, to the output
+ * stream according to the parameters already set for the stream and
+ * entry.
+ *
+ * If the call contains the final data for this entry, the flush
+ * argument should be set to true (1) to flush internal buffers.  If
+ * more data is expected for this stream, the flush argument should be
+ * false (0).
  *
  * If specified, writestatus will be set to the output of write() when
  * a write error occurs, otherwise it will be set to 0.
@@ -633,6 +638,9 @@ zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
  * zs_finish:
  *
  * Write end of ZIP archive structures (Central Directory, etc.).
+ *
+ * ZIP64 structures will be added to the Central Directory when the
+ * total length of the archive exceeds 0xFFFFFFFF bytes.
  *
  * If specified, writestatus will be set to the output of write() when
  * a write error occurs, otherwise it will be set to 0.
@@ -837,6 +845,11 @@ zs_writedata ( ZIPstream *zstream, unsigned char *writeentry,
  * Compress (deflate) input data and write to output buffer.  The zlib
  * stream at zentry.zlstream must already be initilized with
  * deflateInit() or deflateInit2().
+ *
+ * If the call contains the final data for this stream, the flush
+ * argument should be set to true (1) causing the zlib stream to be
+ * flushed with the Z_FINISH flag.  If more data is expected for this
+ * stream, the flush argument should be false (0).
  *
  * If the input size is greater than ZS_WRITE_SIZE, feed the deflate()
  * call with chunks of input ZS_WRITE_SIZE until complete.

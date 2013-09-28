@@ -21,7 +21,7 @@ nozip: LOCALFLAGS = -DNOFDZIP
 all: $(BIN)
 
 $(BIN): $(OBJS) fdzipstream.o
-	$(CC) $(CFLAGS) -o ../$(BIN) $(OBJS) $(LDFLAGS) $(LDLIBS) -lz
+	$(CC) $(CFLAGS) -o ../$(BIN) $(OBJS) fdzipstream.o $(LDFLAGS) $(LDLIBS) -lz
 
 nozip: $(OBJS)
 	$(CC) $(CFLAGS) -o ../$(BIN) $(OBJS) $(LOCALFLAGS) $(LDFLAGS) $(LDLIBS)
