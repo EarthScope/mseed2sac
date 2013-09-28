@@ -1,7 +1,7 @@
 
 DIRS = libmseed src
 
-all clean static install gcc gcc32 gcc64 debug gccdebug gcc32debug gcc64debug ::
+all clean static install ::
 	@for d in $(DIRS) ; do \
 	    echo "Running $(MAKE) $@ in $$d" ; \
 	    if [ -f $$d/Makefile -o -f $$d/makefile ] ; \
@@ -10,4 +10,3 @@ all clean static install gcc gcc32 gcc64 debug gccdebug gcc32debug gcc64debug ::
 	        then ( echo "ERROR: no Makefile/makefile in $$d for $(CC)" ) ; \
 	    fi ; \
 	done
-
