@@ -2,13 +2,16 @@ mseed2sac - Convert Mini-SEED waveform data to SAC
 
 -- Building/Installing --
 
-In most environments a simple 'make' will build the program.
+In most Unix environments a simple 'make' will build the program.
+
+If your system does not have zlib you can compile the program without
+support for ZIP archive output: first type 'make' in the main
+directory (the build will fail), then go to the 'src' directory and
+type 'make nozip'.
 
 In the Win32 environment the Makefile.wat can be used with Open
-Watcom's wmake program.
-
-Using GCC, running 'make static' will compile a static version
-if possible.
+Watcom's wmake program.  The Win32 Makefiles are configured to build
+without zlib support, and therefore no ZIP archive output.
 
 For further installation simply copy the resulting binary and man page
 (in the 'doc' directory) to appropriate system directories.

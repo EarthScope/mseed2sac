@@ -28,7 +28,7 @@
   #define fileno _fileno
 #endif
 
-#define VERSION "2.0dev"
+#define VERSION "2.0rc1"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */

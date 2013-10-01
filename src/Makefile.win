@@ -8,7 +8,7 @@ NODEBUG=1
 
 INCS = /I..\libmseed
 LIBS = ..\libmseed\libmseed.lib
-OPTS = -D_CRT_SECURE_NO_WARNINGS
+OPTS = -D_CRT_SECURE_NO_WARNINGS -DNOFDZIP
 
 BIN = ..\mseed2sac.exe
 

@@ -7,7 +7,7 @@
 	@set LIB=.;$(%watcom)\LIB386
 
 cc     = wcc386
-cflags = -zq
+cflags = -zq -dNOFDZIP
 lflags = OPT quiet OPT map LIBRARY ..\libmseed\libmseed.lib
 cvars  = $+$(cvars)$- -DWIN32
 
