@@ -1,5 +1,9 @@
-2013.242: 2.0rc1
+2013.271: 2.0rc1
 	- Update to libmseed 2.12.
+	- Add -z option to write all SAC files to a ZIP archive.  The
+	ZIP can be written to stdout.
+
+2013.242:
 	- Add check of derived sample rate versus reported sample rate.
 	- Add -dr option to use the derived sample rate over the reported rate,
 	this assumes that the timing is more accurate than the sampling rate.
