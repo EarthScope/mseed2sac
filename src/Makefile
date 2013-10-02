@@ -27,7 +27,7 @@ nozip: $(OBJS)
 	$(CC) $(CFLAGS) -o ../$(BIN) $(OBJS) $(LOCALFLAGS) $(LDFLAGS) $(LDLIBS)
 
 clean:
-	rm -f $(OBJS) ../$(BIN)
+	rm -f $(OBJS) fdzipstream.o ../$(BIN)
 
 # Implicit rule for building object files
 %.o: %.c

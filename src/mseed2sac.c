@@ -23,9 +23,9 @@
   #include "fdzipstream.h"
 #endif
 
-#if defined(_MSC_VER)
+#if defined(WIN32) || defined(WIN64)
+  #include <io.h>
   #define access _access
-  #define fileno _fileno
 #endif
 
 #define VERSION "2.0rc1"
@@ -115,8 +115,8 @@ main (int argc, char **argv)
   hptime_t recendtime;
   
   int retcode;
-  int totalrecs = 0;
-  int totalsamps = 0;
+  int64_t totalrecs = 0;
+  int64_t totalsamps = 0;
   int totalfiles = 0;
   
 #ifndef NOFDZIP
@@ -284,8 +284,8 @@ main (int argc, char **argv)
   mst_freegroup (&mstg);
   
   if ( verbose )
-    fprintf (stderr, "Files: %d, Records: %d, Samples: %d\n",
-    totalfiles, totalrecs, totalsamps);
+    fprintf (stderr, "Files: %d, Records: %lld, Samples: %lld\n",
+    totalfiles, (long long int) totalrecs, (long long int) totalsamps);
   
   return 0;
 }  /* End of main() */

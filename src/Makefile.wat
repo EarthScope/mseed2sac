@@ -7,9 +7,9 @@
 	@set LIB=.;$(%watcom)\LIB386
 
 cc     = wcc386
-cflags = -zq -dNOFDZIP
+cflags = -zq 
 lflags = OPT quiet OPT map LIBRARY ..\libmseed\libmseed.lib
-cvars  = $+$(cvars)$- -DWIN32
+cvars  = $+$(cvars)$- -DWIN32 -DNOFDZIP
 
 BIN = ..\mseed2sac.exe
 
