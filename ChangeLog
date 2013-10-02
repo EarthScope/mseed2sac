@@ -1,4 +1,5 @@
 2013.242: 2.0rc1
+	- Update to libmseed 2.12.
 	- Add check of derived sample rate versus reported sample rate.
 	- Add -dr option to use the derived sample rate over the reported rate,
 	this assumes that the timing is more accurate than the sampling rate.
