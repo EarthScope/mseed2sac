@@ -28,7 +28,7 @@
   #define access _access
 #endif
 
-#define VERSION "2.0rc1"
+#define VERSION "2.0"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
