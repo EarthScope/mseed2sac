@@ -1,12 +1,12 @@
-.TH MSEED2SAC 1 2013/09/28
+.TH MSEED2SAC 1 2013/11/13
 .SH NAME
-Mini-SEED to SAC converter
+mseed2sac - Mini-SEED to SAC converter
 
 .SH SYNOPSIS
 .nf
 mseed2sac [options] file1 [file2 file3 ...]
-
 .fi
+
 .SH DESCRIPTION
 \fBmseed2sac\fP converts Mini-SEED waveform data to SAC format.  The
 output SAC file can be either ASCII or binary (either byte-order), the
@@ -91,7 +91,7 @@ Limit to Mini-SEED records that match a selection in the specified
 file.  The selection file contains parameters to match the network,
 station, location, channel, quality and time range for input records.
 This option only trims data to SEED record granularity, not sample
-granularity.  For more details see the \fBSELECTION FILE\fR section
+granularity.  For more details see the \fBSELECTION FILE\fP section
 below.
 
 .IP "-f \fIformat\fP"
@@ -209,8 +209,7 @@ IU|ANMO|00|BH2|34.945981|-106.457133|1671|145|58|0|Geotech KS-54000|3344370000|0
 IU|ANMO|00|BHZ|34.945981|-106.457133|1671|145|0|-90|Geotech KS-54000|3275080000|0.02|M/S|20|2008-06-30T20:00:00|2599-12-31T23:59:59
 ------------------
 
-As a special case '--' can be used to match a blank (space, space)
-location code.
+As a special case '--' can be used to match a blank (space, space) location code.
 .fi
 
 For each time-series written, metadata from the first line with
