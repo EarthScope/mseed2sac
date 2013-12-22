@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2013/11/13
+.TH MSEED2SAC 1 2013/12/22
 .SH NAME
 mseed2sac \- Mini-SEED to SAC converter
 
@@ -151,11 +151,11 @@ enough resolution to represent the true rate.
 .IP "-z \fIzipfile\fP"
 Create a ZIP archive containing all SAC files instead of writing
 individual files.  Each file is compressed with the deflate method.
-Specify \fB-\fP (dash) to write ZIP archive to stdout.
+Specify \fB"-"\fP (dash) to write ZIP archive to stdout.
 
 .IP "-z0 \fIzipfile\fP"
-Same as \fI-z\fP execpt do not compress the SAC files.  Specify \fB-\fP
-(dash) to write ZIP archive to stdout.
+Same as \fI"-z"\fP execept do not compress the SAC files.  Specify
+\fB"-"\fP (dash) to write ZIP archive to stdout.
 
 .SH "METADATA FILES"
 A metadata file contains a list of station parameters, some of which
@@ -163,10 +163,10 @@ can be stored in SAC but not in Mini-SEED.  Each line in a metadata
 file should be a list of parameters in the order shown below.  Each
 parameter should be separated with a comma or a vertical bar (|).
 \fbDIP CONVENTION:\fP When comma separators are used the dip field
-(CMPINC) is assumed to be in the SAC convention (degrees from
-vertical), if vertical bars are used the dip field is assumed to be in
-the SEED convention (degrees from horizontal) and converted to SAC
-convention.
+(CMPINC) is assumed to be in the SAC convention (degrees from vertical,
+positive up/outward), if vertical bars are used the dip field is
+assumed to be in the SEED convention (degrees down from horizontal)
+and converted to SAC convention.
 
 \fBMetdata fields\fP:
 .nf
