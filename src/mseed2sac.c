@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2013.271
+ * modified 2015.279
  ***************************************************************************/
 
 #include <stdio.h>
@@ -28,7 +28,7 @@
   #define access _access
 #endif
 
-#define VERSION "2.0"
+#define VERSION "2.1dev"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -643,8 +643,8 @@ writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 	}
       
       /* Write SAC header to ZIP */
-      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) sh,
-			   sizeof(struct SACHeader), 0, &writestatus) )
+      if ( ! zs_entrydata (zstream, zentry, (uint8_t *) sh,
+			   sizeof(struct SACHeader), &writestatus) )
 	{
 	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
 		   outfile, (long long int) writestatus);
@@ -652,8 +652,8 @@ writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 	}
       
       /* Write float data to ZIP */
-      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) fdata,
-			   npts * sizeof(float), 1, &writestatus) )
+      if ( ! zs_entrydata (zstream, zentry, (uint8_t *) fdata,
+			   npts * sizeof(float), &writestatus) )
 	{
 	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
 		   outfile, (long long int) writestatus);
@@ -696,7 +696,6 @@ writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 #ifndef NOFDZIP
   ZIPentry *zentry = 0;
   ssize_t writestatus = 0;
-  int flush;
 #endif  /* NOFDZIP */
   
   /* Generate header in buffer */
@@ -790,8 +789,8 @@ writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 	}
       
       /* Write SAC header to ZIP */
-      if ( ! zs_entrydata (zstream, zentry, (unsigned char *) buffer,
-	                   (bp-buffer), 0, &writestatus) )
+      if ( ! zs_entrydata (zstream, zentry, (uint8_t *) buffer,
+	                   (bp-buffer), &writestatus) )
 	{
 	  fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
 		   outfile, (long long int) writestatus);
@@ -812,9 +811,8 @@ writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
 	  bp += 1;
 	  
 	  /* Write float data to ZIP */
-	  flush = (idx+5 < npts) ? 0 : 1;
-	  if ( ! zs_entrydata (zstream, zentry, (unsigned char *) buffer,
-			       (bp-buffer), flush, &writestatus) )
+	  if ( ! zs_entrydata (zstream, zentry, (uint8_t *) buffer,
+			       (bp-buffer), &writestatus) )
 	    {
 	      fprintf (stderr, "Error adding entry data for %s to output ZIP, write status: %lld\n",
 		       outfile, (long long int) writestatus);
