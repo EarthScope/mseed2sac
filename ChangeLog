@@ -1,3 +1,7 @@
+2015.279:
+	- Update to libmseed 2.17.
+	- Update fdzipstream sources to 2.1 and adjust code for usage.
+
 2013.271: 2.0
 	- Update to libmseed 2.12.
 	- Add -z option to write all SAC files to a ZIP archive.  The

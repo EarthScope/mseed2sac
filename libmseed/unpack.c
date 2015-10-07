@@ -13,7 +13,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2013.056
+ * modified: 2015.108
  ***************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -172,6 +172,7 @@ msr_unpack ( char *record, int reclen, MSRecord **ppmsr,
   
   /* Populate some of the common header fields */
   strncpy (sequence_number, msr->fsdh->sequence_number, 6);
+  sequence_number[6] = '\0';
   msr->sequence_number = (int32_t) strtol (sequence_number, NULL, 10);
   msr->dataquality = msr->fsdh->dataquality;
   ms_strncpcleantail (msr->network, msr->fsdh->network, 2);
@@ -812,8 +813,8 @@ msr_unpack_data ( MSRecord *msr, int swapflag, flag verbose )
     }
   
   if ( verbose > 2 )
-    ms_log (1, "%s: Unpacking %lld samples\n",
-	    UNPACK_SRCNAME, (long long int)msr->samplecnt);
+    ms_log (1, "%s: Unpacking %"PRId64" samples\n",
+	    UNPACK_SRCNAME, msr->samplecnt);
   
   /* Decide if this is a encoding that we can decode */
   switch (msr->encoding)

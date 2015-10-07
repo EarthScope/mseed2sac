@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified: 2012.273
+ * modified: 2015.108
  ***************************************************************************/
 
 #include <stdio.h>
@@ -686,7 +686,7 @@ mstl_addmsrtoseg (MSTraceSeg *seg, MSRecord *msr, hptime_t endtime, flag whence)
 	  return 0;
 	}
       
-      if ( ! (newdatasamples = realloc (seg->datasamples, (size_t)((seg->numsamples + msr->numsamples) * samplesize))) )
+      if ( ! (newdatasamples = realloc (seg->datasamples, (size_t) ((seg->numsamples + msr->numsamples) * samplesize))) )
 	{
 	  ms_log (2, "mstl_addmsrtoseg(): Error allocating memory\n");
 	  return 0;
@@ -874,7 +874,7 @@ mstl_convertsamples ( MSTraceSeg *seg, char type, flag truncate )
 	    }
 	  
 	  /* Reallocate buffer for reduced size needed */
-	  if ( ! (seg->datasamples = realloc (seg->datasamples, (seg->numsamples * sizeof(int32_t)))) )
+	  if ( ! (seg->datasamples = realloc (seg->datasamples, (size_t) (seg->numsamples * sizeof(int32_t)))) )
 	    {
 	      ms_log (2, "mstl_convertsamples: cannot re-allocate buffer for sample conversion\n");
 	      return -1;
@@ -898,7 +898,7 @@ mstl_convertsamples ( MSTraceSeg *seg, char type, flag truncate )
 	    fdata[idx] = (float) ddata[idx];
           
 	  /* Reallocate buffer for reduced size needed */
-	  if ( ! (seg->datasamples = realloc (seg->datasamples, (seg->numsamples * sizeof(float)))) )
+	  if ( ! (seg->datasamples = realloc (seg->datasamples, (size_t) (seg->numsamples * sizeof(float)))) )
 	    {
 	      ms_log (2, "mstl_convertsamples: cannot re-allocate buffer after sample conversion\n");
 	      return -1;
@@ -911,7 +911,7 @@ mstl_convertsamples ( MSTraceSeg *seg, char type, flag truncate )
   /* Convert to 64-bit doubles */
   else if ( type == 'd' )
     {
-      if ( ! (ddata = (double *) malloc (seg->numsamples * sizeof(double))) )
+      if ( ! (ddata = (double *) malloc ((size_t) (seg->numsamples * sizeof(double)))) )
 	{
 	  ms_log (2, "mstl_convertsamples: cannot allocate buffer for sample conversion to doubles\n");
 	  return -1;
@@ -1054,12 +1054,12 @@ mstl_printtracelist ( MSTraceList *mstl, flag timeformat,
 		ms_log (0, "%-17s %-24s %-24s %-4s\n",
 			id->srcname, stime, etime, gapstr);
 	      else
-		ms_log (0, "%-17s %-24s %-24s %-s %-3.3g %-lld\n",
-			id->srcname, stime, etime, gapstr, seg->samprate, (long long int)seg->samplecnt);
+		ms_log (0, "%-17s %-24s %-24s %-s %-3.3g %-"PRId64"\n",
+			id->srcname, stime, etime, gapstr, seg->samprate, seg->samplecnt);
 	    }
 	  else if ( details > 0 && gaps <= 0 )
-	    ms_log (0, "%-17s %-24s %-24s %-3.3g %-lld\n",
-		    id->srcname, stime, etime, seg->samprate, (long long int)seg->samplecnt);
+	    ms_log (0, "%-17s %-24s %-24s %-3.3g %-"PRId64"\n",
+		    id->srcname, stime, etime, seg->samprate, seg->samplecnt);
 	  else
 	    ms_log (0, "%-17s %-24s %-24s\n", id->srcname, stime, etime);
 	  
@@ -1130,9 +1130,9 @@ mstl_printsynclist ( MSTraceList *mstl, char *dccid, flag subsecond )
 	  ms_hptime2seedtimestr (seg->endtime, endtime, subsecond);
 	  
 	  /* Print SYNC line */
-	  ms_log (0, "%s|%s|%s|%s|%s|%s||%.10g|%lld|||||||%s\n",
+	  ms_log (0, "%s|%s|%s|%s|%s|%s||%.10g|%"PRId64"|||||||%s\n",
 		  id->network, id->station, id->location, id->channel,
-		  starttime, endtime, seg->samprate, (long long int)seg->samplecnt,
+		  starttime, endtime, seg->samprate, seg->samplecnt,
 		  yearday);
 	  
 	  seg = seg->next;
