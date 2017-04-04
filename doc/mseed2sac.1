@@ -1,6 +1,6 @@
-.TH MSEED2SAC 1 2013/12/22
+.TH MSEED2SAC 1 2017/04/03
 .SH NAME
-mseed2sac \- Mini-SEED to SAC converter
+mseed2sac - miniSEED to SAC converter
 
 .SH SYNOPSIS
 .nf
@@ -8,7 +8,7 @@ mseed2sac [options] file1 [file2 file3 ...]
 .fi
 
 .SH DESCRIPTION
-\fBmseed2sac\fP converts Mini-SEED waveform data to SAC format.  The
+\fBmseed2sac\fP converts miniSEED waveform data to SAC format.  The
 output SAC file can be either ASCII or binary (either byte-order), the
 default is binary with the same byte-order as the host computer.  By
 default all aspects of the input files are automatically detected.
@@ -32,11 +32,11 @@ time will be kept separate by adding a digit to file name.  The
 \fI-O\fP argument changes this behavior to allow overwriting of
 existing file names.
 
-If the input file name is "-" input Mini-SEED records will be read
+If the input file name is "-" input miniSEED records will be read
 from standard input.
 
 The SAC header variable KHOLE is used synonymously with the SEED
-location code.  Any location codes found in the input Mini-SEED or
+location code.  Any location codes found in the input miniSEED or
 metadata file are put into the KHOLE variable.
 
 .SH OPTIONS
@@ -87,7 +87,7 @@ For example:
 The parameters later in the string are optional.
 
 .IP "-l \fIselectfile\fP"
-Limit to Mini-SEED records that match a selection in the specified
+Limit to miniSEED records that match a selection in the specified
 file.  The selection file contains parameters to match the network,
 station, location, channel, quality and time range for input records.
 This option only trims data to SEED record granularity, not sample
@@ -108,22 +108,22 @@ file:
 
 .IP "-N \fInetcode\fP"
 Specify the network code to use, overriding any network code in the
-input Mini-SEED.
+input miniSEED.
 
 .IP "-S \fIstation\fP"
 Specify the station code to use, overriding any station code in the
-input Mini-SEED.
+input miniSEED.
 
 .IP "-L \fIlocation\fP"
 Specify the location code to use, overriding any location code in the
-input Mini-SEED.
+input miniSEED.
 
 .IP "-C \fIchannel\fP"
 Specify the channel code to use, overriding any channel code in the
-input Mini-SEED.
+input miniSEED.
 
 .IP "-r \fIbytes\fP"
-Specify the Mini-SEED record length in \fIbytes\fP, by default this is
+Specify the miniSEED record length in \fIbytes\fP, by default this is
 autodetected.
 
 .IP "-i         "
@@ -159,7 +159,7 @@ Same as \fI"-z"\fP except do not compress the SAC files.  Specify
 
 .SH "METADATA FILES"
 A metadata file contains a list of station parameters, some of which
-can be stored in SAC but not in Mini-SEED.  Each line in a metadata
+can be stored in SAC but not in miniSEED.  Each line in a metadata
 file should be a list of parameters in the order shown below.  Each
 parameter should be separated with a comma or a vertical bar (|).
 \fbDIP CONVENTION:\fP When comma separators are used the dip field
