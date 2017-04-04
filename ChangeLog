@@ -1,3 +1,10 @@
+2017.093:
+	- Update libmseed to 2.19.3.
+	- Remove dependency on ntwin32.mak for Windows nmake makefiles, now
+	building works in plain MSVC development environments.
+	- Add DEPRECATED notice to Makefile.wat and src/Makefile.wat.
+	- Update licensing to GNU GPL 3.
+
 2015.279:
 	- Update to libmseed 2.17.
 	- Update fdzipstream sources to 2.1 and adjust code for usage.
