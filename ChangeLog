@@ -1,4 +1,4 @@
-2017.093:
+2017.093: 2.1
 	- Update libmseed to 2.19.3.
 	- Update fdzipstream sources to 2.1.
 	- Remove dependency on ntwin32.mak for Windows nmake makefiles, now
