@@ -26,6 +26,10 @@
 #if defined(WIN32) || defined(WIN64)
   #include <io.h>
   #define access _access
+
+  #ifndef F_OK
+    #define F_OK 0
+  #endif
 #endif
 
 #define VERSION "2.1"
