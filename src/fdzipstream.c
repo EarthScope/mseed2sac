@@ -89,18 +89,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Modified 2015.10.4
+ * Modified 2017.1.17
  ***************************************************************************/
 
 /* Allow this code to be skipped by declaring NOFDZIP */
 #ifndef NOFDZIP
 
-#define FDZIPVERSION 2.0
+#define FDZIPVERSION 2.1
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <errno.h>
 
@@ -260,23 +261,24 @@ zs_deflate_finish ( ZIPstream *zstream, ZIPentry *zentry )
 {
   z_stream *zlstream = zentry->methoddata;
   int rv;
+  int rc = 0;
 
   rv = deflateEnd (zlstream);
 
   if ( rv == Z_DATA_ERROR )
     {
       fprintf (stderr, "zs_deflate_finish: Deflate ended, but output buffers not flushed!\n");
-      return -1;
+      rc = -1;
     }
   else if ( rv == Z_STREAM_ERROR )
     {
       fprintf (stderr, "zs:deflate_finish: deflateEnd() returned error.\n");
-      return -1;
+      rc = -1;
     }
 
   free (zlstream);
 
-  return 0;
+  return rc;
 }
 
 
@@ -406,6 +408,7 @@ zs_init ( int fd, ZIPstream *zs )
                              zs_store_process,
                              NULL ) )
     {
+      free (zs);
       return NULL;
     }
 
@@ -414,6 +417,7 @@ zs_init ( int fd, ZIPstream *zs )
                              zs_deflate_process,
                              zs_deflate_finish ) )
     {
+      free (zs);
       return NULL;
     }
 
@@ -548,6 +552,9 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
   if ( writestatus )
     *writestatus = 0;
 
+  if ( ! zstream || ! name )
+    return NULL;
+
   /* Search for method ID */
   method = zstream->firstMethod;
   while ( method )
@@ -563,9 +570,6 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
       fprintf (stderr, "Cannot find method ID %d\n", methodID);
       return NULL;
     }
-
-  if ( ! zstream | ! name )
-    return NULL;
 
   /* Allocate and initialize new entry */
   zentry = (ZIPentry *) calloc (1, sizeof(ZIPentry));
@@ -674,7 +678,7 @@ zs_entrydata ( ZIPstream *zstream, ZIPentry *zentry, uint8_t *entry,
   if ( writestatus )
     *writestatus = 0;
 
-  if ( ! zstream | ! zentry )
+  if ( ! zstream || ! zentry )
     return NULL;
 
   if ( entry )
@@ -757,8 +761,8 @@ zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
   /* Flush the entry */
   if ( ! zs_entrydata (zstream, zentry, NULL, 0, writestatus) )
     {
-      fprintf (stderr, "Error flushing entry (writestatus: %lld)\n",
-               (long long int) writestatus);
+      fprintf (stderr, "Error flushing entry (writestatus: %p)\n",
+               writestatus);
       return NULL;
     }
 
