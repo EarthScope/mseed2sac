@@ -5,7 +5,7 @@
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
- * modified 2017.271
+ * modified 2017.272
  ***************************************************************************/
 
 #include <errno.h>
@@ -373,16 +373,16 @@ writesac (MSTrace *mst)
   /* Set time-series source parameters */
   if (sacnetwork)
     if (*sacnetwork != '\0')
-      strncpy (sh.knetwk, sacnetwork, 8);
+      ms_strncpopen (sh.knetwk, sacnetwork, 8);
   if (sacstation)
     if (*sacstation != '\0')
-      strncpy (sh.kstnm, sacstation, 8);
+      ms_strncpopen (sh.kstnm, sacstation, 8);
   if (saclocation)
     if (*saclocation != '\0')
-      strncpy (sh.khole, saclocation, 8);
+      ms_strncpopen (sh.khole, saclocation, 8);
   if (sacchannel)
     if (*sacchannel != '\0')
-      strncpy (sh.kcmpnm, sacchannel, 8);
+      ms_strncpopen (sh.kcmpnm, sacchannel, 8);
 
   if (verbose)
     fprintf (stderr, "Writing SAC for %.8s.%.8s.%.8s.%.8s\n",
@@ -426,7 +426,7 @@ writesac (MSTrace *mst)
   if (eventdepth != DUNDEF)
     sh.evdp = (float)eventdepth;
   if (eventname)
-    strncpy (sh.kevnm, eventname, 16);
+    ms_strncpopen (sh.kevnm, eventname, 16);
 
   /* Calculate delta, distance and azimuths if both event and station coordiantes are known */
   if (sh.evla != FUNDEF && sh.evlo != FUNDEF &&
@@ -1004,7 +1004,7 @@ insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
           sh->cmpinc += 90;
       }
       if (mn->metafields[10])
-        strncpy (sh->kinst, mn->metafields[10], 8);
+        ms_strncpopen (sh->kinst, mn->metafields[10], 8);
       if (mn->metafields[11])
         sh->scale = (float)strtod (mn->metafields[11], &endptr);
 

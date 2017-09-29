@@ -1,5 +1,6 @@
 2017.271:
 	- Support empty and "--" location codes in metadata files equally.
+	- Right-pad SAC text headers with spaces instead of NULLs.
 	- Reformat source according to included clang-format profile.
 
 2017.093: 2.1
