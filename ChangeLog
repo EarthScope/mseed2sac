@@ -1,5 +1,6 @@
 2017.271:
 	- Support empty and "--" location codes in metadata files equally.
+	- Add "-M" option to accept a line of metadata on the command line.
 	- Right-pad SAC text headers with spaces instead of NULLs.
 	- Insert network code of XX when input data has an empty network,
 	this avoids generating file names beginning with a dot.

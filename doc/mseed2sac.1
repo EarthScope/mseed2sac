@@ -1,4 +1,4 @@
-.TH MSEED2SAC 1 2017/09/28
+.TH MSEED2SAC 1 2017/09/29
 .SH NAME
 mseed2sac - miniSEED to SAC converter
 
@@ -66,8 +66,12 @@ in the metadata file.
 .IP "-m \fImetafile\fP"
 Specify a file containing metadata such as coordinates, elevation,
 component orientation, scaling factor, etc.  For each time-series
-written any matching metadata will be added to the SAC header.  see
+written any matching metadata will be added to the SAC header.  See
 \fIMETADATA FILES\fP below.
+
+.IP "-M \fImetaline\fP"
+Specify a "line" of metadata in the same format as expected for the
+\fIMETADATA FILES\fP.  This option may be specified multiple times.
 
 .IP "-msi       "
 Convert any component inclination values in a metadata file from SEED

@@ -68,6 +68,7 @@ static int delaz (double lat1, double lon1, double lat2, double lon2,
 static int parameter_proc (int argcount, char **argvec);
 static char *getoptval (int argcount, char **argvec, int argopt, int dasharg);
 static int readlistfile (char *listfile);
+static int addmetadata (char *metaline);
 static int readmetadata (char *metafile);
 static struct listnode *addnode (struct listnode **listroot, void *key, int keylen,
                                  void *data, int datalen);
@@ -1113,6 +1114,7 @@ parameter_proc (int argcount, char **argvec)
 {
   char *coorstr = 0;
   char *metafile = 0;
+  char *metaline = 0;
   char *eventstr = 0;
   char *selectfile = 0;
   int optind;
@@ -1150,6 +1152,14 @@ parameter_proc (int argcount, char **argvec)
     else if (strcmp (argvec[optind], "-m") == 0)
     {
       metafile = getoptval (argcount, argvec, optind++, 0);
+    }
+    else if (strcmp (argvec[optind], "-M") == 0)
+    {
+      metaline = getoptval (argcount, argvec, optind++, 0);
+      if ( addmetadata(metaline) < 0 )
+      {
+        fprintf (stderr, "Error adding metadata fields for line:\n%s\n", metaline);
+      }
     }
     else if (strcmp (argvec[optind], "-msi") == 0)
     {
@@ -1419,6 +1429,7 @@ parameter_proc (int argcount, char **argvec)
  * argcount: total arguments in argvec
  * argvec: argument list
  * argopt: index of option to process, value is expected to be at argopt+1
+ * dasharg: can be a dash boolean?
  *
  * Returns value on success and exits with error message on failure
  ***************************************************************************/
@@ -1550,11 +1561,13 @@ readlistfile (char *listfile)
   return filecnt;
 } /* End readlistfile() */
 
+
 /***************************************************************************
- * readmetadata:
+ * addmetadata:
  *
- * Read a file of metadata into a structured list, each line should
- * contain the following fields (comma or bar separated) in this order:
+ * Parse and add a metadata entry into a structured list.  The
+ * metadata line should contain the following fields (comma or bar
+ * separated) in this order:
  *
  * The metadata list should be populated with an array of pointers to:
  *  0:  Network (knetwk)
@@ -1576,14 +1589,142 @@ readlistfile (char *listfile)
  *  16: End time, used for matching
  *
  * Any lines not containing at least 3 separators (commas or vertical
- * bars) are skipped.  If fields are not specified the values are set
- * to NULL with the execption that the first 4 fields (net, sta, loc &
- * chan) cannot be empty.
+ * bars) are not considered complete.  If the first 4 fields are
+ * empty, they will be stored as empty strings, whereas any other
+ * empty fields will be set to NULL.
  *
  * If the separators are commas the component inclination is assumed
  * to be in the SAC convention.  If the separators are vertical bars
  * (|) the component inclination is assumed to be a SEED dip and the
  * seedinc variable will be set to 1.
+ *
+ * Returns number of fields parsed on success and -1 on failure.
+ ***************************************************************************/
+static int
+addmetadata (char *metaline)
+{
+  struct metanode mn;
+  char *lineptr;
+  char *fp;
+  char delim;
+  int fields = 0;
+  int commas = 0;
+  int bars = 0;
+  int idx;
+
+  if (!metaline)
+    return -1;
+
+  /* Count the number of commas */
+  fp = metaline;
+  while ((fp = strchr (fp, ',')))
+  {
+    commas++;
+    fp++;
+  }
+  /* Count the number of vertical bars */
+  fp = metaline;
+  while ((fp = strchr (fp, '|')))
+  {
+    bars++;
+    fp++;
+  }
+
+  /* Set delimiter, if vertial bars expect "inclination" to be SEED dip convention */
+  if (bars > 0)
+  {
+    delim = '|';
+    seedinc = 1;
+  }
+  else
+  {
+    delim = ',';
+  }
+
+  /* Must have at least 3 separators for Net, Sta, Loc, Chan ... */
+  if (((delim == '|') ? bars : commas) < 3)
+  {
+    if (verbose > 1)
+      fprintf (stderr, "Skipping metadata line: %s\n", metaline);
+
+    return 0;
+  }
+
+  /* Create a copy of the line */
+  lineptr = strdup (metaline);
+
+  mn.metafields[0] = fp = lineptr;
+  mn.starttime = HPTERROR;
+  mn.endtime = HPTERROR;
+
+  /* Separate line on delimiter and index in metafields array */
+  for (idx = 1; idx < MAXMETAFIELDS; idx++)
+  {
+    mn.metafields[idx] = NULL;
+
+    if (fp)
+    {
+      if ((fp = strchr (fp, delim)))
+      {
+        *fp++ = '\0';
+
+        if (idx <= 3)
+           mn.metafields[idx] = fp;
+
+        else if (*fp != delim && *fp != '\0')
+          mn.metafields[idx] = fp;
+
+        fields++;
+      }
+    }
+  }
+
+  /* Trim last field if more fields exist */
+  if (fp && (fp = strchr (fp, ',')))
+    *fp = '\0';
+
+  /* Convert dash-dash location codes to empty strings */
+  if (!strcmp (mn.metafields[2], "--"))
+  {
+    mn.metafields[2] = "";
+  }
+
+  /* Parse and convert start time */
+  if (mn.metafields[15])
+  {
+    if ((mn.starttime = ms_timestr2hptime (mn.metafields[15])) == HPTERROR)
+    {
+      fprintf (stderr, "Error parsing metadata start time: '%s'\n", mn.metafields[15]);
+      exit (1);
+    }
+  }
+
+  /* Parse and convert end time */
+  if (mn.metafields[16])
+  {
+    if ((mn.endtime = ms_timestr2hptime (mn.metafields[16])) == HPTERROR)
+    {
+      fprintf (stderr, "Error parsing metadata end time: '%s'\n", mn.metafields[16]);
+      exit (1);
+    }
+  }
+
+  /* Add the metanode to the metadata list */
+  if (!addnode (&metadata, NULL, 0, &mn, sizeof (struct metanode)))
+  {
+    fprintf (stderr, "Error adding metadata fields to list\n");
+  }
+
+  return fields;
+} /* End of addmetadata() */
+
+
+/***************************************************************************
+ * readmetadata:
+ *
+ * Read a file of metadata lines and add to a structured list.  Each
+ * line is processed by addmetadata() and should be in the format
+ * expected by that routine.
  *
  * Any lines beginning with '#' are skipped, think comments.
  *
@@ -1592,15 +1733,9 @@ readlistfile (char *listfile)
 static int
 readmetadata (char *metafile)
 {
-  struct metanode mn;
   FILE *mfp;
   char line[1024];
-  char *lineptr;
   char *fp;
-  char delim;
-  int commas = 0;
-  int bars = 0;
-  int idx;
   int linecount = 0;
 
   if (!metafile)
@@ -1624,41 +1759,6 @@ readmetadata (char *metafile)
     if ((fp = strchr (line, '\n')))
       *fp = '\0';
 
-    /* Count the number of commas */
-    commas = 0;
-    fp = line;
-    while ((fp = strchr (fp, ',')))
-    {
-      commas++;
-      fp++;
-    }
-    /* Count the number of vertical bars */
-    bars = 0;
-    fp = line;
-    while ((fp = strchr (fp, '|')))
-    {
-      bars++;
-      fp++;
-    }
-
-    if (bars > 0)
-    {
-      delim = '|';
-      seedinc = 1;
-    }
-    else
-    {
-      delim = ',';
-    }
-
-    /* Must have at least 3 separators for Net, Sta, Loc, Chan ... */
-    if (((delim == '|') ? bars : commas) < 3)
-    {
-      if (verbose > 1)
-        fprintf (stderr, "Skipping metadata line: %s\n", line);
-      continue;
-    }
-
     /* Check for comment line beginning with '#' */
     if (line[0] == '#')
     {
@@ -1667,77 +1767,9 @@ readmetadata (char *metafile)
       continue;
     }
 
-    /* Create a copy of the line */
-    lineptr = strdup (line);
-
-    mn.metafields[0] = fp = lineptr;
-    mn.starttime = HPTERROR;
-    mn.endtime = HPTERROR;
-
-    /* Separate line on delimiter and index in metafields array */
-    for (idx = 1; idx < MAXMETAFIELDS; idx++)
+    if ( addmetadata(line) < 0 )
     {
-      mn.metafields[idx] = NULL;
-
-      if (fp)
-      {
-        if ((fp = strchr (fp, delim)))
-        {
-          *fp++ = '\0';
-
-          if (*fp != ',' && *fp != '\0')
-            mn.metafields[idx] = fp;
-        }
-      }
-    }
-
-    /* Trim last field if more fields exist */
-    if (fp && (fp = strchr (fp, ',')))
-      *fp = '\0';
-
-    /* Sanity check, source name fields must be populated */
-    for (idx = 0; idx <= 3; idx++)
-    {
-      if (mn.metafields[idx] == NULL)
-      {
-        fprintf (stderr, "Error, field %d cannot be empty in metadata file line %d\n",
-                 idx + 1, linecount);
-        fprintf (stderr, "Perhaps a wildcard character (*) was the intention?\n");
-
-        exit (1);
-      }
-    }
-
-    /* Convert dash-dash location codes to empty strings */
-    if (!strcmp (mn.metafields[2], "--"))
-    {
-      mn.metafields[2] = "";
-    }
-
-    /* Parse and convert start time */
-    if (mn.metafields[15])
-    {
-      if ((mn.starttime = ms_timestr2hptime (mn.metafields[15])) == HPTERROR)
-      {
-        fprintf (stderr, "Error parsing metadata start time: '%s'\n", mn.metafields[15]);
-        exit (1);
-      }
-    }
-
-    /* Parse and convert end time */
-    if (mn.metafields[16])
-    {
-      if ((mn.endtime = ms_timestr2hptime (mn.metafields[16])) == HPTERROR)
-      {
-        fprintf (stderr, "Error parsing metadata end time: '%s'\n", mn.metafields[16]);
-        exit (1);
-      }
-    }
-
-    /* Add the metanode to the metadata list */
-    if (!addnode (&metadata, NULL, 0, &mn, sizeof (struct metanode)))
-    {
-      fprintf (stderr, "Error adding metadata fields to list\n");
+      fprintf (stderr, "Error adding metadata fields to list for line %d:\n%s\n", linecount, line);
     }
   }
 
@@ -1819,7 +1851,8 @@ usage (int level)
            " -O             Overwrite existing output files, default creates new file names\n"
            "\n"
            " -k lat/lon     Specify station coordinates as 'Latitude/Longitude' in degrees\n"
-           " -m metafile    File containing station metadata (coordinates and more)\n"
+           " -m metafile    File containing channel metadata (coordinates and more)\n"
+           " -M metaline    Channel metadata, same format as lines in metafile\n"
            " -msi           Convert component inclination/dip from SEED to SAC convention\n"
            " -E event       Specify event parameters as 'Time[/Lat][/Lon][/Depth][/Name]'\n"
            "                  e.g. '2006,123,15:27:08.7/-20.33/-174.03/65.5/Tonga'\n"
