@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+AlwaysBreakAfterDefinitionReturnType: TopLevel
+SpaceBeforeParens: Always
+BreakBeforeBraces: Allman
+AlignConsecutiveAssignments: false
+ColumnLimit: 0

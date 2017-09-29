@@ -59,10 +59,8 @@ struct metanode
 };
 
 static int writesac (MSTrace *mst);
-static int writebinarysac (struct SACHeader *sh, float *fdata, int npts,
-                           char *outfile);
-static int writealphasac (struct SACHeader *sh, float *fdata, int npts,
-                          char *outfile);
+static int writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile);
+static int writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile);
 static int swapsacheader (struct SACHeader *sh);
 static int insertmetadata (struct SACHeader *sh, hptime_t sacstarttime);
 static int delaz (double lat1, double lon1, double lat2, double lon2,
@@ -97,8 +95,8 @@ static char *eventname = 0;
 
 static char *zipfile = 0;
 #ifndef NOFDZIP
-static int zipmethod = -1;
 static ZIPstream *zstream = 0;
+static int zipmethod = -1;
 #endif
 
 struct listnode *filelist = 0;     /* List of input files */
