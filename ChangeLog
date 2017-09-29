@@ -1,3 +1,6 @@
+2017.271:
+	- Reformat source according to included clang-format profile.
+
 2017.093: 2.1
 	- Update libmseed to 2.19.3.
 	- Update fdzipstream sources to 2.1.
