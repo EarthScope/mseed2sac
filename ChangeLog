@@ -1,6 +1,8 @@
 2017.271:
 	- Support empty and "--" location codes in metadata files equally.
 	- Right-pad SAC text headers with spaces instead of NULLs.
+	- Insert network code of XX when input data has an empty network,
+	this avoids generating file names beginning with a dot.
 	- Reformat source according to included clang-format profile.
 
 2017.093: 2.1

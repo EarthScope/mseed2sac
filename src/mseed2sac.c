@@ -370,6 +370,13 @@ writesac (MSTrace *mst)
   saclocation = (location) ? location : mst->location;
   sacchannel = (channel) ? channel : mst->channel;
 
+  /* Insert dummy network code of XX if no network code is set */
+  if (!sacnetwork || *sacnetwork == '\0')
+  {
+    sacnetwork = "XX";
+    fprintf (stderr, "Warning: input data has no network code, inserting XX\n");
+  }
+
   /* Set time-series source parameters */
   if (sacnetwork)
     if (*sacnetwork != '\0')
