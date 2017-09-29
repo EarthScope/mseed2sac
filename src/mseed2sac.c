@@ -1,7 +1,7 @@
 /***************************************************************************
  * mseed2sac.c
  *
- * Convert Mini-SEED waveform data to SAC
+ * Convert miniSEED waveform data to SAC
  *
  * Written by Chad Trabant, IRIS Data Management Center
  *
@@ -32,7 +32,7 @@
 #endif
 #endif
 
-#define VERSION "2.1"
+#define VERSION "2.2dev"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -911,8 +911,7 @@ insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
   if (!mlp || !sh)
     return -1;
 
-  /* Determine source name parameters for comparison, as a special case if the
-   * location code is not set it will match '--' */
+  /* Determine source name parameters for comparison */
   if (strncmp (sh->knetwk, SUNDEF, 8))
     ms_strncpclean (sacnetwork, sh->knetwk, 8);
   else
@@ -924,11 +923,7 @@ insertmetadata (struct SACHeader *sh, hptime_t sacstarttime)
   if (strncmp (sh->khole, SUNDEF, 8))
     ms_strncpclean (saclocation, sh->khole, 8);
   else
-  {
-    saclocation[0] = '-';
-    saclocation[1] = '-';
-    saclocation[2] = '\0';
-  }
+    saclocation[0] = '\0';
   if (strncmp (sh->kcmpnm, SUNDEF, 8))
     ms_strncpclean (sacchannel, sh->kcmpnm, 8);
   else
@@ -1706,6 +1701,12 @@ readmetadata (char *metafile)
       }
     }
 
+    /* Convert dash-dash location codes to empty strings */
+    if (!strcmp (mn.metafields[2], "--"))
+    {
+      mn.metafields[2] = "";
+    }
+
     /* Parse and convert start time */
     if (mn.metafields[15])
     {
@@ -1800,7 +1801,7 @@ static void
 usage (int level)
 {
   fprintf (stderr, "%s version: %s\n\n", PACKAGE, VERSION);
-  fprintf (stderr, "Convert Mini-SEED data to SAC\n\n");
+  fprintf (stderr, "Convert miniSEED data to SAC\n\n");
   fprintf (stderr, "Usage: %s [options] input1.mseed [input2.mseed ...]\n\n", PACKAGE);
   fprintf (stderr,
            " ## Options ##\n"
@@ -1844,5 +1845,4 @@ usage (int level)
 
     fprintf (stderr, "\n");
   }
-
 } /* End of usage() */

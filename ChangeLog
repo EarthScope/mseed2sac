@@ -1,4 +1,5 @@
 2017.271:
+	- Support empty and "--" location codes in metadata files equally.
 	- Reformat source according to included clang-format profile.
 
 2017.093: 2.1
