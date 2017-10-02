@@ -65,7 +65,11 @@ For example:
 
 <b>-m </b><i>metafile</i>
 
-<p style="padding-left: 30px;">Specify a file containing metadata such as coordinates, elevation, component orientation, scaling factor, etc.  For each time-series written any matching metadata will be added to the SAC header.  see <i>METADATA FILES</i> below.</p>
+<p style="padding-left: 30px;">Specify a file containing metadata such as coordinates, elevation, component orientation, scaling factor, etc.  For each time-series written any matching metadata will be added to the SAC header.  See <i>METADATA FILES</i> below.</p>
+
+<b>-M </b><i>metaline</i>
+
+<p style="padding-left: 30px;">Specify a "line" of metadata in the same format as expected for the <i>METADATA FILES</i>.  This option may be specified multiple times.</p>
 
 <b>-msi</b>
 
@@ -184,7 +188,7 @@ IU|ANMO|00|BH2|34.945981|-106.457133|1671|145|58|0|Geotech KS-54000|3344370000|0
 IU|ANMO|00|BHZ|34.945981|-106.457133|1671|145|0|-90|Geotech KS-54000|3275080000|0.02|M/S|20|2008-06-30T20:00:00|2599-12-31T23:59:59
 ------------------
 
-As a special case '--' can be used to match a blank (space, space) location code.
+As a special case '--' can be used to match an empty location code.
 </pre>
 
 <p >For each time-series written, metadata from the first line with matching source name parameters (network, station, location and channel) and time window (if specified) will be inserted into the SAC header.  All parameters are optional except for the first four fields specifying the source name parameters.</p>
@@ -232,4 +236,4 @@ IRIS Data Management Center
 </pre>
 
 
-(man page 2017/04/03)
+(man page 2017/09/29)
