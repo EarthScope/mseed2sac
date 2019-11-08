@@ -1,4 +1,5 @@
-2019.311:
+2019.312: 2.3
+	- Update libmseed to 2.19.6.
 	- Fix usage with large continuous data segments, fail gracefully
 	when data cannot be written to SAC file for 2+ billion samples.
 

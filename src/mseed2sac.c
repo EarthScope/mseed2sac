@@ -30,7 +30,7 @@
 #endif
 #endif
 
-#define VERSION "2.2"
+#define VERSION "2.3"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */

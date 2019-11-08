@@ -16,7 +16,7 @@ Solaris and Win32 environments.
 
 ## Documentation
 
-The [Wiki](https://github.com/iris-edu/libmseed/Wiki) provides an
+The [Wiki](https://github.com/iris-edu/libmseed/wiki) provides an
 overview of using the library. For function level documentation,
 man pages are included in the [doc](doc) directory.
 
@@ -56,3 +56,5 @@ in the ChangeLog.
 
 This library also uses code bits published in the public domain and
 acknowledgement is included in the code whenever possible.
+
+With software provided by http://2038bug.com/ (site offline, checked Oct. 2017)

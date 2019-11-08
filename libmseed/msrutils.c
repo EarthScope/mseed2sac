@@ -7,7 +7,7 @@
  *   ORFEUS/EC-Project MEREDIAN
  *   IRIS Data Management Center
  *
- * modified: 2016.286
+ * modified: 2016.283
  ***************************************************************************/
 
 #include <stdio.h>
@@ -388,6 +388,12 @@ msr_duplicate (MSRecord *msr, flag datadup)
   /* Copy MSRecord structure */
   memcpy (dupmsr, msr, sizeof (MSRecord));
 
+  /* Reset pointers to not alias memory held by other structures */
+  dupmsr->fsdh = NULL;
+  dupmsr->blkts = NULL;
+  dupmsr->datasamples = NULL;
+  dupmsr->ststate = NULL;
+
   /* Copy fixed-section data header structure */
   if (msr->fsdh)
   {
@@ -395,7 +401,7 @@ msr_duplicate (MSRecord *msr, flag datadup)
     if ((dupmsr->fsdh = (struct fsdh_s *)malloc (sizeof (struct fsdh_s))) == NULL)
     {
       ms_log (2, "msr_duplicate(): Error allocating memory\n");
-      free (dupmsr);
+      msr_free (&dupmsr);
       return NULL;
     }
 
@@ -437,7 +443,7 @@ msr_duplicate (MSRecord *msr, flag datadup)
     {
       ms_log (2, "msr_duplicate(): unrecognized sample type: '%c'\n",
               msr->sampletype);
-      free (dupmsr);
+      msr_free (&dupmsr);
       return NULL;
     }
 
@@ -445,7 +451,7 @@ msr_duplicate (MSRecord *msr, flag datadup)
     if ((dupmsr->datasamples = (void *)malloc ((size_t) (msr->numsamples * samplesize))) == NULL)
     {
       ms_log (2, "msr_duplicate(): Error allocating memory\n");
-      free (dupmsr);
+      msr_free (&dupmsr);
       return NULL;
     }
 
@@ -571,6 +577,14 @@ msr_starttime_uc (MSRecord *msr)
  * actual last sample time and *not* the time "covered" by the last
  * sample.
  *
+ * On the epoch time scale the value of a leap second is the same as
+ * the second following the leap second, without external information
+ * the values are ambiguous.
+ *
+ * Leap second handling: when a record completely contains a leap
+ * second, starts before and ends after, the calculated end time will
+ * be adjusted (reduced) by one second.
+ *
  * Returns the time of the last sample as a high precision epoch time
  * on success and HPTERROR on error.
  ***************************************************************************/
@@ -592,7 +606,7 @@ msr_endtime (MSRecord *msr)
     while (lslist)
     {
       if (lslist->leapsecond > msr->starttime &&
-          lslist->leapsecond < (msr->starttime + span))
+          lslist->leapsecond <= (msr->starttime + span - HPTMODULUS))
       {
         span -= HPTMODULUS;
         break;
