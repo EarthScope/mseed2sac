@@ -1,3 +1,7 @@
+2019.311:
+	- Fix usage with large continuous data segments, fail gracefully
+	when data cannot be written to SAC file for 2+ billion samples.
+
 2017.271: 2.2
 	- Support empty and "--" location codes in metadata files equally.
 	- Add "-M" option to accept a line of metadata on the command line.

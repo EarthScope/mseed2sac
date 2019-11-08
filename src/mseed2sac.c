@@ -4,8 +4,6 @@
  * Convert miniSEED waveform data to SAC
  *
  * Written by Chad Trabant, IRIS Data Management Center
- *
- * modified 2017.272
  ***************************************************************************/
 
 #include <errno.h>
@@ -59,8 +57,8 @@ struct metanode
 };
 
 static int writesac (MSTrace *mst);
-static int writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile);
-static int writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile);
+static int writebinarysac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile);
+static int writealphasac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile);
 static int swapsacheader (struct SACHeader *sh);
 static int insertmetadata (struct SACHeader *sh, hptime_t sacstarttime);
 static int delaz (double lat1, double lon1, double lat2, double lon2,
@@ -319,7 +317,7 @@ writesac (MSTrace *mst)
   double *ddata = 0;
   int32_t *idata = 0;
   hptime_t submsec;
-  int idx;
+  int64_t idx;
   int rv;
 
   if (!mst)
@@ -327,6 +325,13 @@ writesac (MSTrace *mst)
 
   if (mst->numsamples == 0 || mst->samprate == 0.0)
     return 0;
+
+  if (mst->numsamples > INT32_MAX || mst->numsamples < 0)
+  {
+    fprintf (stderr, "ERROR, cannot write SAC file for %s_%s_%s_%s: too many samples (%" PRId64 ")\n",
+             mst->network, mst->station, mst->location, mst->channel, mst->numsamples);
+    return -1;
+  }
 
   /* Check reported versus derived sampling rates */
   if (mst->starttime < mst->endtime)
@@ -336,7 +341,7 @@ writesac (MSTrace *mst)
     double samprate;
 
     /* Calculate difference between end time of last miniSEED record and the end time
-       * as calculated based on the start time, reported sample rate and number of samples. */
+     * as calculated based on the start time, reported sample rate and number of samples. */
     hptimeshift = llabs (mst->endtime - mst->starttime - (hptime_t) ((mst->numsamples - 1) * HPTMODULUS / mst->samprate));
 
     /* Calculate high-precision sample period using reported sample rate */
@@ -535,7 +540,7 @@ writesac (MSTrace *mst)
     if (idx == 0)
       snprintf (outfile, sizeof (outfile), "%s.SAC%s", baseoutfile, (sacformat == 1) ? "A" : "");
     else
-      snprintf (outfile, sizeof (outfile), "%s-%d.SAC%s", baseoutfile, idx, (sacformat == 1) ? "A" : "");
+      snprintf (outfile, sizeof (outfile), "%s-%" PRId64 ".SAC%s", baseoutfile, idx, (sacformat == 1) ? "A" : "");
 
     if (zipfile) /* Trap door for ZIP output, first file name always used */
       break;
@@ -607,7 +612,7 @@ writesac (MSTrace *mst)
  * Returns 0 on success, and -1 on failure.
  ***************************************************************************/
 static int
-writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
+writebinarysac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile)
 {
   FILE *ofp;
 
@@ -692,12 +697,12 @@ writebinarysac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
  * Returns 0 on success, and -1 on failure.
  ***************************************************************************/
 static int
-writealphasac (struct SACHeader *sh, float *fdata, int npts, char *outfile)
+writealphasac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile)
 {
   FILE *ofp;
   char buffer[2000];
   char *bp;
-  int idx, fidx;
+  int64_t idx, fidx;
 
   /* Declare and set up pointers to header variable type sections */
   float *fhp = (float *)sh;
