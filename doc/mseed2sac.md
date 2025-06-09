@@ -226,13 +226,13 @@ TA.ELFS..LHZ.R.mseed
 
 ## <a id='about-sac'>About Sac</a>
 
-<p >Seismic Analysis Code (SAC) is a general purpose interactive program designed for the study of sequential signals, especially timeseries data.  Originally developed at the Lawrence Livermore National Laboratory the SAC software package is also available from IRIS.</p>
+<p >Seismic Analysis Code (SAC) is a general purpose interactive program designed for the study of sequential signals, especially timeseries data.  The SAC software package and format was originally developed at the Lawrence Livermore National Laboratory.</p>
 
 ## <a id='author'>Author</a>
 
 <pre >
 Chad Trabant
-IRIS Data Management Center
+EarthScope Data Services
 </pre>
 
 
