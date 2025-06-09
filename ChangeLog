@@ -1,3 +1,7 @@
+2025.159:
+	- Allow setting NOZIP environment variable to control building with
+	or without support for ZIP archives, and dependency on zlib.
+
 2019.312: 2.3
 	- Update libmseed to 2.19.6.
 	- Fix usage with large continuous data segments, fail gracefully
@@ -77,11 +81,11 @@
 
 2011.063:
 	- Update to libmseed 2.6.
-	- Create alternate output file names for Win32 that do not include 
+	- Create alternate output file names for Win32 that do not include
 	colon or comma characters, thanks to Claus Milkereit for reporting.
 	- Fix crash for incomplete metadata lines, thanks to John Nabelek
 	for reporting.
-	- Reorganize help/usage message to common and extended versions, 
+	- Reorganize help/usage message to common and extended versions,
 	use -h to get only common options and -H to get extended options.
 
 2011.007:
@@ -148,4 +152,4 @@
 	into the SAC header event variables.
 
 2006.125: 0.1
-	- Initial version. 
+	- Initial version.

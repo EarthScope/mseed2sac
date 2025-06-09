@@ -1,12 +1,20 @@
+# List of subdirectories to build
+SUBDIRS = libmseed src
 
-DIRS = libmseed src
+.PHONY: all clean $(SUBDIRS)
 
-all clean static install ::
-	@for d in $(DIRS) ; do \
-	    echo "Running $(MAKE) $@ in $$d" ; \
-	    if [ -f $$d/Makefile -o -f $$d/makefile ] ; \
-	        then ( cd $$d && $(MAKE) $@ ) ; \
-	    elif [ -d $$d ] ; \
-	        then ( echo "ERROR: no Makefile/makefile in $$d for $(CC)" ) ; \
-	    fi ; \
-	done
+all: $(SUBDIRS)
+clean: $(SUBDIRS)
+
+# src depends on libmseed being built first
+src: libmseed
+
+$(SUBDIRS):
+	$(MAKE) -C $@ $(MAKECMDGOALS)
+
+.PHONY: install
+install:
+	@echo
+	@echo "No install method"
+	@echo "Copy the binary and documentation to desired location"
+	@echo
