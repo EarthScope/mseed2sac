@@ -101,20 +101,20 @@ extern ZIPstream * zs_init ( int fd, ZIPstream *zs );
 extern void zs_free ( ZIPstream *zs );
 
 extern ZIPentry * zs_writeentry ( ZIPstream *zstream, uint8_t *entry, int64_t entrySize,
-                                  char *name, time_t modtime, int methodID, ssize_t *writestatus );
+                                  char *name, time_t modtime, int methodID, int64_t *writestatus );
 
 extern ZIPentry * zs_entrybegin ( ZIPstream *zstream, char *name,
                                   time_t modtime, int methodID,
-                                  ssize_t *writestatus );
+                                  int64_t *writestatus );
 
 extern ZIPentry * zs_entrydata ( ZIPstream *zstream, ZIPentry *zentry,
                                  uint8_t *entry, int64_t entrySize,
-                                 ssize_t *writestatus );
+                                 int64_t *writestatus );
 
 extern ZIPentry * zs_entryend ( ZIPstream *zstream, ZIPentry *zentry,
-                                ssize_t *writestatus);
+                                int64_t *writestatus);
 
-extern int zs_finish ( ZIPstream *zstream, ssize_t *writestatus );
+extern int zs_finish ( ZIPstream *zstream, int64_t *writestatus );
 
 
 #ifdef __cplusplus

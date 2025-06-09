@@ -75,7 +75,7 @@
  ****
  * LICENSE
  *
- * Copyright 2015 CTrabant
+ * Copyright 2019 CTrabant
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,14 +88,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Modified 2017.1.17
  ***************************************************************************/
 
 /* Allow this code to be skipped by declaring NOFDZIP */
 #ifndef NOFDZIP
 
-#define FDZIPVERSION 2.1
+#define FDZIPVERSION 2.4
 
 #include <assert.h>
 #include <stdio.h>
@@ -130,6 +128,10 @@ zs_store_process ( ZIPstream *zstream, ZIPentry *zentry,
                    uint8_t *entry, int64_t entrySize, int64_t *entryConsumed,
                    uint8_t *writeBuffer, int64_t writeBufferSize )
 {
+  /* Avoid warnings for arguments not used in this implementation */
+  (void)zstream;
+  (void)zentry;
+
   if ( ! entry || entrySize <= 0 )
     return 0;
 
@@ -160,6 +162,8 @@ static int32_t
 zs_deflate_init ( ZIPstream *zstream, ZIPentry *zentry )
 {
   z_stream *zlstream;
+
+  (void)zstream; /* Avoid warning for unused parameter */
 
   /* Allocate ZLIB stream entry and store at private method pointer */
   zlstream = (z_stream *) calloc (1, sizeof(z_stream));
@@ -205,7 +209,9 @@ zs_deflate_process( ZIPstream *zstream, ZIPentry *zentry,
   int flush;
   int rv;
 
-  if ( ! zstream || ! zentry )
+  (void)zstream; /* Avoid warning for unused parameter */
+
+  if ( ! zentry )
     return -1;
 
   zlstream = zentry->methoddata;
@@ -262,6 +268,8 @@ zs_deflate_finish ( ZIPstream *zstream, ZIPentry *zentry )
   z_stream *zlstream = zentry->methoddata;
   int rv;
   int rc = 0;
+
+  (void)zstream; /* Avoid warning for unused parameter */
 
   rv = deflateEnd (zlstream);
 
@@ -481,7 +489,7 @@ zs_free ( ZIPstream *zs )
  ***************************************************************************/
 ZIPentry *
 zs_writeentry ( ZIPstream *zstream, uint8_t *entry, int64_t entrySize,
-                char *name, time_t modtime, int methodID, ssize_t *writestatus )
+                char *name, time_t modtime, int methodID, int64_t *writestatus )
 {
   ZIPentry *zentry = NULL;
 
@@ -541,7 +549,7 @@ zs_writeentry ( ZIPstream *zstream, uint8_t *entry, int64_t entrySize,
  ***************************************************************************/
 ZIPentry *
 zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
-                ssize_t *writestatus )
+                int64_t *writestatus )
 {
   ZIPentry *zentry;
   ZIPmethod *method;
@@ -589,7 +597,7 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
   zentry->CompressedSize = 0;
   zentry->UncompressedSize = 0;
   zentry->LocalHeaderOffset = zstream->WriteOffset;
-  strncpy (zentry->Name, (name)?name:"", ZENTRY_NAME_LENGTH - 1);
+  strncpy (zentry->Name, name, ZENTRY_NAME_LENGTH - 1);
   zentry->NameLength = strlen (zentry->Name);
   zentry->method = method;
   zentry->methoddata = NULL;
@@ -642,7 +650,7 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
       fprintf (stderr, "Error writing ZIP local header: %s\n", strerror(errno));
 
       if ( writestatus )
-        *writestatus = (ssize_t)lwritestatus;
+        *writestatus = lwritestatus;
 
       return NULL;
     }
@@ -668,7 +676,7 @@ zs_entrybegin ( ZIPstream *zstream, char *name, time_t modtime, int methodID,
  ***************************************************************************/
 ZIPentry *
 zs_entrydata ( ZIPstream *zstream, ZIPentry *zentry, uint8_t *entry,
-               int64_t entrySize, ssize_t *writestatus )
+               int64_t entrySize, int64_t *writestatus )
 {
   int32_t writeSize = 0;
   int64_t lwritestatus;
@@ -703,7 +711,7 @@ zs_entrydata ( ZIPstream *zstream, ZIPentry *zentry, uint8_t *entry,
                    zstream->fd, strerror(errno));
 
           if ( writestatus )
-            *writestatus = (ssize_t)lwritestatus;
+            *writestatus = lwritestatus;
 
           return NULL;
         }
@@ -747,7 +755,7 @@ zs_entrydata ( ZIPstream *zstream, ZIPentry *zentry, uint8_t *entry,
  * @return pointer to ZIPentry on success and NULL on error.
  ***************************************************************************/
 ZIPentry *
-zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
+zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, int64_t *writestatus)
 {
   int64_t lwritestatus;
   int32_t packed;
@@ -759,10 +767,14 @@ zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
     return NULL;
 
   /* Flush the entry */
-  if ( ! zs_entrydata (zstream, zentry, NULL, 0, writestatus) )
+  if ( ! zs_entrydata (zstream, zentry, NULL, 0, &lwritestatus) )
     {
-      fprintf (stderr, "Error flushing entry (writestatus: %p)\n",
-               writestatus);
+      fprintf (stderr, "Error flushing entry (writestatus: %lld)\n",
+               (long long int)lwritestatus);
+
+      if ( writestatus )
+        *writestatus = lwritestatus;
+
       return NULL;
     }
 
@@ -788,7 +800,7 @@ zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
       fprintf (stderr, "Error writing streaming ZIP data description: %s\n", strerror(errno));
 
       if ( writestatus )
-        *writestatus = (ssize_t)lwritestatus;
+        *writestatus = lwritestatus;
 
       return NULL;
     }
@@ -811,7 +823,7 @@ zs_entryend ( ZIPstream *zstream, ZIPentry *zentry, ssize_t *writestatus)
  * @return 0 on success and non-zero on error.
  ***************************************************************************/
 int
-zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
+zs_finish ( ZIPstream *zstream, int64_t *writestatus )
 {
   ZIPentry *zentry;
   int64_t lwritestatus;
@@ -873,7 +885,7 @@ zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
           fprintf (stderr, "Error writing ZIP central directory header: %s\n", strerror(errno));
 
           if ( writestatus )
-            *writestatus = (ssize_t)lwritestatus;
+            *writestatus = lwritestatus;
 
           return -1;
         }
@@ -909,7 +921,7 @@ zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
           fprintf (stderr, "Error writing ZIP64 end of central directory record: %s\n", strerror(errno));
 
           if ( writestatus )
-            *writestatus = (ssize_t)lwritestatus;
+            *writestatus = lwritestatus;
 
           return -1;
         }
@@ -927,7 +939,7 @@ zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
           fprintf (stderr, "Error writing ZIP64 end of central directory locator: %s\n", strerror(errno));
 
           if ( writestatus )
-            *writestatus = (ssize_t)lwritestatus;
+            *writestatus = lwritestatus;
 
           return -1;
         }
@@ -951,7 +963,7 @@ zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
       fprintf (stderr, "Error writing end of central directory record: %s\n", strerror(errno));
 
       if ( writestatus )
-        *writestatus = (ssize_t)lwritestatus;
+        *writestatus = lwritestatus;
 
       return -1;
     }
@@ -972,7 +984,7 @@ zs_finish ( ZIPstream *zstream, ssize_t *writestatus )
 static int64_t
 zs_writedata ( ZIPstream *zstream, uint8_t *writeBuffer, int64_t writeBufferSize )
 {
-  ssize_t lwritestatus;
+  int64_t lwritestatus;
   size_t writeLength;
   int64_t written;
 
@@ -1019,8 +1031,13 @@ zs_datetime_unixtodos ( time_t t )
 {
   struct tm s;
 
+  #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+  if ( gmtime_s (&s, &t) )
+    return 0;
+  #else
   if ( gmtime_r (&t, &s) == NULL )
     return 0;
+  #endif
 
   s.tm_year += 1900;
   s.tm_mon += 1;
