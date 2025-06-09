@@ -1,6 +1,7 @@
 2025.159:
 	- Allow setting NOZIP environment variable to control building with
 	or without support for ZIP archives, and dependency on zlib.
+	- Update libmseed to 2.19.8.
 
 2019.312: 2.3
 	- Update libmseed to 2.19.6.
