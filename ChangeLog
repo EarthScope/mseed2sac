@@ -1,8 +1,9 @@
-2025.159:
+2025.159: 2.4
 	- Allow setting NOZIP environment variable to control building with
 	or without support for ZIP archives, and dependency on zlib.
-	- Update fdzipstream.[ch] to 2.4
+	- Update fdzipstream.[ch] to 2.4.
 	- Update libmseed to 2.19.8.
+	- Change license to Apache License v2.0.
 
 2019.312: 2.3
 	- Update libmseed to 2.19.6.

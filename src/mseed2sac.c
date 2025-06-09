@@ -3,7 +3,20 @@
  *
  * Convert miniSEED waveform data to SAC
  *
- * Written by Chad Trabant, IRIS Data Management Center
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright (C) 2025:
+ * @author Chad Trabant, EarthScope Data Services
  ***************************************************************************/
 
 #include <errno.h>
@@ -30,7 +43,7 @@
 #endif
 #endif
 
-#define VERSION "2.3"
+#define VERSION "2.4"
 #define PACKAGE "mseed2sac"
 
 /* An undefined value for double values */
@@ -125,7 +138,7 @@ main (int argc, char **argv)
 #ifndef NOFDZIP
   FILE *zipfp;
   int zipfd;
-  ssize_t writestatus = 0;
+  int64_t writestatus = 0;
 #endif /* NOFDZIP */
 
   /* Process given parameters (command line and parameter file) */
@@ -618,7 +631,7 @@ writebinarysac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile)
 
 #ifndef NOFDZIP
   ZIPentry *zentry = 0;
-  ssize_t writestatus = 0;
+  int64_t writestatus = 0;
 #endif /* NOFDZIP */
 
   if (!zipfile)
@@ -711,7 +724,7 @@ writealphasac (struct SACHeader *sh, float *fdata, int64_t npts, char *outfile)
 
 #ifndef NOFDZIP
   ZIPentry *zentry = 0;
-  ssize_t writestatus = 0;
+  int64_t writestatus = 0;
 #endif /* NOFDZIP */
 
   /* Generate header in buffer */
